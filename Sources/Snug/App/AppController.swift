@@ -97,10 +97,10 @@ final class AppController {
         state.update(\.streamedDisplay, sample.streamingDisplay)
     }
 
-    /// 要不要手机屏：开着总开关、有权限、在一次远程里（断开重连的窗口内也算），控制端不是电脑
+    /// 要不要手机屏：开着总开关、有权限，这次远程的控制端不是电脑（见 RemoteSession.wantsPhoneScreen）
     private var wantsPhoneScreen: Bool {
         guard store.config.phoneScreen, state.accessibilityTrusted else { return false }
-        return previewPhone || (session.inEpisode && ControllerKind(name: session.controller).wantsPhoneScreen)
+        return previewPhone || session.wantsPhoneScreen(now: now)
     }
 
     /// 权限是用户在系统设置里给的，随时会变：刚给上时把上次没放回去的窗口放回去

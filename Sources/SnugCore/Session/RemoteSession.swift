@@ -17,20 +17,37 @@ public enum SessionTransition: Equatable, Sendable {
 public struct RemoteSession: Sendable {
     public private(set) var tracker = ConnectionTracker()
     public private(set) var episode = SessionEpisode()
+    /// 这次远程最后读到的控制端名字。断开那一拍 tracker 会清空名字，这里在重连窗口里照样记着
+    public private(set) var episodeController: String?
+    /// 这次远程从什么时候开始；不在远程里是 nil
+    public private(set) var episodeBeganAt: Date?
 
     public init() {}
 
     public var isConnected: Bool { tracker.isConnected }
+    /// 此刻连着的控制端（断开时是 nil）
     public var controller: String? { tracker.controller }
     public var inEpisode: Bool { episode.isActive }
 
     public mutating func update(_ signals: UUSignals, now: Date) -> [SessionTransition] {
         var out: [SessionTransition] = []
-        if episode.advance(to: now) == .ended { out.append(.ended) }
+        if episode.advance(to: now) == .ended {
+            out.append(.ended)
+            episodeController = nil
+            episodeBeganAt = nil
+        }
         switch tracker.update(signals, now: now) {
         case .connected(let name)?:
-            out.append(episode.connected(at: now) == .began ? .began(controller: name) : .resumed(controller: name))
+            if episode.connected(at: now) == .began {
+                episodeBeganAt = now
+                episodeController = name
+                out.append(.began(controller: name))
+            } else {
+                if let name { episodeController = name }
+                out.append(.resumed(controller: name))
+            }
         case .controllerChanged(let name)?:
+            episodeController = name
             out.append(.controllerChanged(name))
         case .disconnected?:
             if episode.disconnected(at: now) == .interrupted { out.append(.interrupted) }

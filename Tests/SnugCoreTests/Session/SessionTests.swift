@@ -80,3 +80,61 @@ struct RemoteSessionTests {
         #expect(s.update(absent, now: at(5.1)) == [.interrupted])
     }
 }
+
+@Suite("要不要手机屏 RemoteSession.wantsPhoneScreen")
+struct PhoneDemandTests {
+    private func table(_ names: String...) -> UUSignals { UUSignals(overlayVisible: false, controllers: names, captureActive: nil) }
+    private let overlayOnly = UUSignals(overlayVisible: true, controllers: [], captureActive: nil)
+    private let absent = UUSignals(overlayVisible: false, controllers: [], captureActive: nil)
+
+    @Test("电脑控制端：断开后的重连窗口里也不要（断开那一拍名字被清空，不能当成手机）")
+    func computerStaysComputerWhileReconnecting() {
+        var s = RemoteSession()
+        _ = s.update(table("DESKTOP-7Q2K1LM"), now: at(0))
+        #expect(!s.wantsPhoneScreen(now: at(0)))
+        _ = s.update(absent, now: at(1))
+        #expect(s.update(absent, now: at(2)) == [.interrupted])
+        #expect(s.controller == nil)
+        #expect(s.inEpisode)
+        #expect(!s.wantsPhoneScreen(now: at(2)))
+        #expect(!s.wantsPhoneScreen(now: at(16)))
+        #expect(s.update(absent, now: at(17.1)) == [.ended])
+        #expect(s.episodeController == nil)
+    }
+
+    @Test("手机控制端：重连窗口里照样要，手机屏和上面的窗口留着")
+    func phoneKeepsScreenWhileReconnecting() {
+        var s = RemoteSession()
+        _ = s.update(table("iPhone"), now: at(0))
+        _ = s.update(absent, now: at(1))
+        _ = s.update(absent, now: at(2))
+        #expect(s.wantsPhoneScreen(now: at(10)))
+        _ = s.update(absent, now: at(17.1))
+        #expect(!s.wantsPhoneScreen(now: at(17.1)))
+    }
+
+    @Test("刚连上名字还没读到：先等 2 秒；名字下一拍读到是电脑，就一直不要")
+    func waitsForNameThenComputer() {
+        var s = RemoteSession()
+        #expect(s.update(overlayOnly, now: at(0)) == [.began(controller: nil)])
+        #expect(!s.wantsPhoneScreen(now: at(0)))
+        #expect(s.update(UUSignals(overlayVisible: true, controllers: ["MacBook Air"], captureActive: nil), now: at(0.5))
+                == [.controllerChanged("MacBook Air")])
+        #expect(!s.wantsPhoneScreen(now: at(0.5)))
+        #expect(!s.wantsPhoneScreen(now: at(5)))
+    }
+
+    @Test("一直读不到名字（UU 主窗口没开）：等满 2 秒后按手机处理")
+    func unreadableNameGetsScreenAfterGrace() {
+        var s = RemoteSession()
+        _ = s.update(overlayOnly, now: at(0))
+        #expect(!s.wantsPhoneScreen(now: at(1.9)))
+        #expect(s.wantsPhoneScreen(now: at(2)))
+    }
+
+    @Test("不在远程里：不要")
+    func idle() {
+        #expect(!RemoteSession().wantsPhoneScreen(now: at(0)))
+    }
+}
+

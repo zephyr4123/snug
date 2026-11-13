@@ -36,14 +36,14 @@ struct PhoneScreenSpecTests {
 struct ControllerKindTests {
     @Test("手机、平板加手机屏")
     func mobile() {
-        for name in ["iPhone 17 Pro Max", "张三的iPhone", "iPad Air", "OPPO Pad 3", "Android 设备", "我的手机", "华为平板"] {
+        for name in ["iPhone 17 Pro Max", "张三的iPhone", "iPad Air", "OPPO Pad 3", "HUAWEI MatePad Pro", "Android 设备", "我的手机", "华为平板"] {
             #expect(ControllerKind(name: name) == .mobile, "\(name)")
         }
     }
 
     @Test("电脑不加")
     func computer() {
-        for name in ["MacBook Air", "张三的Mac mini", "iMac", "DESKTOP-7Q2K1LM", "LAPTOP-AB12", "办公室电脑", "Windows 11"] {
+        for name in ["MacBook Air", "张三的Mac mini", "iMac", "DESKTOP-7Q2K1LM", "LAPTOP-AB12", "ThinkPad-X1", "办公室电脑", "Windows 11"] {
             #expect(ControllerKind(name: name) == .computer, "\(name)")
             #expect(!ControllerKind(name: name).wantsPhoneScreen)
         }
