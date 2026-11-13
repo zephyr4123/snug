@@ -1,5 +1,7 @@
 <div align="center">
 
+**简体中文** · [English](README.en.md)
+
 <img src="Assets/AppIcon/AppIcon-1024.png" width="128" alt="Snug 图标">
 
 # Snug
