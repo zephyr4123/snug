@@ -5,7 +5,7 @@
 - [iOS skill 路由](skill-routing-ios.md) — SwiftUI 视图、iOS 验证闭环用哪个 skill
 - [项目定位](project-positioning.md) — 彻底承接的自有项目，不是下游；保留原作者版权与致谢
 - [发版身份](project-release-identity.md) — 个人 Developer ID（29898YBGWD）签名公证；gh 硬绑定 zephyr4123
-- [接手时的已知问题](project-known-issues.md) — 两个 bug 在 2.0 已解决；残留 25 个 ColorSync 文件待授权 sudo 清理
+- [接手时的已知问题](project-known-issues.md) — 两个 bug 在 2.0 已解决；ColorSync 残留已清理，再变多说明固定身份失效
 - [产品方向与痛点](project-product-direction.md) — 目标：手机远程体感最好（清晰/大/方便）；键盘遮挡、双指放大拖拽、虚拟屏重排三个痛点
 - [手机屏产品逻辑](project-phone-screen-product.md) — 最终拍板：可选增强；连上后同原版 UU，多一块竖屏；屏上窗口列表吸窗口、随时切换；Mac 零操作
 - [手机屏技术事实](project-phone-screen.md) — 2 倍门槛短边 ≥540、竖 540x950 / 横 976x540、帮手进程切模式、窗口搬运、字号、单指滚动与长按右键等实测结论
