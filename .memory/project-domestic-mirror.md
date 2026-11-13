@@ -1,24 +1,20 @@
 ---
 name: project-domestic-mirror
-description: 国内源 dl.zephyrxiang.com/snug/（腾讯云 COS + CDN，和 SpeakMore 共用桶、按 snug/ 隔离）：安装包、README 图片视频都放这；GitHub README 不播外链视频；证书 2027-01-12 到期
+description: 国内源 dl.zephyrxiang.com/snug/（腾讯云 COS + CDN，与 SpeakMore 共用桶、按 snug/ 隔离）放安装包和 README 媒体；GitHub README 不播外链视频；证书 2027-01-12 到期
 metadata:
   node_type: memory
   type: project
   originSessionId: f97709de-705a-489b-bb7a-7353b1fba51c
-  modified: 2026-11-13T13:43:22.033Z
+  modified: 2026-11-13T14:12:02.864Z
 ---
 
-2026-11-13 主人定的：README 的图片、视频和安装包都走自己的腾讯云 COS + CDN，「通过路径名字隔离」，不用压得像马赛克的图；安装包要有国内源（以后官网的下载也从这取），GitHub Release 照留。
+2026-11-13 主人定的：安装包要有国内源（以后官网也从这里取，GitHub Release 照留）；README 的图片、视频也放这里，用原画质。
 
-**Why:** 国内下 GitHub 慢；图和视频放 COS 不受仓库体积限制，可以用原画质。
+- **摆法**：前缀 `https://dl.zephyrxiang.com/snug/`，和 SpeakMore 发布包同一个桶（桶名、地域、凭据名在不进 git 的 `.machine.env`，这份记忆会公开，别写进来）。`v<版本>/` 发过不改；`latest/Snug.dmg` 是固定的最新版地址，缓存 5 分钟、只往新版本换；`media/<名>.<指纹>.<后缀>` 放 README 媒体
+- **命令**：`ship` 发版时自动传；`mirror <版本>` 补传 GitHub 上已公开的版本；`media <文件…>` 传媒体并打出地址。对象都带 sha256 元数据，重跑一样就跳过、不一样就拒绝
+- **README 媒体**：GitHub 会删掉 `<video>`，录屏在 README 里用 animated WebP（经 GitHub 图片代理要 ≤5 MB，4.7 MB 实测可以），完整 MP4 用链接给。图片代理原样转发字节，不会再压缩。录屏打码后用 macOS Vision 逐帧识别文字复查
+- **CDN**：防盗链关着（GitHub 图片代理才取得到）；每小时 4 GB 的流量上限和费用跟 SpeakMore 共用，SpeakMore 的下载统计按它自己的文件名认，不会算进 Snug
+- **证书**：`dl.zephyrxiang.com` 的免费证书 2027-01-12 到期，续期记在 SpeakMore 的记忆里；不换，两个项目的下载会一起断
+- 上传用的是主账号密钥，以后可换成只能写 `snug/` 前缀的子账号密钥（未做）
 
-**How to apply:**
-- 地址前缀 `https://dl.zephyrxiang.com/snug/`，桶和 SpeakMore 发布包同一个（桶名、地域、凭据名在不进 git 的 .machine.env；这份记忆会公开，别写进来）。摆法：`v<版本>/`（发过不改）、`latest/Snug.dmg`（固定最新版地址，缓存 5 分钟，只往新版本换）、`media/<名>.<指纹>.<后缀>`（README 媒体）。
-- 只走 `scripts/snug`：`ship` 发版时自动传国内源；`mirror <版本>` 补传 GitHub 上已公开的版本（v2.0.0 在 11-13 这样补的）；`media <文件…>` 传 README 媒体并打出地址。每个对象带 sha256 元数据，重跑一样就跳过、不一样就拒绝。
-- GitHub README 会删掉 `<video>` 标签（11-13 用渲染接口实测），录屏在 README 里用动图（animated WebP 画质远好于 GIF），完整 MP4 放 COS 用链接给；官网可以直接播 MP4。GitHub 图片代理（camo）原样转发 CDN 的字节，不再压缩（实测校验值一致）。
-- CDN 防盗链关着（camo 才取得到）；全球加速、跟随源站缓存头。每小时 4 GB 的流量封顶和费用跟 SpeakMore 共用；SpeakMore 的下载统计按它自己的文件名认，不会把 Snug 算进去。
-- `dl.zephyrxiang.com` 的免费证书 2027-01-12 到期，续期记在 SpeakMore 的记忆里（reverse-anything 仓库）；到期不换，两个项目的下载一起断。
-- 上传用的是主人现有的腾讯云凭据；以后可换成只能写这个桶 `snug/` 前缀的子账号密钥（未做）。
-- 11-13 README 的图全部换成国内源上的真机截图和录屏（docs/images 的渲染图已删）。录屏剪成约 8 秒（打开 → 滚动 → 回列表），用户名按时间段打码，逐帧 OCR（macOS Vision）复查为零命中；动图是 600 宽、20 帧、q80 的 animated WebP（约 4.7 MB，GitHub 图片代理实测能完整转发）。打码只糊必要的一小块，不整片糊（主人 11-13：「全都糊成一片看啥」）：ChatGPT（Codex）那张只糊蓝色的文件链接、正文保持清晰，放在「与其他方案的对比」一节，主人说不用重拍，Clash Verge 出现在画面里也不用打码。
-
-相关：[[feedback-release-cli]]、[[project-release-identity]]
+相关：[[project-release]]

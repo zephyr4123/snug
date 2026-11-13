@@ -3,17 +3,13 @@
 - [前端 skill 路由](skill-routing-frontend.md) — 网页 UI、动效、手势交互用哪个 skill（impeccable 主导）
 - [通用 skill 路由](skill-routing-general.md) — 密钥、多仓、云运维、Multica、编排、长任务、去 AI 腔用哪个 skill
 - [iOS skill 路由](skill-routing-ios.md) — SwiftUI 视图、iOS 验证闭环用哪个 skill
-- [项目定位](project-positioning.md) — 彻底承接的自有项目，不是下游；保留原作者版权与致谢
-- [发版身份](project-release-identity.md) — 个人 Developer ID（29898YBGWD）签名公证；gh 硬绑定 zephyr4123
-- [接手时的已知问题](project-known-issues.md) — 两个 bug 在 2.0 已解决；ColorSync 残留已清理，再变多说明固定身份失效
-- [产品方向与痛点](project-product-direction.md) — 目标：手机远程体感最好（清晰/大/方便）；键盘遮挡、双指放大拖拽、虚拟屏重排三个痛点
-- [手机屏产品逻辑](project-phone-screen-product.md) — 最终拍板：可选增强；连上后同原版 UU，多一块竖屏；屏上窗口列表吸窗口、随时切换；Mac 零操作
-- [手机屏技术事实](project-phone-screen.md) — 2 倍门槛短边 ≥540、竖 540x950 / 横 976x540、帮手进程切模式、窗口搬运、字号、单指滚动与长按右键等实测结论
-- [产品思维](feedback-product-thinking.md) — 背后复杂用户无感；可选不强制、不替用户做决定；隔离要干净；验证用的繁琐步骤不进产品
-- [界面规范](feedback-ui-style.md) — 图标只用 SF Symbols 不自己画；文字用短词、书面、克制；每个状态讲清楚，报错不用技术词
-- [重构空间](project-refactor-latitude.md) — 尚无线上用户：该删就删、不留兼容；已批准全面重构（refactor/snug）
-- [直接修不建 issue](feedback-direct-fix-no-issues.md) — bug 直接修、重构直接做，追溯靠 commit 信息；需要真机测就开口
-- [Workflow 规模](feedback-workflow-scale.md) — agent 控制在 5 个左右、两段链路，不搞反驳者扇出
-- [出包收进 CLI](feedback-release-cli.md) — 构建到发版只走 scripts/snug 一个入口，照 SpeakMore 的 ship，不散脚本
-- [国内源](project-domestic-mirror.md) — dl.zephyrxiang.com/snug/：安装包与 README 媒体走 COS+CDN，ship/mirror/media 三个命令；README 不播外链视频
-- [对外文案](feedback-doc-writing.md) — README 等用书面语、提炼主人的意思不照抄；分点少大段；图文对应
+- [项目定位](project-positioning.md) — 承接的自有项目，保留原作者版权与致谢；2.0.0 已发布，本地数据格式变更要带迁移
+- [产品](project-product.md) — 目标与已拍板的形态：可选竖屏手机屏、默认同原版 UU；砍横屏、删设主屏、不做键盘避让
+- [手机屏实测坑](project-phone-screen.md) — 多数已在代码注释和 docs；这里留 UU 事件形态、ColorSync 排障、自测别抢焦点
+- [发版](project-release.md) — 只走 scripts/snug；个人 Developer ID（29898YBGWD）公证；gh 绑定 zephyr4123
+- [国内源](project-domestic-mirror.md) — dl.zephyrxiang.com/snug/ 放安装包与 README 媒体；README 不播外链视频；证书 2027-01-12 到期
+- [产品思维](feedback-product-thinking.md) — 用户无感、可选不强制、隔离干净；验证用的步骤不进产品
+- [界面规范](feedback-ui-style.md) — 图标只用 SF Symbols；文字短词、书面、克制；每个状态讲清楚
+- [对外文案](feedback-doc-writing.md) — 书面语、提炼不照抄；分点、图文对应；打码只糊必要的一小块
+- [直接修不建 issue](feedback-direct-fix-no-issues.md) — bug 直接修、重构直接做，追溯靠 commit 信息
+- [Workflow 规模](feedback-workflow-scale.md) — agent 5 个左右、两段链路，不搞反驳者扇出
