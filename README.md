@@ -70,6 +70,8 @@ UU远程 手机端沿用触控板的手势逻辑；Snug 在手机屏上按手机
 - **AI 助手的远程控制**：如 Claude Remote Control、ChatGPT 中的 Codex，均与单一产品绑定
 - **UU远程 自带终端**：运行在 UU远程 自己的 tmux 中，与 Mac 上已打开的终端互不相通，电脑上进行中的工作（如终端里的 Claude Code）无法接续；断开远程后，会话与其中的进程仍在后台运行
 
+<p align="center"><img src="https://dl.zephyrxiang.com/snug/media/phone-chatgpt.23536a31.png" width="36%" alt="ChatGPT 桌面版（Codex）铺满 Snug 手机屏"><br><sub>不只是终端：ChatGPT 桌面版（Codex）同样铺满手机屏 · 对话内容已打码</sub></p>
+
 ## 📦 安装
 
 > **系统要求**：macOS 14 或更新版本，被远程的 Mac 已安装 [UU远程](https://uuyc.163.com/)。手机端只需 UU远程。

@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: f97709de-705a-489b-bb7a-7353b1fba51c
-  modified: 2026-11-13T13:37:39.767Z
+  modified: 2026-11-13T13:40:29.024Z
 ---
 
 2026-11-13 主人定的：README 的图片、视频和安装包都走自己的腾讯云 COS + CDN，「通过路径名字隔离」，不用压得像马赛克的图；安装包要有国内源（以后官网的下载也从这取），GitHub Release 照留。
@@ -19,6 +19,6 @@ metadata:
 - CDN 防盗链关着（camo 才取得到）；全球加速、跟随源站缓存头。每小时 4 GB 的流量封顶和费用跟 SpeakMore 共用；SpeakMore 的下载统计按它自己的文件名认，不会把 Snug 算进去。
 - `dl.zephyrxiang.com` 的免费证书 2027-01-12 到期，续期记在 SpeakMore 的记忆里（reverse-anything 仓库）；到期不换，两个项目的下载一起断。
 - 上传用的是主人现有的腾讯云凭据；以后可换成只能写这个桶 `snug/` 前缀的子账号密钥（未做）。
-- 11-13 README 的图全部换成国内源上的真机截图和录屏（docs/images 的渲染图已删）。录屏剪成约 8 秒（打开 → 滚动 → 回列表），用户名按时间段打码，逐帧 OCR（macOS Vision）复查为零命中；动图是 600 宽、20 帧、q80 的 animated WebP（约 4.7 MB，GitHub 图片代理实测能完整转发）。截图里另一个项目的对话内容一律打码，ChatGPT 那张打码后没放进 README，等主人决定要不要重拍。
+- 11-13 README 的图全部换成国内源上的真机截图和录屏（docs/images 的渲染图已删）。录屏剪成约 8 秒（打开 → 滚动 → 回列表），用户名按时间段打码，逐帧 OCR（macOS Vision）复查为零命中；动图是 600 宽、20 帧、q80 的 animated WebP（约 4.7 MB，GitHub 图片代理实测能完整转发）。截图里另一个项目的对话内容一律打码；ChatGPT（Codex）那张打码后放在「与其他方案的对比」一节，主人说不用重拍，Clash Verge 出现在画面里也不用打码。
 
 相关：[[feedback-release-cli]]、[[project-release-identity]]
