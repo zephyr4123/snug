@@ -5,7 +5,7 @@
 构建、测试、打包与发布统一由 `scripts/snug` 完成（`scripts/snug help` 查看全部命令）。
 
 | 命令 | 作用 |
-| --- | --- |
+| :--- | :--- |
 | `scripts/snug check` | 构建全部产物并运行全部测试（Swift Testing），任一步骤失败即以非零状态退出 |
 | `scripts/snug app` | 生成 `build/Snug.app`（通用二进制）并签名 |
 | `scripts/snug install` | 生成 App、安装至「应用程序」并打开；正在运行的 Snug 会先正常退出，窗口先行归位 |
@@ -28,7 +28,7 @@
 **本机配置**存放在不纳入版本控制的 `.machine.env`（模板为 `.machine.env.example`），只记录名称，不存放密钥：
 
 | 键 | 含义 |
-| --- | --- |
+| :--- | :--- |
 | `MAC_SIGNING_IDENTITY` | 签名证书；`-` 表示 ad-hoc |
 | `MAC_NOTARY_PROFILE` | `xcrun notarytool store-credentials` 存储的公证档案名 |
 | `GH_CONFIG_DIR` / `GITHUB_ACCOUNT` | 发布所用的 GitHub 账号 |
@@ -38,7 +38,7 @@
 代码分为三层，依赖单向向下：
 
 | 目标 | 内容 |
-| --- | --- |
+| :--- | :--- |
 | `SnugCore` | 纯逻辑：连接判定与会话、手机屏调度 `PhoneDesk`、手势翻译 `TouchTranslator`、规格、还原记录、配置、日志、启动参数。系统能力抽象为协议，测试中使用假实现 |
 | `SnugSystem` | 系统层：`CGVirtualDisplay` 建屏与撤屏、辅助进程切换 2 倍模式、辅助功能接口移动窗口、按进程发送字号快捷键、手势事件监听 |
 | `Snug` | 应用层：UU远程 感知、AppController、手机屏上的窗口列表与指示条、设置、欢迎页、菜单栏 |
@@ -48,7 +48,7 @@
 参数有误时会打印用法。
 
 | 参数 | 作用 |
-| --- | --- |
+| :--- | :--- |
 | `--render-<界面> <目录>` | 将界面渲染为 PNG：`settings` / `welcome` / `about` / `legacy` / `phone`（不启动监控，不改动屏幕） |
 | `--preview-phone` | 正常启动，但不等待手机连接即创建手机屏，无需手机即可查看屏上的列表（**会真实创建一块屏幕**） |
 | `--dump-uu` | 打印从 UU远程 读取到的控制端与当前屏幕 |
@@ -57,7 +57,7 @@
 ## 数据与日志
 
 | 位置 | 内容 |
-| --- | --- |
+| :--- | :--- |
 | `~/Library/Application Support/Snug/config.json` | 设置 |
 | `~/Library/Application Support/Snug/phone-screen.json` | 手机屏上窗口的还原记录 |
 | `~/Library/Application Support/Snug/zoom.json` | 各 App 记忆的字号级数 |
