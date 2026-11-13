@@ -1,0 +1,8 @@
+- [MCP 工具](mcp-tools.md) — 浏览器、图标、配图、设计 prompt（仅 Claude Code）
+- [个人 skill 库总览](skill-library.md) — skill 装在哪、⚙️CC 含义、缺了怎么补
+- [前端 skill 路由](skill-routing-frontend.md) — 网页 UI、动效、手势交互用哪个 skill（impeccable 主导）
+- [通用 skill 路由](skill-routing-general.md) — 密钥、多仓、云运维、Multica、编排、长任务、去 AI 腔用哪个 skill
+- [iOS skill 路由](skill-routing-ios.md) — SwiftUI 视图、iOS 验证闭环用哪个 skill
+- [项目定位](project-positioning.md) — 彻底承接的自有项目，不是下游；保留原作者版权与致谢
+- [发版身份](project-release-identity.md) — 个人 Developer ID（29898YBGWD）签名公证；gh 硬绑定 zephyr4123
+- [接手时的已知问题](project-known-issues.md) — 外接屏闪烁循环、ColorSync 文件堆积、三个社区 PR 状态

@@ -4,3 +4,6 @@
 .DS_Store
 build/
 dist/
+
+# Claude Code 本机设置（里面的自动记忆目录是本机绝对路径）
+.claude/settings.local.json
