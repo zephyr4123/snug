@@ -349,10 +349,11 @@ command, *args = sys.argv[1:]
 PY
 }
 
-# 从下载地址拉下来比校验值：GitHub 和国内源都这样核对
+# 从下载地址拉下来比校验值：GitHub 和国内源都这样核对。
+# 网络偶尔断一下（实测本机到 CDN 零星有 SSL 握手失败，curl 35）就重试，最多 3 次
 verify_download() {
   local url=$1 want=$2 got
-  got="$(curl -fsSL "$url" | shasum -a 256 | cut -d ' ' -f 1)" || die "下载不了 $url"
+  got="$(curl -fsSL --retry 3 --retry-all-errors --retry-delay 2 "$url" | shasum -a 256 | cut -d ' ' -f 1)" || die "下载不了 $url"
   [[ $got == "$want" ]] || die "$url 上的和本机的不一样（$got ≠ $want）"
   print -- "下载地址核对过：$url"
 }
