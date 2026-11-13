@@ -6,7 +6,7 @@ metadata:
 ---
 
 - **签名与公证**：用主人个人开发者账号的 `Developer ID Application`（Team ID `29898YBGWD`，本机唯一一张 Developer ID 证书；其他 Apple Development 证书不用于发版）。主人已有的公证流程可参照 `~/coding/personal/oink/packaging/macos/signing.py`（`xcrun notarytool` + keychain profile）。原项目用的是自签证书「UUDisplay Signing」、未公证，发版时要换掉。
-- **公证档案**：和 SpeakMore 共用同一个开发者账号的 notarytool 档案，名字写在两个仓库各自不进 git 的 `.machine.env`（`MAC_NOTARY_PROFILE`）。档案存在数据保护钥匙串里，`security find-generic-password` 搜不到，别据此判断「没有档案」，去 `.machine.env` 看。2026-11-13 用它查历史时苹果回 HTTP 403「A required agreement is missing or has expired」：账号有待签的开发者协议，签好之前公证都会失败，要账号持有人在 developer.apple.com 签。
+- **公证档案**：和 SpeakMore 共用同一个开发者账号的 notarytool 档案，名字写在两个仓库各自不进 git 的 `.machine.env`（`MAC_NOTARY_PROFILE`）。档案存在数据保护钥匙串里，`security find-generic-password` 搜不到，别据此判断「没有档案」，去 `.machine.env` 看。苹果回 HTTP 403「A required agreement is missing or has expired」时，是账号有待签的开发者协议，要账号持有人在 developer.apple.com 签（2026-11-13 遇到过一次，主人签好后 2.0.0 公证通过）。
 - **GitHub 账号**：本机 gh 登录了不止一个账号。本项目在 `.claude/settings.local.json` 里用 `env.GH_CONFIG_DIR=~/.config/gh-zephyr4123` 硬绑定个人账号（该配置目录只登录了 zephyr4123；git 凭据走 `gh auth git-credential`，推送也跟着走个人账号）。2026-11-12 已在新会话里验证 `gh api user` 返回 zephyr4123。
 
 **Why:** 主人在其他项目里会切换 gh 活跃账号，不硬绑定可能把本项目推到别的账号下（或反过来）。
