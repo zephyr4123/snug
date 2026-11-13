@@ -14,3 +14,4 @@
 - [重构空间](project-refactor-latitude.md) — 尚无线上用户：该删就删、不留兼容；已批准全面重构（refactor/snug）
 - [直接修不建 issue](feedback-direct-fix-no-issues.md) — bug 直接修、重构直接做，追溯靠 commit 信息；需要真机测就开口
 - [Workflow 规模](feedback-workflow-scale.md) — agent 控制在 5 个左右、两段链路，不搞反驳者扇出
+- [出包收进 CLI](feedback-release-cli.md) — 构建到发版只走 scripts/snug 一个入口，照 SpeakMore 的 ship，不散脚本
