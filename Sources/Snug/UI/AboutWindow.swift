@@ -19,7 +19,7 @@ struct AboutView: View {
                author: "huberdf", usage: "虚拟屏接口声明"),
     ]
 
-    /// 版本号来自 Info.plist（build-app.sh 从仓库根目录的 VERSION 写入）；调试运行时没有
+    /// 版本号来自 Info.plist（scripts/snug 打包时从仓库根目录的 VERSION 写入）；调试运行时没有
     static var version: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "开发版"
     }

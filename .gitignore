@@ -7,3 +7,6 @@ dist/
 
 # Claude Code 本机设置（里面的自动记忆目录是本机绝对路径）
 .claude/settings.local.json
+
+# 本机配置（签名证书、公证档案、发版账号），样板见 .machine.env.example
+.machine.env

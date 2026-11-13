@@ -1,0 +1,376 @@
+#!/bin/zsh
+# Snug 的开发与发版命令。出包相关的事都从这一个入口走，不另外散脚本：
+#   scripts/snug help
+#
+# 版本号只从仓库根目录的 VERSION 读。本机才有的东西（签名证书、公证档案、发版用的 GitHub 账号）
+# 放在不进 git 的 .machine.env（样板见 .machine.env.example），同名环境变量优先。
+#
+# 发版的约定（照 SpeakMore 的 ship）：
+# - 发过的版本不改：GitHub 上这个版本已经公开、包又和本机的不一样，就拒绝，要改就升版本号
+# - 断了别重打：dist/<版本>/ 里留着打好的包和它出自哪个提交，ship 重跑时直接用，只补没做完的那一步
+set -euo pipefail
+cd "${0:A:h}/.."
+
+readonly BUNDLE_ID="com.zephyr4123.snug"
+readonly APP="build/Snug.app"
+readonly REPO_URL="https://github.com/zephyr4123/snug"
+# 通用二进制：Apple 芯片和 Intel 一个包。install 也打同样的，自己测的就是要发的
+readonly ARCHS=(--arch arm64 --arch x86_64)
+
+# MARK: 小工具
+
+die() { print -u2 -- "❌ $*"; exit 1; }
+warn() { print -u2 -- "⚠️  $*"; }
+step() { print -- "==> $*"; }
+
+usage() {
+  cat <<'USAGE'
+用法：scripts/snug <命令>
+
+  check     构建全部产物，跑全部测试（门禁）
+  app       打 build/Snug.app 并签名：有 Developer ID 证书就用它，没有就 ad-hoc
+  install   打 App，装进「应用程序」并打开（先正常退出正在跑的 Snug，窗口会先放回原处）
+  dist      打可分发的安装包 dist/<版本>/Snug-<版本>.dmg：Developer ID 签名，App 和 dmg 各自公证、钉票据
+  ship      发版：把关 → check → dist → GitHub Release 草稿、传包 → 从下载地址核对 → 公开
+  help      显示这段说明
+
+发版：改好 VERSION 并提交，打带说明的同名标签推上去，再 ship（Release 的说明取自标签说明）：
+  git tag -a v2.0.0 -m "…" && git push origin v2.0.0
+  scripts/snug ship
+USAGE
+}
+
+# .machine.env：只认 KEY=VALUE 行，开头的 ~ 展开成家目录；环境里已经有的不覆盖
+load_machine_env() {
+  [[ -f .machine.env ]] || return 0
+  local key value
+  while IFS='=' read -r key value; do
+    [[ $key =~ '^[A-Z_][A-Z0-9_]*$' ]] || continue
+    value="${value%\"}"; value="${value#\"}"
+    [[ $value == "~/"* ]] && value="$HOME/${value#\~/}"
+    [[ -n ${(P)key:-} || -z $value ]] || export "$key=$value"
+  done < .machine.env
+}
+
+read_version() {
+  local version; version="$(tr -d '[:space:]' < VERSION)"
+  [[ $version =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || die "VERSION 里的版本号不合法：「$version」"
+  print -- "$version"
+}
+
+# MARK: 签名
+
+IDENTITY=""        # 证书 SHA-1 或名字；空 = ad-hoc
+DEVELOPER_ID=0     # 1 = Developer ID Application：带 hardened runtime 和时间戳（公证要求）
+
+# 用哪张证书：MAC_SIGNING_IDENTITY（"-" 表示 ad-hoc）；没设就用钥匙串里唯一那张 Developer ID Application；都没有就 ad-hoc。
+# 日志里只打 SHA-1 前 8 位：证书名里带着人名和团队号
+resolve_identity() {
+  local all; all="$(security find-identity -v -p codesigning 2>/dev/null || true)"
+  if [[ -n ${MAC_SIGNING_IDENTITY:-} ]]; then
+    if [[ $MAC_SIGNING_IDENTITY == "-" ]]; then
+      IDENTITY=""
+    else
+      [[ $all == *"$MAC_SIGNING_IDENTITY"* ]] || die "钥匙串里找不到 MAC_SIGNING_IDENTITY 指定的有效证书"
+      IDENTITY="$MAC_SIGNING_IDENTITY"
+    fi
+  else
+    local found=("${(@f)$(print -r -- "$all" | awk '/"Developer ID Application: /{print $2}')}")
+    found=(${found:#})
+    case ${#found} in
+      0) IDENTITY="" ;;
+      1) IDENTITY="${found[1]}" ;;
+      *) die "钥匙串里有 ${#found} 张 Developer ID Application 证书，请在 .machine.env 里用 MAC_SIGNING_IDENTITY 指定一张" ;;
+    esac
+  fi
+  DEVELOPER_ID=0
+  if [[ -n $IDENTITY ]]; then
+    local line
+    for line in "${(@f)all}"; do
+      if [[ $line == *"$IDENTITY"* && $line == *'"Developer ID Application: '* ]]; then DEVELOPER_ID=1; fi
+    done
+  fi
+  return 0
+}
+
+describe_identity() {
+  if [[ -z $IDENTITY ]]; then print -- "ad-hoc"
+  elif (( DEVELOPER_ID )); then print -- "Developer ID（${IDENTITY[1,8]}…）"
+  else print -- "${IDENTITY[1,8]}…"; fi
+}
+
+# 签名。时间戳服务偶尔连不上（SpeakMore 0.17.2 连着两次断在这里）：只对这一种错重签，最多 3 次
+sign() {
+  local target=$1
+  local flags=(--force --sign "${IDENTITY:--}")
+  (( DEVELOPER_ID )) && flags+=(--timestamp)
+  [[ -d $target ]] && { flags+=(--identifier "$BUNDLE_ID"); (( DEVELOPER_ID )) && flags+=(--options runtime); }
+  local err; err="$(mktemp)"
+  local attempt
+  for attempt in 1 2 3; do
+    if codesign "${flags[@]}" "$target" 2>"$err"; then rm -f "$err"; return 0; fi
+    if (( attempt == 3 )) || ! grep -q "timestamp service is not available" "$err"; then
+      cat "$err" >&2; rm -f "$err"
+      die "签名失败：$target"
+    fi
+    warn "codesign：时间戳服务没连上（第 $attempt 次），5 秒后重签"
+    sleep 5
+  done
+}
+
+# 可分发的签名：Developer ID、带时间戳、App 还要 hardened runtime
+verify_distribution_signature() {
+  local target=$1 details
+  codesign --verify --strict --deep "$target" || die "签名校验没过：$target"
+  details="$(codesign -dvv "$target" 2>&1)"
+  [[ $details == *"Authority=Developer ID Application:"* && $details == *"Timestamp="* ]] \
+    || die "$target 不是带时间戳的 Developer ID 签名"
+  if [[ -d $target && $details != *"(runtime)"* ]]; then die "$target 没开 hardened runtime"; fi
+}
+
+# MARK: 公证
+
+# 交给苹果公证并等结果。没拿到结论（连不上、超时）隔 30 秒重交，最多 3 次；
+# 苹果给了不通过的结论就不重交，把问题清单打出来
+notarize() {
+  local file=$1 out id="" verdict="" attempt
+  for attempt in 1 2 3; do
+    out="$(xcrun notarytool submit "$file" --keychain-profile "$MAC_NOTARY_PROFILE" --wait --output-format json || true)"
+    id="$(print -r -- "$out" | plutil -extract id raw -o - - 2>/dev/null || true)"
+    verdict="$(print -r -- "$out" | plutil -extract status raw -o - - 2>/dev/null || true)"
+    [[ -n $id && -n $verdict ]] && break
+    (( attempt < 3 )) || die "交给苹果公证 3 次都没拿到结果：${file:t}"
+    warn "公证没拿到结果（第 $attempt 次，共 3 次），30 秒后重交"
+    sleep 30
+  done
+  if [[ $verdict == "Accepted" ]]; then
+    print -- "公证通过：${file:t}（$id）"
+    return 0
+  fi
+  xcrun notarytool log "$id" --keychain-profile "$MAC_NOTARY_PROFILE" >&2 || true
+  die "${file:t} 没过公证：$verdict（编号 $id）"
+}
+
+require_distribution_setup() {
+  (( DEVELOPER_ID )) || die "可分发的包要用 Developer ID Application 证书签名，钥匙串里没有（或 MAC_SIGNING_IDENTITY 指的不是）"
+  [[ -n ${MAC_NOTARY_PROFILE:-} ]] || die "没配公证档案。先把 App Store Connect 的 API key 存进钥匙串，再把档案名写进 .machine.env：
+    xcrun notarytool store-credentials <档案名> --key AuthKey_<Key ID>.p8 --key-id <Key ID> --issuer <Issuer ID>
+    echo 'MAC_NOTARY_PROFILE=<档案名>' >> .machine.env"
+}
+
+# 公证要读钥匙串里的档案；屏幕锁上后档案读不出来，公证中途会失败。打包期间不让机器睡、不让屏幕锁
+keep_awake() { caffeinate -d -i -w $$ & }
+
+# MARK: 打包
+
+write_info_plist() {
+  local version=$1
+  cat <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
+  <key>CFBundleName</key><string>Snug</string>
+  <key>CFBundleDisplayName</key><string>Snug</string>
+  <key>CFBundleExecutable</key><string>Snug</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>${version}</string>
+  <key>CFBundleVersion</key><string>${version}</string>
+  <key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
+  <key>CFBundleLocalizations</key><array><string>zh-Hans</string><string>en</string></array>
+  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>LSUIElement</key><true/>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>NSHumanReadableCopyright</key><string>© 2026 AoyamaShou, © 2026 zephyr4123 · MIT</string>
+</dict>
+</plist>
+PLIST
+}
+
+# build/Snug.app：切模式的帮手进程就是 Snug 自己（带 --set-mode 运行），不另外打包
+build_app() {
+  local version; version="$(read_version)"
+  step "编译（release，arm64 + x86_64）"
+  swift build -c release --product Snug "${ARCHS[@]}"
+  local bin; bin="$(swift build -c release "${ARCHS[@]}" --show-bin-path)"
+  step "组装 $APP（版本 $version）"
+  rm -rf "$APP"
+  mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+  cp "$bin/Snug" "$APP/Contents/MacOS/Snug"
+  # PermissionFlow 的资源包（本地化文案等），它在 Contents/Resources 里找
+  cp -R "$bin/PermissionFlow_PermissionFlow.bundle" "$APP/Contents/Resources/"
+  # App 图标；界面里的其它图标都是 SF Symbols
+  cp Assets/AppIcon/AppIcon.icns "$APP/Contents/Resources/"
+  write_info_plist "$version" > "$APP/Contents/Info.plist"
+  step "签名：$(describe_identity)"
+  sign "$APP"
+  codesign --verify --strict --deep "$APP" || die "签名校验没过：$APP"
+  (( DEVELOPER_ID )) || warn "ad-hoc 签名：每次重新打包后辅助功能授权都会失效，也不能发给别人"
+}
+
+# App 装进 dmg：打开后左边是 Snug，右边是「应用程序」的替身，拖过去就装好
+make_dmg() {
+  local dmg=$1 stage; stage="$(mktemp -d)"
+  ditto "$APP" "$stage/Snug.app"
+  ln -s /Applications "$stage/Applications"
+  # ULMO（LZMA）比默认的 UDZO 小，macOS 10.15 起都打得开
+  hdiutil create -quiet -volname Snug -srcfolder "$stage" -format ULMO -ov "$dmg"
+  rm -rf "$stage"
+}
+
+# MARK: 命令
+
+cmd_check() {
+  step "swift build（全部产物）"
+  swift build
+  step "swift test"
+  swift test
+  print -- "✅ check 通过"
+}
+
+cmd_app() {
+  resolve_identity
+  build_app
+  print -- "✅ $APP（$(describe_identity)）"
+}
+
+cmd_install() {
+  resolve_identity
+  build_app
+  local target="/Applications/Snug.app"
+  local pids=(${(f)"$(pgrep -f "^$target/Contents/MacOS/Snug" || true)"})
+  if (( ${#pids} )); then
+    # SIGTERM 走 Snug 自己的退出收尾：窗口放回原处、撤掉手机屏，再退出
+    step "退出正在跑的 Snug（pid ${pids[*]}）"
+    kill -TERM "${pids[@]}"
+    local waited=0
+    while kill -0 "${pids[@]}" 2>/dev/null; do
+      (( waited < 40 )) || die "Snug 20 秒内没退出，没有替换"
+      sleep 0.5; (( waited += 1 ))
+    done
+  fi
+  step "装进 $target"
+  rm -rf "$target"
+  ditto "$APP" "$target"
+  open "$target"
+  print -- "✅ 已安装并打开 $target（$(describe_identity)）"
+}
+
+# 打可分发的包，产物在 dist/<版本>/：dmg、它的 .sha256、BUILT_FROM（出自哪个提交；工作区有改动时带 -dirty，ship 不会用）
+cmd_dist() {
+  resolve_identity
+  require_distribution_setup
+  keep_awake
+  local version; version="$(read_version)"
+  local out="dist/$version" dmg="dist/$version/Snug-$version.dmg"
+  local commit; commit="$(git rev-parse HEAD)"
+  [[ -z "$(git status --porcelain)" ]] || { commit="$commit-dirty"; warn "工作区有没提交的改动：这个包只能自己用，ship 不会用它"; }
+  rm -rf "$out"
+  mkdir -p "$out"
+
+  build_app
+  verify_distribution_signature "$APP"
+  step "公证 App"
+  local zip="$out/Snug-$version-notarize.zip"
+  ditto -c -k --keepParent "$APP" "$zip"
+  notarize "$zip"
+  rm -f "$zip"
+  xcrun stapler staple -q "$APP"
+  xcrun stapler validate -q "$APP"
+  spctl --assess --type execute "$APP" || die "Gatekeeper 不认 $APP"
+
+  step "打 dmg"
+  make_dmg "$dmg"
+  sign "$dmg"
+  verify_distribution_signature "$dmg"
+  step "公证 dmg"
+  notarize "$dmg"
+  xcrun stapler staple -q "$dmg"
+  xcrun stapler validate -q "$dmg"
+  # 双击打开 dmg 时系统做的就是这一项检查
+  spctl --assess --type open --context context:primary-signature "$dmg" || die "Gatekeeper 不认 $dmg"
+
+  (cd "$out" && shasum -a 256 "${dmg:t}" > "${dmg:t}.sha256")
+  print -- "$commit" > "$out/BUILT_FROM"
+  print -- "✅ $dmg（$(describe_identity)，已公证）"
+}
+
+# 本地的包能不能直接拿去发：出自 HEAD、工作区当时干净、校验值对得上
+dist_is_current() {
+  local version=$1 out="dist/$1"
+  [[ -f $out/BUILT_FROM && -f $out/Snug-$version.dmg && -f $out/Snug-$version.dmg.sha256 ]] || return 1
+  [[ "$(cat "$out/BUILT_FROM")" == "$(git rev-parse HEAD)" ]] || return 1
+  (cd "$out" && shasum -a 256 -c -s "Snug-$version.dmg.sha256")
+}
+
+check_github_account() {
+  command -v gh >/dev/null || die "没装 gh（GitHub 命令行）"
+  local login; login="$(gh api user --jq .login 2>/dev/null)" || die "gh 没登录（或 GH_CONFIG_DIR 指的配置目录里没有登录）"
+  if [[ -n ${GITHUB_ACCOUNT:-} && $login != "$GITHUB_ACCOUNT" ]]; then
+    die "gh 现在是 $login，发版要用 $GITHUB_ACCOUNT：在 .machine.env 里把 GH_CONFIG_DIR 指向只登录了 $GITHUB_ACCOUNT 的配置目录"
+  fi
+}
+
+cmd_ship() {
+  local version; version="$(read_version)"
+  local tag="v$version" dmg_name="Snug-$version.dmg"
+
+  step "把关"
+  [[ -z "$(git status --porcelain)" ]] || die "工作区有没提交的改动：发出去的会和标签对不上"
+  # grep 不用 -q：提前退出会让前面的 git 吃 SIGPIPE，pipefail 下误判成失败
+  git tag --points-at HEAD | grep -x "$tag" >/dev/null || die "HEAD 上没有标签 $tag（VERSION 里是 $version）"
+  [[ "$(git cat-file -t "$tag")" == "tag" ]] || die "$tag 是轻量标签：Release 的说明取自标签说明，请用 git tag -a 重打"
+  local remote; remote="$(git ls-remote origin "refs/tags/$tag^{}" | cut -f 1)"
+  [[ $remote == "$(git rev-parse HEAD)" ]] || die "标签 $tag 还没推到 GitHub，或者那边指的不是这个提交"
+  check_github_account
+
+  # 已经公开的版本不改；草稿可以接着传
+  local state=""
+  state="$(gh release view "$tag" --json isDraft --jq 'if .isDraft then "draft" else "published" end' 2>/dev/null || true)"
+
+  if dist_is_current "$version"; then
+    step "dist/$version 里的包出自这个提交，直接用"
+  else
+    [[ $state != "published" ]] || die "$tag 已经公开，本机却没有出自这个提交的包：发过的版本不能改，要改就升版本号"
+    cmd_check
+    cmd_dist
+  fi
+  local dmg="dist/$version/$dmg_name"
+  local sum; sum="$(cut -d ' ' -f 1 < "$dmg.sha256")"
+
+  case $state in
+    published)
+      step "$tag 已经公开，只核对下载地址" ;;
+    draft)
+      step "接着传到已有的草稿 $tag"
+      gh release upload "$tag" "$dmg" "$dmg.sha256" --clobber ;;
+    *)
+      step "建 GitHub Release 草稿 $tag"
+      gh release create "$tag" "$dmg" "$dmg.sha256" --draft --verify-tag --notes-from-tag --title "Snug $version" ;;
+  esac
+  if [[ $state != "published" ]]; then
+    step "公开 $tag"
+    gh release edit "$tag" --draft=false --latest
+  fi
+
+  step "从下载地址核对"
+  local url="$REPO_URL/releases/download/$tag/$dmg_name"
+  local got; got="$(curl -fsSL "$url" | shasum -a 256 | cut -d ' ' -f 1)" || die "下载不了 $url"
+  [[ $got == "$sum" ]] || die "下载地址上的包和本机的不一样（$got ≠ $sum）"
+  print -- "✅ Snug $version 已发布：$REPO_URL/releases/tag/$tag"
+}
+
+# MARK: 入口
+
+load_machine_env
+case "${1:-help}" in
+  check) cmd_check ;;
+  app) cmd_app ;;
+  install) cmd_install ;;
+  dist) cmd_dist ;;
+  ship) cmd_ship ;;
+  help|-h|--help) usage ;;
+  *) usage >&2; die "不认识的命令：$1" ;;
+esac

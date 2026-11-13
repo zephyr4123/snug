@@ -9,14 +9,14 @@
 用手机通过 UU远程 用 Mac 时，窗口铺满手机、字号够大、手势顺手。
 
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue)
-![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-%E6%94%AF%E6%8C%81-success)
+![Apple Silicon · Intel](https://img.shields.io/badge/Apple%20Silicon%20%C2%B7%20Intel-%E9%80%9A%E7%94%A8-success)
 [![许可证 MIT](https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT-green)](LICENSE)
 
 [用法](#用法) · [安装](#安装) · [隔离与还原](#隔离与还原) · [卸载](#卸载) · [开发](#开发) · [致谢](#致谢)
 
 </div>
 
-> Snug 承接自 [aoyamashou/UUyc-companion](https://github.com/aoyamashou/UUyc-companion)（UU远程伴侣，作者 AoyamaShou，MIT 许可），原作者的版权声明和提交历史都已保留。第三版起按「手机屏」重新设计，原版的设主屏、熄灭物理屏一整套已移除。
+> Snug 承接自 [aoyamashou/UUyc-companion](https://github.com/aoyamashou/UUyc-companion)（UU远程伴侣，作者 AoyamaShou，MIT 许可），原作者的版权声明和提交历史都已保留。2.0 起按「手机屏」重新设计，原版的设主屏、熄灭物理屏一整套已移除。
 
 ## 为什么
 
@@ -54,14 +54,14 @@ Snug 装在**被远程的 Mac** 上，之后不用再管。手机上只需要 UU
 
 **系统要求**：macOS 14 或更新（在 macOS 27 · Apple Silicon 上测试），被远程的 Mac 上装好 [UU远程](https://uuyc.163.com/)。
 
-还没有发布正式版本，暂时请从源码构建（需要 Xcode，Swift 6）：
+正式版发布后从 [Releases](https://github.com/zephyr4123/snug/releases/latest) 下载 dmg（已公证，Apple 芯片和 Intel 通用），把 Snug 拖进「应用程序」。在那之前请从源码构建（需要 Xcode，Swift 6），一行装好并打开：
 
 ```bash
 git clone https://github.com/zephyr4123/snug.git
-cd snug && scripts/build-app.sh
+cd snug && scripts/snug install
 ```
 
-把生成的 `build/Snug.app` 拖进「应用程序」再打开。第一次打开会出现欢迎页：授予辅助功能权限（macOS 27 起叫「设备控制和数据访问」），Snug 同时设为开机启动。之后它待在菜单栏，只用来看状态、打开设置、退出。
+第一次打开会出现欢迎页：授予辅助功能权限（macOS 27 起叫「设备控制和数据访问」），Snug 同时设为开机启动。之后它待在菜单栏，只用来看状态、打开设置、退出。
 
 <div align="center">
 <img src="docs/images/welcome.png" width="45%" alt="欢迎页">
@@ -69,8 +69,7 @@ cd snug && scripts/build-app.sh
 <p><sub>欢迎页与设置：手机屏总开关、触控手势、字号放大、开机启动、辅助功能</sub></p>
 </div>
 
-- 签名：设了 `SIGN_IDENTITY` 就用它（`-` 表示 ad-hoc）；没设就用钥匙串里唯一的「Developer ID Application」证书；都没有就退回 ad-hoc。ad-hoc 签名每次重新构建后，辅助功能授权都会失效
-- 版本号写在仓库根目录的 `VERSION`
+- 签名：钥匙串里有唯一一张「Developer ID Application」证书时自动用它，没有就 ad-hoc（每次重新构建后，辅助功能授权都要重给）。要指定证书，见下面「开发」里的 `.machine.env`
 - **从旧版「UU远程伴侣」换过来**：两者同时运行会相互干扰，Snug 启动时会提示退出旧版。旧版里开过守护助手的，再运行：
 
   ```bash
@@ -102,9 +101,19 @@ cd snug && scripts/build-app.sh
 
 ## 开发
 
-```bash
-scripts/check.sh   # 构建全部产物 + 跑全部测试（Swift Testing），任何一步失败都以非零码退出
-```
+构建、测试、打包、发版都走 `scripts/snug` 这一个入口（`scripts/snug help` 看全部）：
+
+| 命令 | 作用 |
+| --- | --- |
+| `scripts/snug check` | 构建全部产物，跑全部测试（Swift Testing）；任何一步失败都以非零码退出 |
+| `scripts/snug app` | 打 `build/Snug.app`（通用二进制）并签名 |
+| `scripts/snug install` | 打 App，装进「应用程序」并打开；正在跑的 Snug 先正常退出（窗口先放回原处） |
+| `scripts/snug dist` | 打可分发的 `dist/<版本>/Snug-<版本>.dmg`：Developer ID 签名，App 和 dmg 各自公证、钉票据 |
+| `scripts/snug ship` | 发版：把关 → check → dist → GitHub Release 草稿、传包 → 从下载地址核对 → 公开 |
+
+- **版本号**只写在仓库根目录的 `VERSION`。发版：改好并提交，打带说明的同名标签（`git tag -a v2.0.0 -m "…"`）推上去，再 `scripts/snug ship`。Release 的说明取自标签说明
+- **发过的版本不改**：GitHub 上已经公开、包又和本机的不一样就拒绝，要改就升版本号。ship 中途断了直接重跑：`dist/<版本>/` 里出自同一个提交的包会直接用，不重新打包
+- **本机配置**放在不进 git 的 `.machine.env`（样板 `.machine.env.example`）：签名证书 `MAC_SIGNING_IDENTITY`、公证档案 `MAC_NOTARY_PROFILE`（`xcrun notarytool store-credentials` 存的档案名）、发版用的 GitHub 账号 `GH_CONFIG_DIR` / `GITHUB_ACCOUNT`。只放名字，不放密钥
 
 代码分三层，依赖只往下指：
 
