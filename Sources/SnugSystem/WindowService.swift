@@ -1,6 +1,7 @@
 // 搬窗口、调字号：辅助功能接口 + 按 pid 投递的按键。
 // 辅助功能的调用会阻塞（App 卡住时每次最多等 1 秒），全部放在自己的串行队列上做，主线程不等。
-// 窗口按「进程号 + 系统窗口编号」找：每次用时现找，不留辅助功能对象（App 重建窗口后旧对象会失效）。
+// 搬窗口时按「进程号 + 系统窗口编号」现找，不留辅助功能对象（App 重建窗口后旧对象会失效）；
+// 只有列表留着别的空间里找出来的对象，因为找一遍太贵（见 remoteWindows(pid:now:)）。
 // 不管窗口在哪块屏、哪个桌面空间、是否全屏或最小化都找得到（见 AX.allWindows）；
 // 窗口在不在问窗口服务器（exists），不经过 App：App 卡住时辅助功能读不到，不能当成窗口关了
 import AppKit
@@ -14,8 +15,12 @@ public final class WindowService: WindowControl {
     /// kVK_ANSI_Equal、kVK_ANSI_Minus（不为两个常量引入 Carbon：它的 WindowKey 会和我们的重名）
     static let equalKey: CGKeyCode = 0x18
     static let minusKey: CGKeyCode = 0x1B
+    /// 别的桌面空间里的窗口隔这么久才整个重新试一遍（见 remoteWindows(pid:now:)）
+    static let remoteRescanInterval: TimeInterval = 10
 
     private let queue = DispatchQueue(label: "com.zephyr4123.snug.windows", qos: .userInitiated)
+    /// 每个 App 用远程令牌试出来的窗口对象和试的时刻（单调时钟）。只在 queue 上读写
+    private let remote = Locked<[pid_t: (windows: [AXUIElement], scannedAt: TimeInterval)]>([:])
 
     public init() {}
 
@@ -124,9 +129,13 @@ public final class WindowService: WindowControl {
     public func list() async -> [WindowInfo] {
         let apps = await Self.regularApps()
         return await run {
+            let now = ProcessInfo.processInfo.systemUptime
+            let running = Set(apps.map(\.pid))
+            self.remote.withLock { $0 = $0.filter { running.contains($0.key) } }
             var windows: [WindowInfo] = []
             for app in apps {
-                for element in AX.allWindows(pid: app.pid) where AX.isStandard(element) {
+                let all = AX.allWindows(pid: app.pid) { self.remoteWindows(pid: app.pid, now: now) }
+                for element in all where AX.isStandard(element) {
                     guard let id = AX.windowID(element) else { continue }
                     windows.append(WindowInfo(key: WindowKey(pid: app.pid, id: id), app: app.name, bundleID: app.bundleID,
                                               title: WindowInfo.visibleTitle(AX.string(element, kAXTitleAttribute) ?? "")))
@@ -137,6 +146,25 @@ public final class WindowService: WindowControl {
     }
 
     // MARK: 内部
+
+    /// 别的桌面空间里的窗口：试一遍是一千次跨进程调用（实测十个 App 约 240ms），列表每 1.5 秒刷一次时不能每次都试。
+    /// 试出来的对象记下来接着用（关掉的窗口读不到属性，自然掉出列表）。过了 remoteRescanInterval 先照旧用，
+    /// 排在这次列表后面再整个试一遍，找出这期间新开、又去了别的空间的窗口：列表一露出来就要快，不等这一遍
+    private func remoteWindows(pid: pid_t, now: TimeInterval) -> [AXUIElement] {
+        guard let cached = remote.withLock({ $0[pid] }) else {
+            let found = AX.remoteWindows(pid: pid)
+            remote.withLock { $0[pid] = (found, now) }
+            return found
+        }
+        if now - cached.scannedAt >= Self.remoteRescanInterval {
+            remote.withLock { $0[pid]?.scannedAt = now }
+            queue.async { [remote] in
+                let found = AX.remoteWindows(pid: pid)
+                remote.withLock { $0[pid]?.windows = found }
+            }
+        }
+        return cached.windows
+    }
 
     private func run<T: Sendable>(_ work: @escaping @Sendable () -> T) async -> T {
         await withCheckedContinuation { continuation in
@@ -230,11 +258,11 @@ public enum AX {
 
     /// App 所有的窗口：不管在哪块屏、哪个桌面空间，全屏、最小化的也算。
     /// 系统给的窗口列表只含当前显示着的空间（别的 App 全屏占着时，其余窗口全不在里面），
-    /// 其余的用远程令牌按元素编号逐个构造辅助功能对象找出来（AltTab 公开的做法，令牌 = pid + 0 + "coco" + 元素编号）
-    public static func allWindows(pid: pid_t) -> [AXUIElement] {
+    /// 其余的由 remote 给出（远程令牌试出来的，见 remoteWindows(pid:until:)）。App 没响应时不去要
+    static func allWindows(pid: pid_t, remote: () -> [AXUIElement]) -> [AXUIElement] {
         guard var windows = respondingWindows(pid: pid) else { return [] }
         var seen = Set(windows.compactMap(windowID))
-        for element in remoteWindows(pid: pid) {
+        for element in remote() {
             guard let id = windowID(element), seen.insert(id).inserted else { continue }
             windows.append(element)
         }
@@ -244,7 +272,7 @@ public enum AX {
     static func element(for window: WindowKey) -> AXUIElement? {
         guard let visible = respondingWindows(pid: window.pid) else { return nil }
         if let hit = visible.first(where: { windowID($0) == window.id }) { return hit }
-        return remoteWindows(pid: window.pid).first { windowID($0) == window.id }
+        return remoteWindows(pid: window.pid, until: window.id).first { windowID($0) == window.id }
     }
 
     /// 系统给的窗口列表；App 没响应（或不支持辅助功能）返回 nil。
@@ -281,8 +309,9 @@ public enum AX {
         if let value = AXValueCreate(.cgSize, &s) { set(element, kAXSizeAttribute, value) }
     }
 
-    /// 用远程令牌找出的窗口对象（含当前空间里的；调用方按窗口编号去重）
-    private static func remoteWindows(pid: pid_t) -> [AXUIElement] {
+    /// 用远程令牌按元素编号逐个构造辅助功能对象，找出 App 的窗口（AltTab 公开的做法，令牌 = pid + 0 + "coco" + 元素编号）。
+    /// 含当前空间里的，调用方按窗口编号去重；给了 until 就找到那个窗口为止
+    static func remoteWindows(pid: pid_t, until wanted: UInt32? = nil) -> [AXUIElement] {
         var token = Data(count: 20)
         token.replaceSubrange(0..<4, with: withUnsafeBytes(of: pid) { Data($0) })
         token.replaceSubrange(8..<12, with: withUnsafeBytes(of: Int32(0x636F_636F)) { Data($0) })
@@ -297,6 +326,7 @@ public enum AX {
             if result == .cannotComplete { break }
             guard result == .success, role as? String == kAXWindowRole else { continue }
             found.append(element)
+            if let wanted, windowID(element) == wanted { break }
         }
         return found
     }

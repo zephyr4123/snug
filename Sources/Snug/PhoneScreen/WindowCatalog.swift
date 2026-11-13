@@ -1,4 +1,5 @@
-// 手机屏上列表里的窗口：列表露出来时每 1.5 秒刷新一次，收起就停；App 图标按 bundle ID 缓存
+// 手机屏上列表里的窗口：列表露出来时每 1.5 秒刷新一次，收起就停；App 图标按 bundle ID 缓存。
+// 每次露出来，第一次刷新按「最近用过的在前」重排，之后只增删、不换位置（见 WindowList.keepingOrder）
 import AppKit
 import Observation
 import SnugCore
@@ -33,11 +34,14 @@ final class WindowCatalog {
     func startRefreshing() {
         guard refreshing == nil, let service else { return }
         refreshing = Task { [weak self] in
+            var reorder = true
             while !Task.isCancelled {
                 let list = await service.list()
                 guard let self, !Task.isCancelled else { return }
-                if list != windows { windows = list }
+                let next = reorder ? list : WindowList.keepingOrder(of: windows, updatedWith: list)
+                if next != windows { windows = next }
                 loaded = true
+                reorder = false
                 try? await Task.sleep(for: .seconds(Self.refreshInterval))
             }
         }

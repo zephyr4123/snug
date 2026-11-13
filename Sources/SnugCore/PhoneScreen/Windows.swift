@@ -56,6 +56,14 @@ public enum WindowList {
             .sorted { (rank[$0.element.key.id] ?? Int.max, $0.offset) < (rank[$1.element.key.id] ?? Int.max, $1.offset) }
             .map(\.element)
     }
+
+    /// 列表露着时窗口不换位置：手指正要点，卡片挪了位置就会点到别的窗口上（还原的窗口拿到焦点，下一次刷新就会跑到最前）。
+    /// 还在的按原来的顺序、用新的标题；新出现的接在后面；关掉的去掉。下次露出列表时才按前后层次重排
+    public static func keepingOrder(of shown: [WindowInfo], updatedWith fresh: [WindowInfo]) -> [WindowInfo] {
+        let latest = Dictionary(fresh.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
+        let known = Set(shown.map(\.key))
+        return shown.compactMap { latest[$0.key] } + fresh.filter { !known.contains($0.key) }
+    }
 }
 
 extension CGRect {

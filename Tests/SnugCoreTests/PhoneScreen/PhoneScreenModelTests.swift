@@ -63,6 +63,17 @@ struct WindowListTests {
         #expect(WindowList.ordered(list, frontToBack: [3, 1]).map(\.key.id) == [3, 1, 2, 4])
     }
 
+    @Test("列表露着时不换位置：还在的按原顺序（标题用新的），新开的接在后面，关掉的去掉")
+    func keepingOrder() {
+        let shown = [w(1, "A"), w(2, "B"), w(3, "C")]
+        // 刷新回来：B 被还原后跑到最前，C 关了，D 新开，A 的标题变了
+        let renamed = WindowInfo(key: WindowKey(pid: 1, id: 1), app: "A", bundleID: nil, title: "新标题")
+        let fresh = [w(2, "B"), w(4, "D"), renamed]
+        let kept = WindowList.keepingOrder(of: shown, updatedWith: fresh)
+        #expect(kept.map(\.key.id) == [1, 2, 4])
+        #expect(kept.first?.title == "新标题")
+    }
+
     @Test("UU远程 自己的窗口不出现")
     func excludesUU() {
         let list = [w(1, "UU远程", bundle: "com.netease.uuremote"), w(2, "Ghostty", bundle: "com.mitchellh.ghostty")]
