@@ -92,7 +92,7 @@ enum RenderSamples {
             phoneSample("phone-portrait-placed-dark", dark: true) { s in s.phone.placed = PhoneDesk.Placed(window: windows[0], zoom: 2) },
             phoneSample("phone-portrait-finder-notice") { s in
                 s.phone.placed = PhoneDesk.Placed(window: windows[3], zoom: 0)
-                s.phone.notice = "这个窗口已经关了"
+                s.phone.notice = .windowGone
             },
             phoneSample("phone-landscape-placed", orientation: .landscape) { s in
                 s.phone.placed = PhoneDesk.Placed(window: windows[1], zoom: 1)

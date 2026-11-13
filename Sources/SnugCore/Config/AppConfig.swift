@@ -29,7 +29,3 @@ public struct AppConfig: Codable, Equatable, Sendable {
         welcomed = try c.decodeIfPresent(Bool.self, forKey: .welcomed) ?? d.welcomed
     }
 }
-
-extension Comparable {
-    func clamped(to range: ClosedRange<Self>) -> Self { min(max(self, range.lowerBound), range.upperBound) }
-}

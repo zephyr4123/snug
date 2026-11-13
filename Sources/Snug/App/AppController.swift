@@ -34,8 +34,8 @@ final class AppController {
         self.previewPhone = previewPhone
         store = ConfigStore(url: paths.config)
         let helper = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
-        desk = PhoneDesk(displays: PhoneDisplayService(helper: helper), windows: windows, paths: paths)
-        desk.defaultZoom = store.config.zoomSteps
+        desk = PhoneDesk(displays: PhoneDisplayService(helper: helper), windows: windows, paths: paths,
+                         defaultZoom: store.config.zoomSteps)
         state.config = store.config
         state.accessibilityTrusted = UUAccessibility.isTrusted
     }

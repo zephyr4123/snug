@@ -57,4 +57,7 @@ extension CGRect {
         abs(minX - other.minX) < tolerance && abs(minY - other.minY) < tolerance
             && abs(width - other.width) < tolerance && abs(height - other.height) < tolerance
     }
+
+    /// 日志里用：(x,y 宽x高)
+    public var short: String { "(\(Int(minX)),\(Int(minY)) \(Int(width))x\(Int(height)))" }
 }

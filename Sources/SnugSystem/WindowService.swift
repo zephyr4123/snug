@@ -1,6 +1,8 @@
 // 搬窗口、调字号：辅助功能接口 + 按 pid 投递的按键。
 // 辅助功能的调用会阻塞（App 卡住时每次最多等 1 秒），全部放在自己的串行队列上做，主线程不等。
-// 窗口按「进程号 + 系统窗口编号」找：每次用时现找，不留辅助功能对象（App 重建窗口后旧对象会失效）
+// 窗口按「进程号 + 系统窗口编号」找：每次用时现找，不留辅助功能对象（App 重建窗口后旧对象会失效）。
+// 不管窗口在哪块屏、哪个桌面空间、是否全屏或最小化都找得到（见 AX.allWindows）；
+// 窗口在不在问窗口服务器（exists），不经过 App：App 卡住时辅助功能读不到，不能当成窗口关了
 import AppKit
 import ApplicationServices
 import SnugCore
@@ -19,14 +21,18 @@ public final class WindowService: WindowControl {
 
     // MARK: WindowControl
 
-    public var canControl: Bool { AXIsProcessTrusted() }
-
     public func exists(_ window: WindowKey) async -> Bool {
-        await run { AX.element(for: window) != nil }
+        // 窗口服务器知道每个窗口（别的桌面空间、最小化的也在），不用等 App 响应，也不要权限
+        guard let info = CGWindowListCopyWindowInfo([.optionIncludingWindow], window.id) as? [[String: Any]],
+              let owner = (info.first?[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value else { return false }
+        return owner == window.pid
     }
 
-    public func frame(of window: WindowKey) async -> CGRect? {
-        await run { AX.element(for: window).flatMap(AX.frame) }
+    public func look(_ window: WindowKey) async -> WindowLook? {
+        await run {
+            guard let element = AX.element(for: window), let frame = AX.frame(element) else { return nil }
+            return WindowLook(frame: frame, fullScreen: AX.flag(element, AX.fullScreen), minimized: AX.flag(element, kAXMinimizedAttribute))
+        }
     }
 
     public func move(_ window: WindowKey, to frame: CGRect) async -> CGRect? {
@@ -36,23 +42,27 @@ public final class WindowService: WindowControl {
         }
     }
 
-    public func isFullScreen(_ window: WindowKey) async -> Bool {
-        await run { AX.element(for: window).map(AX.isFullScreen) ?? false }
-    }
-
     public func setFullScreen(_ window: WindowKey, _ on: Bool) async {
         await run {
             guard let element = AX.element(for: window) else { return }
             AX.set(element, AX.fullScreen, on as CFBoolean)
-            for _ in 0..<20 where AX.isFullScreen(element) != on { Thread.sleep(forTimeInterval: 0.25) }
+            for _ in 0..<20 where AX.flag(element, AX.fullScreen) != on { Thread.sleep(forTimeInterval: 0.25) }
             // 等全屏动画走完，不然紧接着的挪动会被动画盖掉
             Thread.sleep(forTimeInterval: 1.2)
+        }
+    }
+
+    public func setMinimized(_ window: WindowKey, _ on: Bool) async {
+        await run {
+            guard let element = AX.element(for: window) else { return }
+            Self.setMinimized(element, on)
         }
     }
 
     public func focus(_ window: WindowKey) async {
         await run {
             guard let element = AX.element(for: window) else { return }
+            if AX.flag(element, kAXMinimizedAttribute) { Self.setMinimized(element, false) }
             AXUIElementPerformAction(element, kAXRaiseAction as CFString)
             AX.set(element, kAXMainAttribute, kCFBooleanTrue)
         }
@@ -88,7 +98,7 @@ public final class WindowService: WindowControl {
         return await run {
             var frames: [WindowKey: CGRect] = [:]
             for app in apps {
-                for element in AX.standardWindows(pid: app.pid) {
+                for element in AX.visibleWindows(pid: app.pid) where AX.isStandard(element) && !AX.flag(element, kAXMinimizedAttribute) {
                     guard let id = AX.windowID(element), let frame = AX.frame(element) else { continue }
                     frames[WindowKey(pid: app.pid, id: id)] = frame
                 }
@@ -102,21 +112,21 @@ public final class WindowService: WindowControl {
             for (window, saved) in snapshot where window != except {
                 guard let element = AX.element(for: window), let now = AX.frame(element), !now.matches(saved) else { continue }
                 let got = Self.move(element, to: saved)
-                Log.info("系统挪了 pid \(window.pid) 的窗口 \(Self.short(now))，已放回 \(Self.short(saved))"
-                         + (got.map { $0.matches(saved) } == true ? "" : "（没对上，现在 \(got.map(Self.short) ?? "?")）"))
+                Log.info("系统挪了 pid \(window.pid) 的窗口 \(now.short)，已放回 \(saved.short)"
+                         + (got.map { $0.matches(saved) } == true ? "" : "（没对上，现在 \(got?.short ?? "?")）"))
             }
         }
     }
 
     // MARK: 窗口列表（手机屏上的卡片）
 
-    /// 所有可以放上手机屏的窗口，最近用过的在前
+    /// 所有可以放上手机屏的窗口：不管在哪块屏、哪个桌面空间，全屏、最小化的也算。最近用过的在前
     public func list() async -> [WindowInfo] {
         let apps = await Self.regularApps()
         return await run {
             var windows: [WindowInfo] = []
             for app in apps {
-                for element in AX.standardWindows(pid: app.pid) {
+                for element in AX.allWindows(pid: app.pid) where AX.isStandard(element) {
                     guard let id = AX.windowID(element) else { continue }
                     windows.append(WindowInfo(key: WindowKey(pid: app.pid, id: id), app: app.name, bundleID: app.bundleID,
                                               title: AX.string(element, kAXTitleAttribute) ?? ""))
@@ -132,6 +142,13 @@ public final class WindowService: WindowControl {
         await withCheckedContinuation { continuation in
             queue.async { continuation.resume(returning: work()) }
         }
+    }
+
+    /// 设好后等它真的变过去，再等动画走完
+    private static func setMinimized(_ element: AXUIElement, _ on: Bool) {
+        AX.set(element, kAXMinimizedAttribute, on as CFBoolean)
+        for _ in 0..<12 where AX.flag(element, kAXMinimizedAttribute) != on { Thread.sleep(forTimeInterval: 0.25) }
+        Thread.sleep(forTimeInterval: 0.5)
     }
 
     /// 先改大小、再挪、再改大小，然后核对，对不上就重来
@@ -168,43 +185,73 @@ public final class WindowService: WindowControl {
         let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
         return (list ?? []).compactMap { ($0[kCGWindowNumber as String] as? NSNumber)?.uint32Value }
     }
-
-    private static func short(_ r: CGRect) -> String { "(\(Int(r.minX)),\(Int(r.minY)) \(Int(r.width))x\(Int(r.height)))" }
 }
 
 /// 辅助功能接口的薄封装
-enum AX {
+public enum AX {
     static let fullScreen = "AXFullScreen"
+    /// 远程令牌最多试到这个元素编号（AltTab 也是试前 1000 个）
+    static let remoteScanLimit: UInt64 = 1000
 
-    static func application(_ pid: pid_t) -> AXUIElement {
+    public static var isTrusted: Bool { AXIsProcessTrusted() }
+
+    /// App 的辅助功能对象。App 卡住时每次调用最多等 1 秒
+    public static func application(_ pid: pid_t) -> AXUIElement {
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 1.0)
         return app
     }
 
-    static func attribute(_ element: AXUIElement, _ name: String) -> AnyObject? {
+    public static func attribute(_ element: AXUIElement, _ name: String) -> AnyObject? {
         var value: AnyObject?
         return AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success ? value : nil
     }
 
-    static func string(_ element: AXUIElement, _ name: String) -> String? { attribute(element, name) as? String }
+    public static func string(_ element: AXUIElement, _ name: String) -> String? { attribute(element, name) as? String }
+
+    static func flag(_ element: AXUIElement, _ name: String) -> Bool { (attribute(element, name) as? Bool) == true }
 
     @discardableResult
     static func set(_ element: AXUIElement, _ name: String, _ value: AnyObject) -> Bool {
         AXUIElementSetAttributeValue(element, name as CFString, value) == .success
     }
 
-    /// 标准窗口（不含面板、对话框），最小化的不算
-    static func standardWindows(pid: pid_t) -> [AXUIElement] {
-        let windows = (attribute(application(pid), kAXWindowsAttribute) as? [AXUIElement]) ?? []
-        return windows.filter {
-            string($0, kAXSubroleAttribute) == kAXStandardWindowSubrole && (attribute($0, kAXMinimizedAttribute) as? Bool) != true
+    /// 标准窗口（不含面板、对话框）
+    static func isStandard(_ element: AXUIElement) -> Bool { string(element, kAXSubroleAttribute) == kAXStandardWindowSubrole }
+
+    /// 当前显示着的桌面空间里的窗口（系统给的窗口列表，含最小化的）
+    public static func visibleWindows(pid: pid_t) -> [AXUIElement] {
+        (attribute(application(pid), kAXWindowsAttribute) as? [AXUIElement]) ?? []
+    }
+
+    /// App 所有的窗口：不管在哪块屏、哪个桌面空间，全屏、最小化的也算。
+    /// 系统给的窗口列表只含当前显示着的空间（别的 App 全屏占着时，其余窗口全不在里面），
+    /// 其余的用远程令牌按元素编号逐个构造辅助功能对象找出来（AltTab 公开的做法，令牌 = pid + 0 + "coco" + 元素编号）
+    public static func allWindows(pid: pid_t) -> [AXUIElement] {
+        guard var windows = respondingWindows(pid: pid) else { return [] }
+        var seen = Set(windows.compactMap(windowID))
+        for element in remoteWindows(pid: pid) {
+            guard let id = windowID(element), seen.insert(id).inserted else { continue }
+            windows.append(element)
         }
+        return windows
     }
 
     static func element(for window: WindowKey) -> AXUIElement? {
-        let windows = (attribute(application(window.pid), kAXWindowsAttribute) as? [AXUIElement]) ?? []
-        return windows.first { windowID($0) == window.id }
+        guard let visible = respondingWindows(pid: window.pid) else { return nil }
+        if let hit = visible.first(where: { windowID($0) == window.id }) { return hit }
+        return remoteWindows(pid: window.pid).first { windowID($0) == window.id }
+    }
+
+    /// 系统给的窗口列表；App 没响应（或不支持辅助功能）返回 nil。
+    /// 这时不能再用远程令牌逐个去试：每个编号都要等一次超时，一千个编号就是好几分钟
+    private static func respondingWindows(pid: pid_t) -> [AXUIElement]? {
+        var value: AnyObject?
+        switch AXUIElementCopyAttributeValue(application(pid), kAXWindowsAttribute as CFString, &value) {
+        case .success: return (value as? [AXUIElement]) ?? []
+        case .noValue: return []
+        default: return nil
+        }
     }
 
     static func windowID(_ element: AXUIElement) -> UInt32? {
@@ -220,8 +267,6 @@ enum AX {
         return CGRect(origin: origin, size: size)
     }
 
-    static func isFullScreen(_ element: AXUIElement) -> Bool { (attribute(element, fullScreen) as? Bool) == true }
-
     static func setPosition(_ element: AXUIElement, _ point: CGPoint) {
         var p = point
         if let value = AXValueCreate(.cgPoint, &p) { set(element, kAXPositionAttribute, value) }
@@ -231,8 +276,32 @@ enum AX {
         var s = size
         if let value = AXValueCreate(.cgSize, &s) { set(element, kAXSizeAttribute, value) }
     }
+
+    /// 用远程令牌找出的窗口对象（含当前空间里的；调用方按窗口编号去重）
+    private static func remoteWindows(pid: pid_t) -> [AXUIElement] {
+        var token = Data(count: 20)
+        token.replaceSubrange(0..<4, with: withUnsafeBytes(of: pid) { Data($0) })
+        token.replaceSubrange(8..<12, with: withUnsafeBytes(of: Int32(0x636F_636F)) { Data($0) })
+        var found: [AXUIElement] = []
+        for elementID in UInt64(0)..<remoteScanLimit {
+            token.replaceSubrange(12..<20, with: withUnsafeBytes(of: elementID) { Data($0) })
+            guard let element = _AXUIElementCreateWithRemoteToken(token as CFData)?.takeRetainedValue() else { continue }
+            AXUIElementSetMessagingTimeout(element, 0.25)
+            var role: AnyObject?
+            let result = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role)
+            // 不存在的编号回 invalidUIElement（实测）；回 cannotComplete 是 App 中途卡住了，不再往下试
+            if result == .cannotComplete { break }
+            guard result == .success, role as? String == kAXWindowRole else { continue }
+            found.append(element)
+        }
+        return found
+    }
 }
 
 /// 辅助功能窗口对象 → 系统窗口编号（私有接口，yabai、Rectangle、AltTab 都在用）
 @_silgen_name("_AXUIElementGetWindow")
 private func _AXUIElementGetWindow(_ element: AXUIElement, _ id: UnsafeMutablePointer<CGWindowID>) -> AXError
+
+/// 按令牌构造另一个进程里的辅助功能对象（私有接口，AltTab 用它找别的桌面空间里的窗口）
+@_silgen_name("_AXUIElementCreateWithRemoteToken")
+private func _AXUIElementCreateWithRemoteToken(_ token: CFData) -> Unmanaged<AXUIElement>?

@@ -32,4 +32,7 @@ public struct ZoomBook: Codable, Equatable, Sendable {
     public mutating func remember(_ steps: Int, for bundleID: String) {
         remembered[bundleID] = steps.clamped(to: Self.range)
     }
+
+    /// 设置里改了默认级数：各 App 记住的一起清掉，以新的默认为准
+    public mutating func forgetAll() { remembered = [:] }
 }

@@ -12,9 +12,9 @@ extension AppController: AppIntents {
     }
 
     func setZoomSteps(_ steps: Int) {
-        let steps = min(max(steps, AppConfig.zoomStepsRange.lowerBound), AppConfig.zoomStepsRange.upperBound)
+        let steps = steps.clamped(to: AppConfig.zoomStepsRange)
         guard changeConfig("放大字号 → \(steps) 级", { $0.zoomSteps = steps }) else { return }
-        desk.defaultZoom = steps
+        desk.setDefaultZoom(steps)
     }
 
     func setLaunchAtLogin(_ on: Bool) {

@@ -6,9 +6,11 @@ import Testing
 private let ghostty = WindowInfo(key: WindowKey(pid: 10, id: 7), app: "Ghostty", bundleID: "com.mitchellh.ghostty", title: "~/snug")
 private let finder = WindowInfo(key: WindowKey(pid: 11, id: 8), app: "Finder", bundleID: "com.apple.finder", title: "下载")
 private let safari = WindowInfo(key: WindowKey(pid: 12, id: 9), app: "Safari", bundleID: "com.apple.Safari", title: "GitHub")
+private let notes = WindowInfo(key: WindowKey(pid: 13, id: 10), app: "备忘录", bundleID: "com.apple.Notes", title: "清单")
 private let ghosttyHome = CGRect(x: 100, y: 100, width: 1200, height: 800)
 private let finderHome = CGRect(x: 300, y: 200, width: 800, height: 500)
 private let safariHome = CGRect(x: 0, y: 25, width: 1512, height: 920)
+private let notesHome = CGRect(x: 400, y: 300, width: 700, height: 500)
 private let phoneArea = CGRect(x: 2000, y: 25, width: 540, height: 897)
 
 /// 一套假系统 + 一个 PhoneDesk。每个用例一个临时数据目录
@@ -31,7 +33,10 @@ private final class Rig {
         windows.add(ghostty.key, frame: ghosttyHome)
         windows.add(finder.key, frame: finderHome)
         windows.add(safari.key, frame: safariHome, fullScreen: true)
+        windows.add(notes.key, frame: notesHome, minimized: true)
         desk = PhoneDesk(displays: displays, windows: windows, timeline: timeline, paths: paths)
+        let timeline = timeline
+        displays.clock = { timeline.now }
     }
 
     deinit { try? FileManager.default.removeItem(at: dir) }
@@ -116,12 +121,12 @@ struct PhoneDeskTests {
         #expect(rig.record?.window == finder.key)
     }
 
-    @Test("原来全屏的窗口：先退出全屏再读原位，放回时恢复全屏")
+    @Test("原来全屏的窗口：先记账再退出全屏，放回时恢复全屏")
     func fullScreenWindow() async throws {
         let rig = try Rig()
         await rig.ready()
         await rig.pull(safari)
-        #expect(rig.journal.all.prefix(2) == ["fullscreen 9 off", "move 9 \(phoneArea.short) ✎"])
+        #expect(rig.journal.all == ["fullscreen 9 off", "move 9 \(phoneArea.short) ✎", "focus 9"])
         #expect(rig.record?.wasFullScreen == true)
         rig.journal.clear()
         rig.desk.putBack()
@@ -181,11 +186,11 @@ struct PhoneDeskTests {
     func minimumLifetime() async throws {
         let rig = try Rig()
         await rig.ready()
-        let before = rig.timeline.now
         rig.desk.setWanted(false)
         await rig.desk.idle()
-        #expect(rig.timeline.now - before >= PhoneScreenSpec.minimumLifetime)
-        #expect(rig.journal.all.contains("retire 101"))
+        let created = try #require(rig.displays.createdAt[101])
+        let retired = try #require(rig.displays.retiredAt[101])
+        #expect(retired - created >= PhoneScreenSpec.minimumLifetime)
     }
 
     @Test("不要手机屏了（会话结束）：窗口放回原位、字号缩回，再撤屏；记录销账，回到竖屏")
@@ -257,13 +262,13 @@ struct PhoneDeskTests {
     @Test("设置里的默认级数改成 0：放上来不改字号")
     func defaultZoomZero() async throws {
         let rig = try Rig()
-        rig.desk.defaultZoom = 0
+        rig.desk.setDefaultZoom(0)
         await rig.ready()
         await rig.pull(ghostty)
         #expect(!rig.journal.all.contains { $0.hasPrefix("zoom") })
     }
 
-    @Test("还原记录写不进去：不挪窗口，告诉用户；原来全屏的恢复全屏")
+    @Test("还原记录写不进去：什么都不动（全屏的也不退出），告诉用户")
     func ledgerFailureBlocksChange() async throws {
         let blocker = FileManager.default.temporaryDirectory.appendingPathComponent("snug-blocker-\(UUID().uuidString)")
         try Data().write(to: blocker)
@@ -272,10 +277,10 @@ struct PhoneDeskTests {
         let rig = try Rig(dataDirectory: blocker.appendingPathComponent("data"))
         await rig.ready()
         await rig.pull(safari)
-        #expect(rig.journal.all == ["fullscreen 9 off", "fullscreen 9 on"])
-        #expect(rig.windows.window(safari.key)?.frame == safariHome)
+        #expect(rig.journal.all.isEmpty)
+        #expect(rig.windows.window(safari.key)?.fullScreen == true)
         #expect(rig.desk.state.placed == nil)
-        #expect(rig.desk.state.notice != nil)
+        #expect(rig.desk.state.notice == .recordUnwritable)
         #expect(rig.desk.state.listVisible)
     }
 
@@ -285,7 +290,7 @@ struct PhoneDeskTests {
         await rig.ready()
         rig.windows.close(finder.key)
         await rig.pull(finder)
-        #expect(rig.desk.state.notice == "窗口已关闭")
+        #expect(rig.desk.state.notice == .windowGone)
         #expect(rig.record == nil)
         #expect(rig.desk.state.placed == nil)
     }
@@ -303,36 +308,171 @@ struct PhoneDeskTests {
         #expect(rig.record == nil)
     }
 
-    @Test("辅助功能权限中途被收回：放不回去的窗口不当成已关，记录留着；核对、恢复都先等权限")
-    func trustRevoked() async throws {
+    @Test("App 没响应（或权限被收回）：核对时不当成已关；放不回去的窗口记录留着，恢复时也不动")
+    func unresponsiveApp() async throws {
         let rig = try Rig()
         await rig.ready()
         await rig.pull(ghostty)
-        rig.windows.revokeTrust()
+        rig.windows.block()
         rig.desk.verifyPlacement()
         await rig.desk.idle()
-        #expect(rig.desk.state.placed != nil)   // 看不到窗口不等于窗口关了
+        #expect(rig.desk.state.placed != nil)   // 读不到不等于关了：窗口服务器说它还在
         rig.timeline.advance(10)
         rig.desk.setWanted(false)
         await rig.desk.idle()
-        #expect(rig.record?.window == ghostty.key)
-        #expect(rig.record?.original == ghosttyHome)
+        #expect(rig.record == PhoneRecord(window: ghostty.key, label: ghostty.label, original: ghosttyHome, zoom: 2))
         rig.desk.recover()
         await rig.desk.idle()
-        #expect(rig.record != nil)               // 没权限时不动记录
+        #expect(rig.record != nil)
     }
 
-    @Test("加屏失败：显示失败；不要了就回到关闭")
+    @Test("要放的窗口读不到但还在：提示无响应，什么都不动")
+    func pullUnresponsiveWindow() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        rig.windows.block()
+        await rig.pull(finder)
+        #expect(rig.desk.state.notice == .windowUnresponsive)
+        #expect(rig.record == nil)
+        #expect(rig.journal.all.isEmpty)
+    }
+
+    @Test("原来最小化的窗口：先记账再还原，放回时再最小化")
+    func minimizedWindow() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        await rig.pull(notes)
+        #expect(rig.journal.all == ["minimize 10 off", "move 10 \(phoneArea.short) ✎", "focus 10"])
+        #expect(rig.record?.wasMinimized == true)
+        rig.journal.clear()
+        rig.desk.putBack()
+        await rig.desk.idle()
+        #expect(rig.journal.all == ["move 10 \(notesHome.short) ✎", "minimize 10 on"])
+        #expect(rig.record == nil)
+    }
+
+    @Test("放回时字号缩完马上记账：挪窗口那一刻记录里已经是 0 级（中途崩溃不会再缩一遍）")
+    func zoomRevertRecordedFirst() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        await rig.pull(ghostty)
+        let seen = Locked<[Int]>([])
+        let ledger = rig.paths.phoneRecord
+        rig.windows.onMove { _ in
+            if let zoom = RestoreRecord<PhoneRecord>(url: ledger).pending()?.zoom { seen.withLock { $0.append(zoom) } }
+        }
+        rig.desk.putBack()
+        await rig.desk.idle()
+        #expect(seen.withLock { $0 } == [0])
+        #expect(rig.record == nil)
+    }
+
+    @Test("调字号后窗口被撑大（终端保持行列数）：重新铺满手机屏")
+    func refillAfterZoom() async throws {
+        let rig = try Rig()
+        rig.windows.growOnZoom()
+        await rig.ready()
+        await rig.pull(ghostty)
+        #expect(rig.journal.all == [
+            "move 7 \(phoneArea.short) ✎", "focus 7", "zoom 7 +2 ✎", "move 7 \(phoneArea.short) ✎",
+        ])
+        #expect(rig.windows.window(ghostty.key)?.frame == phoneArea)
+    }
+
+    @Test("字号按键没发出去：记录改回原来的级数（不然还原时多缩），提示无响应")
+    func zoomFailureKeepsRecordHonest() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        await rig.pull(ghostty)
+        rig.windows.block()
+        rig.desk.zoom(by: 1)
+        await rig.desk.idle()
+        #expect(rig.record?.zoom == 2)
+        #expect(rig.desk.state.placed?.zoom == 2)
+        #expect(rig.desk.state.notice == .windowUnresponsive)
+    }
+
+    @Test("手机屏的可放区域读不到：不放，提示手机屏未就绪")
+    func pullWhenScreenNotReady() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        rig.displays.area = nil
+        await rig.pull(finder)
+        #expect(rig.desk.state.notice == .screenNotReady)
+        #expect(rig.journal.all.isEmpty)
+        #expect(rig.desk.state.work == nil)
+    }
+
+    @Test("撤屏：原本就在手机屏上的窗口（手机上新开的）交给系统安置，不放回已经没了的屏")
+    func retireLeavesPhoneWindowsToSystem() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        rig.windows.setFrame(finder.key, phoneArea)          // 手机上新开的窗口
+        let mainSpot = CGRect(x: 100, y: 100, width: 540, height: 897)
+        rig.displays.onRetire = {
+            rig.windows.setFrame(finder.key, mainSpot)       // 系统把它挪到主屏
+            rig.windows.setFrame(ghostty.key, phoneArea)     // 别的窗口被系统挪乱
+        }
+        rig.timeline.advance(10)
+        rig.desk.setWanted(false)
+        await rig.desk.idle()
+        #expect(rig.windows.window(finder.key)?.frame == mainSpot)
+        #expect(rig.windows.window(ghostty.key)?.frame == ghosttyHome)
+    }
+
+    @Test("加屏一直失败：按 5、15、30 秒重试三次后不再试，显示失败；不要了就回到关闭")
     func createFails() async throws {
         let rig = try Rig()
-        rig.displays.createFails = true
+        rig.displays.failuresLeft = .max
         rig.desk.setWanted(true)
         await rig.desk.idle()
+        #expect(rig.journal.all.filter { $0.hasPrefix("create") }.count == 4)
         #expect(rig.desk.state.screen == .failed)
         rig.desk.setWanted(false)
         await rig.desk.idle()
         #expect(rig.desk.state.screen == .off)
         #expect(!rig.journal.all.contains { $0.hasPrefix("retire") })
+    }
+
+    @Test("加屏失败一次：过一会儿重试，加上了")
+    func retryAfterFailure() async throws {
+        let rig = try Rig()
+        rig.displays.failuresLeft = 1
+        rig.desk.setWanted(true)
+        await rig.desk.idle()
+        #expect(rig.journal.all.filter { $0.hasPrefix("create") }.count == 2)
+        #expect(rig.desk.state.screen == .ready(101))
+    }
+
+    @Test("横竖切换时新屏建不出来：退回原来的方向，窗口放回新建的屏上，提示切换失败")
+    func rotateFallsBack() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        await rig.pull(ghostty)
+        rig.journal.clear()
+        rig.timeline.advance(10)
+        rig.displays.failuresLeft = 1
+        rig.desk.rotate()
+        await rig.desk.idle()
+        #expect(rig.journal.all.filter { $0.hasPrefix("create") } == ["create landscape", "create portrait"])
+        #expect(rig.desk.state.orientation == .portrait)
+        #expect(rig.desk.state.screen == .ready(102))
+        #expect(rig.desk.state.notice == .rotateFailed)
+        #expect(rig.windows.window(ghostty.key)?.frame == phoneArea)
+    }
+
+    @Test("设置里改默认级数：各 App 记住的级数清掉，以新的为准")
+    func defaultZoomResetsMemory() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        await rig.pull(ghostty)
+        rig.desk.zoom(by: 1)
+        await rig.desk.idle()
+        rig.desk.setDefaultZoom(1)
+        await rig.pull(finder)
+        rig.journal.clear()
+        await rig.pull(ghostty)
+        #expect(rig.journal.all.last == "zoom 7 +1 ✎")
     }
 
     @Test("屏幕配置变了：过一会儿检查 2 倍，窗口不铺满了就重新铺满")
@@ -355,6 +495,7 @@ struct PhoneDeskTests {
         try RestoreRecord<PhoneRecord>(url: rig.paths.phoneRecord).record(
             PhoneRecord(window: safari.key, label: safari.label, original: safariHome, wasFullScreen: true, zoom: 2))
         rig.desk.recover()
+        rig.desk.recover()   // 连着两次：第二次轮到时记录已经销了，不会再放一遍
         await rig.desk.idle()
         #expect(rig.journal.all == ["zoom 9 -2 ✎", "move 9 \(safariHome.short) ✎", "fullscreen 9 on"])
         #expect(rig.record == nil)

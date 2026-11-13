@@ -20,7 +20,7 @@ struct PhoneHomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header
-                if let notice = phone.notice { NoticeBanner(text: notice) }
+                if let notice = phone.notice { NoticeBanner(text: notice.text) }
                 if let placed = phone.placed {
                     section("当前窗口") {
                         CurrentWindowCard(placed: placed, catalog: catalog, busy: phone.work != nil,

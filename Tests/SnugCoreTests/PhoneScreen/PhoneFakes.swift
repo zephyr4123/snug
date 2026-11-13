@@ -15,43 +15,62 @@ final class Journal: Sendable {
 final class FakeDisplays: PhoneDisplays {
     let journal: Journal
     var nextID: DisplayID = 100
-    var createFails = false
+    /// 接下来这么多次建屏失败
+    var failuresLeft = 0
     var hiDPI = true
-    var area = CGRect(x: 2000, y: 25, width: 540, height: 897)
-    /// 加屏时 macOS 的副作用（比如把上次留在这块屏上的窗口拉过去）
+    var screen = CGRect(x: 2000, y: 0, width: 540, height: 950)
+    var area: CGRect? = CGRect(x: 2000, y: 25, width: 540, height: 897)
+    /// 加屏、撤屏时 macOS 的副作用（把窗口拉过去、挪走）
     var onCreate: (() -> Void)?
+    var onRetire: (() -> Void)?
+    /// 记下建屏、撤屏的时刻（检查「建好不到 2.5 秒不撤」）
+    var clock: (() -> TimeInterval)?
+    private(set) var createdAt: [DisplayID: TimeInterval] = [:]
+    private(set) var retiredAt: [DisplayID: TimeInterval] = [:]
 
     init(journal: Journal) { self.journal = journal }
 
     func create(_ spec: PhoneScreenSpec) async throws -> DisplayID {
         journal.add("create \(spec.orientation)")
-        if createFails { throw PhoneScreenError.neverOnline }
+        if failuresLeft > 0 {
+            failuresLeft -= 1
+            throw PhoneScreenError.neverOnline
+        }
         nextID += 1
+        createdAt[nextID] = clock?()
         onCreate?()
         return nextID
     }
 
-    func retire(_ id: DisplayID) async { journal.add("retire \(id)") }
+    func retire(_ id: DisplayID) async {
+        journal.add("retire \(id)")
+        retiredAt[id] = clock?()
+        onRetire?()
+    }
 
     func ensureHiDPI(_ id: DisplayID, _ spec: PhoneScreenSpec) async -> Bool {
         journal.add("ensure \(id)")
         return hiDPI
     }
 
+    func bounds(_ id: DisplayID) -> CGRect? { screen }
     func windowArea(_ id: DisplayID) -> CGRect? { area }
 }
 
-/// 假窗口：记住每个窗口的位置、是否全屏、字号级数
+/// 假窗口：记住每个窗口的位置、是否全屏、是否最小化、字号级数
 final class FakeWindows: WindowControl {
     struct Window: Sendable {
         var frame: CGRect
         var fullScreen = false
+        var minimized = false
         var zoom = 0
     }
 
     let journal: Journal
     private let state = Locked<[WindowKey: Window]>([:])
-    private let trusted = Locked(true)
+    private let blocked = Locked(false)
+    private let grows = Locked(false)
+    private let moveHook = Locked<(@Sendable (WindowKey) -> Void)?>(nil)
     /// 设了就在每次挪窗口、发按键时记一下此刻还原记录在不在（检查「先记账再动手」）
     let ledger: URL?
 
@@ -60,13 +79,17 @@ final class FakeWindows: WindowControl {
         self.ledger = ledger
     }
 
-    /// 收回辅助功能权限：之后什么窗口都看不到
-    func revokeTrust() { trusted.withLock { $0 = false } }
+    /// App 没响应（或辅助功能权限被收回）：窗口还在，但读不到、挪不动、发不了按键
+    func block() { blocked.withLock { $0 = true } }
+    /// 像终端那样：调字号时保持行列数，窗口跟着变大
+    func growOnZoom() { grows.withLock { $0 = true } }
+    /// 每次挪窗口前先调一下（检查挪的那一刻还原记录里写的是什么）
+    func onMove(_ hook: @escaping @Sendable (WindowKey) -> Void) { moveHook.withLock { $0 = hook } }
 
-    var canControl: Bool { trusted.withLock { $0 } }
+    private var reachable: Bool { !blocked.withLock { $0 } }
 
-    func add(_ key: WindowKey, frame: CGRect, fullScreen: Bool = false) {
-        state.withLock { $0[key] = Window(frame: frame, fullScreen: fullScreen) }
+    func add(_ key: WindowKey, frame: CGRect, fullScreen: Bool = false, minimized: Bool = false) {
+        state.withLock { $0[key] = Window(frame: frame, fullScreen: fullScreen, minimized: minimized) }
     }
 
     func close(_ key: WindowKey) { _ = state.withLock { $0.removeValue(forKey: key) } }
@@ -78,29 +101,43 @@ final class FakeWindows: WindowControl {
         return FileManager.default.fileExists(atPath: ledger.path) ? " ✎" : " ∅"
     }
 
-    func exists(_ window: WindowKey) async -> Bool { canControl && self.window(window) != nil }
-    func frame(of window: WindowKey) async -> CGRect? { canControl ? self.window(window)?.frame : nil }
+    func exists(_ window: WindowKey) async -> Bool { self.window(window) != nil }
+
+    func look(_ window: WindowKey) async -> WindowLook? {
+        guard reachable, let w = self.window(window) else { return nil }
+        return WindowLook(frame: w.frame, fullScreen: w.fullScreen, minimized: w.minimized)
+    }
 
     func move(_ window: WindowKey, to frame: CGRect) async -> CGRect? {
-        guard canControl, self.window(window) != nil else { return nil }
+        guard reachable, self.window(window) != nil else { return nil }
+        moveHook.withLock { $0 }?(window)
         journal.add("move \(window.id) \(frame.short)\(mark)")
         setFrame(window, frame)
         return frame
     }
 
-    func isFullScreen(_ window: WindowKey) async -> Bool { self.window(window)?.fullScreen ?? false }
-
     func setFullScreen(_ window: WindowKey, _ on: Bool) async {
+        guard reachable else { return }
         journal.add("fullscreen \(window.id) \(on ? "on" : "off")")
         state.withLock { $0[window]?.fullScreen = on }
+    }
+
+    func setMinimized(_ window: WindowKey, _ on: Bool) async {
+        guard reachable else { return }
+        journal.add("minimize \(window.id) \(on ? "on" : "off")")
+        state.withLock { $0[window]?.minimized = on }
     }
 
     func focus(_ window: WindowKey) async { journal.add("focus \(window.id)") }
 
     func zoom(_ window: WindowKey, steps: Int) async -> Bool {
-        guard canControl, self.window(window) != nil else { return false }
+        guard reachable, self.window(window) != nil else { return false }
         journal.add("zoom \(window.id) \(steps > 0 ? "+" : "")\(steps)\(mark)")
-        state.withLock { $0[window]?.zoom += steps }
+        let grow = grows.withLock { $0 }
+        state.withLock {
+            $0[window]?.zoom += steps
+            if grow { $0[window]?.frame.size.width += CGFloat(steps * 50) }
+        }
         return true
     }
 

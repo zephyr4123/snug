@@ -19,11 +19,13 @@ public final class PhoneDisplayService: PhoneDisplays {
     public init(helper: URL) { self.helper = helper }
 
     public func create(_ spec: PhoneScreenSpec) async throws -> DisplayID {
+        var madeAny = false
         for serial in spec.serials {
             guard let display = make(spec, serial: serial) else {
                 Log.warn("手机屏（serial=\(serial)）建不出来，换备用身份")
                 continue
             }
+            madeAny = true
             let id = display.displayID
             displays[id] = display
             guard await wait(id, online: true, timeout: Self.onlineTimeout) else {
@@ -36,7 +38,7 @@ public final class PhoneDisplayService: PhoneDisplays {
             if await !ensureHiDPI(id, spec) { Log.warn("手机屏 #\(id) 不是 2 倍：\(DisplayMode.describe(id))") }
             return id
         }
-        throw PhoneScreenError.neverOnline
+        throw madeAny ? PhoneScreenError.neverOnline : PhoneScreenError.createFailed
     }
 
     public func retire(_ id: DisplayID) async {
@@ -64,6 +66,12 @@ public final class PhoneDisplayService: PhoneDisplays {
             Log.warn("帮手进程切 2 倍没成（退出码 \(status.map(String.init) ?? "启动失败")），现在 \(DisplayMode.describe(id))")
         }
         return ok
+    }
+
+    public func bounds(_ id: DisplayID) -> CGRect? {
+        // CGDisplayBounds 和辅助功能用的是同一套全局坐标（左上原点）；屏不在时是空框
+        let rect = CGDisplayBounds(id)
+        return rect.isEmpty ? nil : rect
     }
 
     public func windowArea(_ id: DisplayID) -> CGRect? {

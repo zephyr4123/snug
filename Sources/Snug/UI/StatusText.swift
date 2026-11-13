@@ -40,3 +40,16 @@ struct StatusText: Equatable {
         }
     }
 }
+
+extension PhoneDesk.Notice {
+    /// 手机屏列表顶部的提示
+    var text: String {
+        switch self {
+        case .windowGone: "窗口已关闭"
+        case .windowUnresponsive: "窗口无响应"
+        case .recordUnwritable: "无法写入还原记录"
+        case .screenNotReady: "手机屏未就绪"
+        case .rotateFailed: "横竖切换失败"
+        }
+    }
+}

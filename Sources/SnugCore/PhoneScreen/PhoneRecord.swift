@@ -10,14 +10,17 @@ public struct PhoneRecord: Codable, Equatable, Sendable {
     /// 原位（辅助功能坐标：左上原点）
     public var original: CGRect
     public var wasFullScreen: Bool
+    public var wasMinimized: Bool
     /// 比原来放大了几级
     public var zoom: Int
 
-    public init(window: WindowKey, label: String, original: CGRect, wasFullScreen: Bool, zoom: Int) {
+    public init(window: WindowKey, label: String, original: CGRect, wasFullScreen: Bool = false, wasMinimized: Bool = false,
+                zoom: Int = 0) {
         self.window = window
         self.label = label
         self.original = original
         self.wasFullScreen = wasFullScreen
+        self.wasMinimized = wasMinimized
         self.zoom = zoom
     }
 }
