@@ -84,6 +84,13 @@ struct WindowListTests {
         #expect(long.label == "Safari「\(String(repeating: "长", count: 30))」")
     }
 
+    @Test("标题去掉看不见的格式字符（网页的隐形水印），组合表情的零宽连接符留着")
+    func visibleTitle() {
+        #expect(WindowInfo.visibleTitle("\u{200C}\u{200B}\u{2061}\u{FEFF}报销 - Feishu Docs") == "报销 - Feishu Docs")
+        #expect(WindowInfo.visibleTitle("\u{200E}README.md\u{200F}") == "README.md")
+        #expect(WindowInfo.visibleTitle("家 👨\u{200D}👩\u{200D}👧") == "家 👨\u{200D}👩\u{200D}👧")
+    }
+
     @Test("框对比：2 点以内算对上")
     func matches() {
         let a = CGRect(x: 0, y: 25, width: 540, height: 897)

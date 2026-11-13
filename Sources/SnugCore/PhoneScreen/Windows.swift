@@ -33,6 +33,13 @@ public struct WindowInfo: Equatable, Identifiable, Sendable {
     public var id: WindowKey { key }
     /// 日志里用：App 名 +「标题前 30 个字」
     public var label: String { title.isEmpty ? app : "\(app)「\(title.prefix(30))」" }
+
+    /// 去掉标题里看不见的格式字符（零宽空格、方向标记……）：有的网页往标题里塞隐形水印，卡片上白占一截宽度。
+    /// 零宽连接符留着，组合表情要靠它
+    public static func visibleTitle(_ raw: String) -> String {
+        let kept = raw.unicodeScalars.filter { $0.properties.generalCategory != .format || $0 == "\u{200D}" }
+        return String(String.UnicodeScalarView(kept)).trimmingCharacters(in: .whitespaces)
+    }
 }
 
 public enum WindowList {

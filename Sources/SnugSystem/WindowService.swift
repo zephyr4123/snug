@@ -129,7 +129,7 @@ public final class WindowService: WindowControl {
                 for element in AX.allWindows(pid: app.pid) where AX.isStandard(element) {
                     guard let id = AX.windowID(element) else { continue }
                     windows.append(WindowInfo(key: WindowKey(pid: app.pid, id: id), app: app.name, bundleID: app.bundleID,
-                                              title: AX.string(element, kAXTitleAttribute) ?? ""))
+                                              title: WindowInfo.visibleTitle(AX.string(element, kAXTitleAttribute) ?? "")))
                 }
             }
             return WindowList.ordered(windows, frontToBack: Self.frontToBack())
