@@ -1,3 +1,11 @@
+# Snug
+
+> Snug 承接自 [aoyamashou/UUyc-companion](https://github.com/aoyamashou/UUyc-companion)（UU远程伴侣，MIT 许可，作者 AoyamaShou）。原项目 2026 年 10 月中旬后停止更新，这里接着维护：修 bug、加功能，并计划改用经过苹果公证的签名发版。原作者的版权声明和完整提交历史均已保留。
+>
+> 改名正在进行中，下面暂时还是原项目的说明，其中的下载链接指向原项目的发布。
+
+---
+
 <div align="center">
 
 <img src="Assets/AppIcon/AppIcon-1024.png" width="128" alt="UU远程伴侣图标">
