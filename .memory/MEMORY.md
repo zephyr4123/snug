@@ -6,3 +6,5 @@
 - [项目定位](project-positioning.md) — 彻底承接的自有项目，不是下游；保留原作者版权与致谢
 - [发版身份](project-release-identity.md) — 个人 Developer ID（29898YBGWD）签名公证；gh 硬绑定 zephyr4123
 - [接手时的已知问题](project-known-issues.md) — 外接屏闪烁循环、ColorSync 文件堆积、三个社区 PR 状态
+- [重构空间](project-refactor-latitude.md) — 尚无线上用户，可随时手术刀式重构；全面审查含 bug 与工程审美
+- [Workflow 规模](feedback-workflow-scale.md) — agent 控制在 5 个左右、两段链路，不搞反驳者扇出
