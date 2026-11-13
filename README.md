@@ -1,278 +1,180 @@
-# Snug
-
-> Snug 承接自 [aoyamashou/UUyc-companion](https://github.com/aoyamashou/UUyc-companion)（UU远程伴侣，MIT 许可，作者 AoyamaShou）。原项目 2026 年 10 月中旬后停止更新，这里接着维护：修 bug、加功能，并计划改用经过苹果公证的签名发版。原作者的版权声明和完整提交历史均已保留。
->
-> 改名正在进行中，下面暂时还是原项目的说明，其中的下载链接指向原项目的发布。
-
----
-
 <div align="center">
 
-<img src="Assets/AppIcon/AppIcon-1024.png" width="128" alt="UU远程伴侣图标">
+<img src="Assets/AppIcon/AppIcon-1024.png" width="128" alt="Snug 图标">
 
-# UU远程伴侣（UUyc companion）
+# Snug
 
-**改善 Mac 版 UU远程 的使用体验，远程开始时自动提供与您的设备同分辨率的虚拟屏幕，告别上下大黑边。**
+**让用手机通过 UU远程 使用 Mac 时，画面更清晰、界面更大、操作更方便。**
 
-画面铺满、没有黑边、文字清晰；断开后一切恢复原样。可选自动关闭其他屏幕，告别远程时Dock栏和窗口跑不见。
-
-[![最新版本](https://img.shields.io/github/v/release/aoyamashou/UUyc-companion?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC)](https://github.com/aoyamashou/UUyc-companion/releases/latest)
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-%E6%94%AF%E6%8C%81-success)
 [![许可证 MIT](https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT-green)](LICENSE)
 
-[下载](#下载) · [安装](#安装) · [使用](#使用) · [注意事项](#注意事项) · [常见问题](#常见问题)
+[它是什么](#它是什么) · [安装](#安装) · [使用](#使用) · [找回屏幕](#万一屏幕没亮) · [卸载](#卸载) · [开发](#开发) · [致谢](#致谢)
 
 </div>
 
----
+> Snug 承接自 [aoyamashou/UUyc-companion](https://github.com/aoyamashou/UUyc-companion)（UU远程伴侣，作者 AoyamaShou，MIT 许可）。原项目停更后由这里接着维护，原作者的版权声明和提交历史都已保留。
 
-## 为什么需要它
+## 它是什么
 
-用 iPad 或手机远程操控 Mac 时，Mac 屏幕的比例和平板、手机不一样，远程画面上下或左右总有黑边，字也很小。每次连接都要手动调分辨率，断开后再调回来，很麻烦。
+Snug 是一个菜单栏小工具，装在**被远程的 Mac** 上。它一直留意 UU远程 的连接：手机连上时按你的设置调整这台 Mac，断开后原样还原；中途崩溃了，也能靠记录还原。
 
-UU远程 的 Mac 被控端没有 Windows 版那样的「超级屏」（虚拟屏幕）功能，所以有了这个小工具：
-
-- 平板或手机一连上，它就自动准备一块和你的设备**分辨率完全一致**的虚拟屏幕，远程画面刚好铺满、文字清晰（HiDPI）
-- 可以选择在远程期间**只保留虚拟屏**（暂时关闭 Mac 自己的屏幕和外接显示器），Dock 栏和窗口不会跑到你看不见的地方
-- 远程结束后，屏幕、窗口位置、显示器排列**全部自动还原**
-
-<div align="center">
-<img src="docs/images/tour-welcome.png" width="45%" alt="功能介绍：欢迎">
-<img src="docs/images/tour-match.png" width="45%" alt="功能介绍：画面刚好铺满">
-</div>
-
-## 功能
+现在能做的：
 
 | 功能 | 说明 |
 | --- | --- |
-| 🖥️ 自动准备虚拟屏 | 认出远程的是哪台设备，几秒内准备好同分辨率的高清（HiDPI）虚拟屏 |
-| 📱 每台设备单独设置 | 从 UU远程 导入已登录的设备，为平板和手机填写分辨率，改完自动保存 |
-| 💻 不打扰其他连接 | 电脑、没填分辨率或不在列表里的设备连上时，什么也不做，交给 UU远程 处理 |
-| 🌑 远程时只保留虚拟屏 | 可选。远程期间关闭除虚拟屏之外的所有屏幕，远程结束后自动恢复 |
-| ⌨️ 快捷键人肉兜底 | 有人在 Mac 前时按 **⌃ control + ⌥ option + ⌘ command + 9**，所有屏幕立刻恢复 |
-| 🛡️ 守护助手 | 可选。万一程序意外退出或卡住，守护助手会自动把屏幕点亮 |
-| 🚀 快速上手 | 设置窗口里一键查看 5 步上手说明 |
-| 🔒 不联网 | 不连接任何服务器，不收集任何数据，作者对你的隐私没有任何兴趣 |
+| 远程会话检测 | 综合 UU远程 的覆盖窗口、「本机被控中」表格和推流日志判断连接，连得快、断得稳；能看到 UU远程 此刻在推哪块屏 |
+| 虚拟屏（可选，默认关闭） | 按手机屏幕的分辨率新建一块虚拟屏并设为主屏，画面铺满、文字清晰（HiDPI） |
+| 远程时只保留虚拟屏（可选） | 熄灭 Mac 的其他屏幕，窗口和程序坞不会跑到看不见的地方；远程结束自动点亮 |
+| 找回屏幕 | 快捷键 ⌃⌥⌘9、可选的看门狗、救急命令行 `snug-rescue`，三重兜底 |
+| 不联网 | 不连接任何服务器，不收集任何数据 |
 
-## 截图
+> **关于虚拟屏**：新建和移除虚拟屏时，macOS 会重新排列窗口和桌面图标。远程结束后 Snug 会还原各屏幕的位置和分辨率，但窗口不一定回到原处。所以它是可选功能，默认关闭，需要时在设置里打开。
 
 <div align="center">
-<img src="docs/images/settings.png" width="80%" alt="设置窗口">
-<p><sub>设置窗口：上面的图示说明了工作方式，点按钮展开对应的设置</sub></p>
-<img src="docs/images/settings-mac.png" width="80%" alt="设置被控端">
-<p><sub>设置被控端：开机启动、自动准备虚拟屏、远程时关闭除虚拟屏之外的所有屏幕</sub></p>
-<img src="docs/images/settings-devices.png" width="80%" alt="为已登录UU远程的设备指定虚拟屏分辨率">
-<p><sub>设备页：和 UU远程「全部设备」一样的分组，为平板和手机填写分辨率</sub></p>
-<img src="docs/images/settings-recover.png" width="80%" alt="恢复兜底">
-<p><sub>恢复兜底：快捷键与守护助手</sub></p>
+<img src="docs/images/tour-welcome.png" width="45%" alt="导览：欢迎使用 Snug">
+<img src="docs/images/tour-match.png" width="45%" alt="导览：可选的虚拟屏">
 </div>
-
-## 系统要求
-
-- **macOS 14 Sonoma 或更新版本**（作者在 macOS 27 · Apple Silicon 上测试）
-- 被操控的 Mac 上已安装 **[UU远程](https://uuyc.163.com/)**
-- 平板或手机上装有 UU远程，并能正常连接这台 Mac
-
-> 需要「被操控」的每一台 Mac 上都安装本软件；平板和手机上不需要装任何东西。
-
-## 下载
-
-前往 **[Releases 页面](https://github.com/aoyamashou/UUyc-companion/releases/latest)**，下载 `UUyc-companion-<版本号>.zip`。
 
 ## 安装
 
-1. 双击下载的 `.zip` 解压，得到 **UU远程伴侣**（`UUyc companion.app`）
-2. 把它拖进「**应用程序**」文件夹
-3. 第一次打开时，macOS 可能会拦住它，请看下面的「解除隔离」
+**系统要求**：macOS 14 Sonoma 或更新（在 macOS 27 · Apple Silicon 上测试）；被远程的 Mac 上装好 [UU远程](https://uuyc.163.com/)。手机上只需要 UU远程，不用装别的。
 
-### 解除隔离（第一次打开被拦住时）
-
-本软件使用作者自己的证书签名，**没有经过苹果公证**（公证需要付费的苹果开发者账号，每年99美刀，作者贫困不想支付）。所以第一次打开时，macOS 可能提示「无法打开」「无法验证开发者」或「已损坏」。这不代表软件有问题，按下面任一方法放行即可：
-
-**方法一：在系统设置里放行（推荐）**
-
-1. 先双击打开一次，看到提示后点「完成」或「好」
-2. 打开「**系统设置 › 隐私与安全性**」，往下滚动到「安全性」
-3. 找到关于「UUyc companion」的提示，点「**仍要打开**」，再输入密码确认
-
-**方法二：用终端命令**
-
-打开「终端」，粘贴下面这行并回车：
+还没有发布正式版本，暂时请从源码构建（需要 Xcode 或 Xcode 命令行工具，Swift 6）：
 
 ```bash
-xattr -dr com.apple.quarantine "/Applications/UUyc companion.app"
+git clone https://github.com/zephyr4123/snug.git
+cd snug && scripts/build-app.sh
 ```
 
-这行命令会去掉 macOS 给下载文件加的「隔离」标记，之后就能正常双击打开了。
+生成的 App 在 `build/Snug.app`，把它拖进「应用程序」文件夹再打开。
 
-> 在较旧的 macOS 上，也可以按住 Control 键点按 App，选「打开」。新版 macOS 已经取消了这个方式，请用上面两种方法。
+- 签名：设了 `SIGN_IDENTITY` 就用它（`-` 表示 ad-hoc）；没设就自动用钥匙串里唯一的「Developer ID Application」证书；都没有就退回 ad-hoc。ad-hoc 签名每次重新构建后，辅助功能授权都会失效，需要重新授权
+- 版本号写在仓库根目录的 `VERSION`
+
+**从旧版「UU远程伴侣」换过来**：两个同时运行会一起改屏幕、互相干扰。Snug 启动时发现旧版在运行会先提示，可以一键退出旧版。之后把旧版从「应用程序」里删掉；如果在旧版里开过守护助手，再运行：
+
+```bash
+launchctl bootout gui/$(id -u)/com.corndog.uudisplay.watchdog-agent
+rm ~/Library/LaunchAgents/com.corndog.uudisplay.watchdog-agent.plist
+```
 
 ## 使用
 
 ### 第一次打开
 
-1. **功能介绍**：5 页图文，介绍它能做什么
-2. **授权**：允许它读取 UU远程 里显示的设备名称。点「授权」后会打开系统设置，旁边出现一个小窗口，把里面的 UU远程伴侣 拖进列表就好
-   - 这一项在 macOS 27 里叫「**设备控制和数据访问**」，更早的版本叫「**辅助功能**」
-3. **控制端设置**：软件会自动从 UU远程「全部设备」导入已登录的设备，并自动保存。平板和手机的**分辨率需要你自己填写**，见下一节
+1. **功能导览**：5 页图文
+2. **授权**：允许 Snug 读取 UU远程 窗口里显示的设备名称。点「授权」会打开系统设置，旁边出现一个小窗口，把里面的 Snug 拖进列表就好。这一项在 macOS 27 里叫「设备控制和数据访问」，更早叫「辅助功能」
+3. **设置**：之后 Snug 待在菜单栏里，点图标就能看状态、改设置
 
-之后它会待在**菜单栏**里（图标是两块叠在一起的屏幕），平板或手机连上就会自动工作。
+<div align="center">
+<img src="docs/images/permissions.png" width="70%" alt="权限窗口">
+</div>
 
-### 快速上手
+### 设置窗口
 
-设置窗口里点「**快速上手**」也能看到这几步：
+顶部是此刻的状态，用一句话说清：谁在远程、UU远程 在推哪块屏、虚拟屏是什么规格、有没有屏幕熄灭着。下面分三页：
 
-1. 将所有打算用于远程的平板、手机、电脑，都下载并登录同一个 UU远程 帐号，本软件会自动读取已登录的设备列表
-2. 咨询 AI 您设备的物理分辨率，并将分辨率填入列表中。不要除以 2，填查到的分辨率就好
-3. 启用「自动准备虚拟屏」功能，远程时会多一个名为「UUyc Companion」的虚拟屏幕，**选择它**就会实现无黑边的高清画面
-4. 若不想手工切，或多显示器下，遇上窗口跑不见、Dock 栏到处跑的情况，请打开「远程时关闭除虚拟屏之外的所有屏幕」功能
+- **远程**：暂停 Snug（照常检测连接，但不做任何调整）、开机启动、辅助功能权限
+- **虚拟屏**：可选功能的总开关、远程时只保留虚拟屏、每台控制端设备的分辨率
+- **找回屏幕**：快捷键说明、立即恢复屏幕、还原屏幕布局、看门狗
 
-> 只开「自动准备虚拟屏」时，UU远程 不会自动切到虚拟屏：需要在平板或手机的 UU远程 里打开「显示」面板，手动选择「UUyc companion · 设备名」。打开「远程时关闭除虚拟屏之外的所有屏幕」后只剩这一块屏幕，就不用手动选了。
+<div align="center">
+<img src="docs/images/settings-session.png" width="80%" alt="设置：远程">
+<p><sub>「远程」页</sub></p>
+<img src="docs/images/settings-virtual.png" width="80%" alt="设置：虚拟屏">
+<p><sub>「虚拟屏」页：正在远程，虚拟屏 2868×1320 已就位</sub></p>
+</div>
 
-### 填写每台设备的分辨率（重要）
+菜单栏菜单里有同样的状态和常用开关，和设置窗口永远一致。
 
-设备列表只来自 UU远程「全部设备」页，分组也和 UU远程 一样：
+### 给手机准备虚拟屏
 
-| 分组 | 默认 | 说明 |
-| --- | --- | --- |
-| 电脑 | 不指定分辨率 | 由 UU远程 决定，本软件不调整屏幕 |
-| 手机/平板 | 自定义分辨率 | 需要你自己填写这台设备屏幕的分辨率，**填好之前连上时不会调整屏幕** |
+1. 在每台用来远程的手机、平板上登录同一个 UU远程 帐号
+2. 设置 › 虚拟屏 › 点「**从 UU远程 导入**」，读出 UU远程「全部设备」里的设备
+3. 给手机和平板填**横屏**分辨率，单位是像素，**大的数填左边**，填查到的原始数字，不要除以 2。不知道就问 AI：「<设备型号>的屏幕物理分辨率是多少？」
+4. 「高清」保持勾选，文字更清楚
+5. 打开「**远程时准备虚拟屏**」
 
-查分辨率并填写：
+每一行改完自动保存。某一行没填完（例如只填了宽）只会在那一行提示，不影响其他行。电脑选「不指定」，连上时 Snug 什么也不做，交给 UU远程 处理。
 
-1. **查分辨率**：最省事的办法是问问 AI：「<我的设备名称及型号>的屏幕物理分辨率是多少？」；也可以看设备的官方规格页
-2. 点菜单栏图标 › **设置…** › **控制端设置**
-3. 在这台设备那一行填写两个数字，单位是**像素**：
-   - 按**横屏**填写：**大的数字填前面，小的填后面**
-   - 直接填查到的原始数字，**不要自己除以 2**
-4. 「**高清（HiDPI）**」保持勾选（推荐），文字更清晰
-5. 不用点保存：**改完自动保存**，立即生效（正在连接时也会马上换成新的分辨率）
+只开虚拟屏时，UU远程 不会自动切过去：在手机的 UU远程 里打开「显示」面板，选「Snug · 设备名」。打开「**远程时只保留虚拟屏**」后只剩这一块屏，就不用手动选了。
 
-> 列表里没有的设备连上时，本软件不做任何调整，交给 UU远程 自己处理。
->
-> 新登录了一台设备？先在 UU远程 里登录，再点「**导入设备列表**」。
->
-> 填的比例和设备屏幕对不上时，远程画面会出现黑边。按上面的步骤改正即可，不会造成其他影响。
+### 万一屏幕没亮
 
-### 菜单栏
+打开「只保留虚拟屏」后，万一远程结束屏幕还黑着：
 
-点菜单栏图标，菜单里有：
+1. 坐在 Mac 前按 **⌃ control + ⌥ option + ⌘ command + 9**，所有屏幕立刻点亮，远程不受影响
+2. 不在 Mac 前：再远程进来，设置 › 找回屏幕 › 「立即恢复屏幕」
+3. 能用终端（例如 ssh 进来）：运行 `/Applications/Snug.app/Contents/MacOS/snug-rescue`，加 `--layout` 同时还原屏幕位置和分辨率
+4. 重启 Mac，一定能恢复
 
-- **状态**：例如「等待其它设备连接中」「iPad Air 已连接 · 虚拟屏已匹配 2360×1640 高清」
-- **远程时只保留虚拟屏**：开关
-- **设置…**
-- **完全退出**：守护助手也会一起停下
+建议在「找回屏幕」里打开**看门狗**：Snug 崩溃、卡住超过 10 秒，或已经不用熄屏而屏幕还黑着时，它会自动点亮。打开时 macOS 会提示「SnugWatchdog」已添加后台项目，这是正常的。
 
-### 设置
-
-点菜单栏图标 › **设置…**
-
-- **控制端设置**：从 UU远程 导入已登录的设备，为平板和手机指定虚拟屏分辨率
-- **设置被控端**：开机启动、自动准备虚拟屏、远程时关闭除虚拟屏之外的所有屏幕
-- **恢复兜底**：打开「远程时关闭除虚拟屏之外的所有屏幕」后才能点，可以在这里打开守护助手
-- 下方按钮：立即恢复所有屏幕、权限设置、功能介绍、快速上手、关于 UU远程伴侣、完全退出
-
-### 万一屏幕没有亮回来
-
-开启「远程时关闭除虚拟屏之外的所有屏幕」后，万一远程结束屏幕还是黑的：
-
-1. 坐在 Mac 前按 **⌃ control + ⌥ option + ⌘ command + 9**，所有屏幕立刻亮起来
-2. 重新打开 UU远程伴侣，它会自动恢复
-3. 重启 Mac，一定能恢复
-
-建议在「恢复兜底」里打开**守护助手**：程序意外退出或卡住时，它会在几秒内自动把屏幕点亮。
+在远程中按热键，这次远程就不再熄屏；不在远程中按，只恢复这一下，不影响下一次远程。
 
 ## 注意事项
 
-- **使用了 macOS 未公开的接口**：创建虚拟屏、关闭其他屏幕都依赖 macOS 没有公开的系统接口。macOS 大版本升级后可能失效，建议升级系统后先简单测试一次
-- **关闭其他屏幕是可选功能，请先了解恢复方法**：开发过程中，在极端情况下（短时间内反复增减屏幕）曾遇到 macOS 显示服务重启，表现为被注销到登录界面。现在的版本已经加了多重保护并通过压力测试，但无法完全排除这种可能。**远程前请保存好重要工作**
-- **不是网易官方软件**：本软件与 UU远程 及其开发商没有任何直接、间接或连带关系，仅为作者自己使用方便而开发。如果将来 UU远程 官方在 Mac 版中内置了同样的功能，删掉本软件即可。它通过读取 UU远程 窗口上的文字来识别设备，如果 UU远程 改版，可能会读不到设备名
-- **隐私**：不联网、不收集任何数据。授权后只用来读取 UU远程 窗口里显示的设备名称
-- **守护助手**：打开后会在「系统设置 › 通用 › 登录项与扩展」里出现，macOS 会提示「UUDisplayWatchdog 已添加后台项目」，这是正常的
-
-## 常见问题
-
-<details>
-<summary><b>设置里读不到 UU远程 的设备？</b></summary>
-
-请确认：已经完成授权（设置窗口里点「权限设置」查看）；UU远程 已经打开，并停在「全部设备」页面。然后点「导入设备列表」。设备必须先在 UU远程 里登录，才会出现在列表中。
-</details>
-
-<details>
-<summary><b>连上后画面还是有黑边？</b></summary>
-
-1. 在「控制端设置」里，确认这台设备填的分辨率和它的实际分辨率一致（横屏，大的数字在前）
-2. 在平板或手机的 UU远程 里打开「显示」面板，确认选中的显示屏是「UUyc companion · 设备名」
-</details>
-
-<details>
-<summary><b>升级后又提示需要授权？</b></summary>
-
-通常不需要重新授权。如果「权限设置」里显示未授权，而系统设置的列表里已经有 UU远程伴侣 或 UUDisplay（旧名字）：先选中它，点「−」删掉，再重新授权一次。
-</details>
-
-<details>
-<summary><b>菜单栏里找不到图标？</b></summary>
-
-菜单栏图标太多时，macOS 会把一部分藏起来。可以按住 ⌘ command 拖动其他图标腾出位置，或者用菜单栏管理工具。
-</details>
-
-<details>
-<summary><b>用另一台电脑连接时会怎样？</b></summary>
-
-在「控制端设置」里，选了「不指定分辨率」的设备（电脑默认如此）连上时，本软件什么也不做。
-</details>
+- **用了 macOS 未公开的接口**：建虚拟屏、熄灭屏幕都靠 macOS 没有公开的接口，大版本升级后可能失效，升级系统后先简单试一次
+- **熄灭屏幕是可选功能，先了解找回方法**：原作者在极端情况下（短时间内反复增减屏幕）遇到过 macOS 显示服务重启、被注销到登录界面。Snug 一次只做一步屏幕变化、每步都等系统稳定，但无法完全排除这种可能，远程前请保存好重要工作
+- **不是网易官方软件**：Snug 与 UU远程 及其开发商没有任何直接、间接或连带关系。它靠读取 UU远程 窗口上的文字识别设备，UU远程 改版后可能读不到
+- **隐私**：不联网、不收集数据。授权只用来读取 UU远程 窗口里的设备名称
 
 ## 卸载
 
-1. 如果打开过守护助手，先在「设置 › 恢复兜底」里**关掉守护助手**（这会把它彻底移除）
-2. 在设置窗口或菜单栏菜单里点「**完全退出**」
-3. 把「应用程序」文件夹里的 **UU远程伴侣** 移到废纸篓
-4. 可选：删除设置和日志
+1. 打开过看门狗的，先在设置 › 找回屏幕里关掉它（会彻底移除）
+2. 菜单栏 › 退出 Snug（会先把屏幕还原再退出）
+3. 把「应用程序」里的 Snug 移到废纸篓
+4. 可选：删除设置和日志 `rm -rf ~/Library/Application\ Support/Snug ~/Library/Logs/Snug.log*`
+5. 可选：在系统设置的「设备控制和数据访问（辅助功能）」里删掉 Snug
 
-   ```bash
-   rm -rf ~/Library/Application\ Support/UUDisplay ~/Library/Logs/UUDisplay.log
-   ```
-
-5. 可选：在「系统设置 › 隐私与安全性 › 设备控制和数据访问（辅助功能）」里删掉 UU远程伴侣
-
-## 从源码构建
-
-需要 macOS 14 以上和 Xcode 命令行工具（Swift 6）：
+## 开发
 
 ```bash
-git clone https://github.com/aoyamashou/UUyc-companion.git
+scripts/check.sh   # 构建全部产物 + 跑全部测试（Swift Testing），任何一步失败都以非零码退出
 ```
 
-```bash
-cd UUyc-companion && SIGN_IDENTITY=- scripts/build-app.sh
-```
+代码分四层，依赖只往下指：
 
-生成的 App 在 `build/UUyc companion.app`。加上 `--install` 参数会安装到「应用程序」文件夹并打开。
+| 目标 | 内容 |
+| --- | --- |
+| `SnugCore` | 纯逻辑，只依赖 Foundation：连接判定、会话生命周期、推流日志解析、配置与状态文件、日志、虚拟屏模块的决策部分、启动参数、看门狗判定 |
+| `SnugDisplays` | CoreGraphics 与私有接口的副作用：建 / 释放虚拟屏、熄灭 / 恢复物理屏的记账、布局快照与还原 |
+| `Snug` | App：UU 感知、AppController、看门狗、界面 |
+| `snug-rescue` | 救急命令行：按记录恢复物理屏、还原布局 |
 
-- `SIGN_IDENTITY=-` 表示用 ad-hoc 签名。缺点是每次重新构建后，系统授权都会失效，需要重新授权。如果你有自己的代码签名证书，把 `-` 换成证书名称，升级后授权就能保留
-- 只装了命令行工具（没有完整 Xcode）也能构建：内置的 PermissionFlow 和 TourKit 已经把需要 Xcode 宏插件的写法改掉了，详见各自目录下的 `VENDORED.md`
-- 「关于」窗口已改为自带的简单实现，不再依赖已下线的 AboutKit，干净检出即可完整构建
-- 改完代码先跑 `scripts/check.sh`：构建全部产物并跑全部测试（Swift Testing），任何一步失败都会以非零码退出
+调试参数（完整说明见 `Sources/SnugCore/Launch/LaunchMode.swift`，参数写错时也会打印用法）：
+
+| 参数 | 作用 |
+| --- | --- |
+| `--render-settings / --render-permissions / --render-about / --render-legacy <目录>` | 把界面渲染成 PNG（不启动监控、不碰显示器） |
+| `--render-tour <目录>`、`--render-tour-ui <配图目录> <目录>` | 渲染导览配图（`Assets/Tour`）与导览页 |
+| `--dump-uu` | 打印从 UU远程 读到的设备与控制端 |
+| `--watchdog` | 看门狗模式（由 launchd 托管） |
+| `--simulate "<设备名>[>设备名]" [秒]`、`--stress <轮数> [--slow]` | 用脚本化的信号驱动完整流程，**会真的建虚拟屏、熄灭屏幕**，有人在远程这台 Mac 时不要运行 |
+
+数据都在 `~/Library/Application Support/Snug/`：`config.json`（设置）、`disabled-displays.json`（被熄灭的屏，先记账再熄灭）、`layout.json`（远程前的布局，还原成功才删）、`app-state.json`（主程序每秒写，看门狗据此判断）。日志在 `~/Library/Logs/Snug.log`。
 
 <details>
 <summary><b>工作原理</b></summary>
 
-- **检测连接**：UU远程 被操控时，会在每块屏幕上铺一层透明窗口，本软件据此判断有没有设备连上
-- **识别设备**：通过 macOS 辅助功能接口读取 UU远程 窗口里「本机被控中」显示的设备名称
-- **虚拟屏幕**：用 CoreGraphics 未公开的 `CGVirtualDisplay` 创建一块指定分辨率的高清屏幕，并设为主屏幕
-- **关闭其他屏幕**：用未公开的 `CGSConfigureDisplayEnabled` 暂时停用其他显示器；停用前会把要恢复的屏幕记下来
-- **守护助手**：一个独立的 LaunchAgent 进程，每 5 秒检查一次，发现主程序退出、卡住或 UU远程 已断开时，按记录恢复屏幕
+- **检测连接**：三路信号——UU远程 被操控时铺在屏幕上的覆盖窗口、辅助功能接口读到的「本机被控中」表格、`log stream` 里 UURemoteServer 的推流事件。连入要快，一看到就算；断开要稳，连续缺席 1.5 秒、过了自己改屏幕后的 5 秒静默期、推流也停了才算
+- **会话**：断开后 15 秒内再连上算同一次远程，「这次远程不再熄屏」之类的决定保留
+- **虚拟屏**：CoreGraphics 未公开的 `CGVirtualDisplay`，同一台设备固定同一个序列号，不会让 macOS 每次都当成新显示器
+- **熄灭物理屏**：未公开的 `CGSConfigureDisplayEnabled`。先把屏幕编号写进记录再熄灭，恢复成功才销账；断开时立刻恢复，虚拟屏再留 10 秒，重连就直接复用
+- **看门狗**：独立的 LaunchAgent 进程，每 5 秒看一眼主程序写的状态文件，主程序不在、卡住或已不需要熄屏时按记录恢复
 </details>
 
 ## 致谢
 
-- [FreeDisplay](https://github.com/huberdf/FreeDisplay)（MIT）：`CGVirtualDisplay` 接口声明
-- [PermissionFlow](https://github.com/jaywcjlove/PermissionFlow)（MIT）：授权引导与拖拽授权面板
-- [TourKit](https://github.com/rampatra/TourKit)（MIT）：功能介绍页
-- 虚拟屏幕的实现思路参考了 [DeskPad](https://github.com/Stengo/DeskPad)、[Side Screen](https://github.com/tranvuongquocdat/SideScreen) 和 Chromium 的相关代码
+- [UUyc-companion](https://github.com/aoyamashou/UUyc-companion)（MIT）：AoyamaShou，Snug 承接自这个项目
+- [PermissionFlow](https://github.com/jaywcjlove/PermissionFlow)（MIT）：小弟调调，授权引导与拖拽授权面板
+- [TourKit](https://github.com/rampatra/TourKit)（MIT）：Ram Patra，功能导览
+- [FreeDisplay](https://github.com/huberdf/FreeDisplay)（MIT）：huberdf，`CGVirtualDisplay` 接口声明
+- 社区 PR 的作者：bubble（#14，稳定序列号）、gencheng liu（#12，已亮着的屏直接销账）、Rongzheng Liu（#10，全屏 Space 下读取 UU 窗口、布局记录保留到还原成功）
+- 虚拟屏的实现思路参考了 [DeskPad](https://github.com/Stengo/DeskPad)、[Side Screen](https://github.com/tranvuongquocdat/SideScreen) 和 Chromium 的相关代码
 
 ## 许可证
 
-[MIT](LICENSE) © 2026 AoyamaShou
+[MIT](LICENSE) © 2026 AoyamaShou，© 2026 zephyr4123
