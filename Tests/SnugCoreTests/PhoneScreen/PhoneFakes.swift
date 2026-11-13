@@ -62,6 +62,8 @@ final class FakeWindows: WindowControl {
     struct Window: Sendable {
         var frame: CGRect
         var fullScreen = false
+        /// 切全屏时换过去的另一个样子：全屏时是平时的位置，平时是整屏大小（和真的一样，全屏时读到的是整屏）
+        var otherFrame: CGRect?
         var minimized = false
         var zoom = 0
     }
@@ -70,6 +72,7 @@ final class FakeWindows: WindowControl {
     private let state = Locked<[WindowKey: Window]>([:])
     private let blocked = Locked(false)
     private let movesBlocked = Locked(false)
+    private let zoomBlocked = Locked(false)
     private let grows = Locked(false)
     private let minWidths = Locked<[WindowKey: CGFloat]>([:])
     private let moveHook = Locked<(@Sendable (WindowKey) -> Void)?>(nil)
@@ -81,10 +84,12 @@ final class FakeWindows: WindowControl {
         self.ledger = ledger
     }
 
-    /// App 没响应（或辅助功能权限被收回）：窗口还在，但读不到、挪不动、发不了按键
-    func block() { blocked.withLock { $0 = true } }
+    /// App 没响应（或辅助功能权限被收回）：窗口还在，但读不到、挪不动、发不了按键；传 false 恢复
+    func block(_ on: Bool = true) { blocked.withLock { $0 = on } }
     /// 只是挪不动（App 卡在改窗口大小上），别的照常；传 false 恢复
     func blockMoves(_ on: Bool = true) { movesBlocked.withLock { $0 = on } }
+    /// 只是字号按键发不出去（找窗口那一下刚好超时），别的照常；传 false 恢复
+    func blockZoom(_ on: Bool = true) { zoomBlocked.withLock { $0 = on } }
     /// 像终端那样：调字号时保持行列数，窗口跟着变大
     func growOnZoom() { grows.withLock { $0 = true } }
     /// 像系统设置、Safari 那样：App 限定了最小宽度，再窄也压不下去
@@ -94,8 +99,9 @@ final class FakeWindows: WindowControl {
 
     private var reachable: Bool { !blocked.withLock { $0 } }
 
-    func add(_ key: WindowKey, frame: CGRect, fullScreen: Bool = false, minimized: Bool = false) {
-        state.withLock { $0[key] = Window(frame: frame, fullScreen: fullScreen, minimized: minimized) }
+    /// windowed：全屏窗口退出全屏后的平时位置
+    func add(_ key: WindowKey, frame: CGRect, fullScreen: Bool = false, windowed: CGRect? = nil, minimized: Bool = false) {
+        state.withLock { $0[key] = Window(frame: frame, fullScreen: fullScreen, otherFrame: windowed, minimized: minimized) }
     }
 
     func close(_ key: WindowKey) { _ = state.withLock { $0.removeValue(forKey: key) } }
@@ -124,22 +130,28 @@ final class FakeWindows: WindowControl {
         return got
     }
 
+    /// 切全屏：和另一个样子对换（退出全屏变回平时的位置，进全屏变回整屏）
     func setFullScreen(_ window: WindowKey, _ on: Bool) async {
         guard reachable else { return }
-        journal.add("fullscreen \(window.id) \(on ? "on" : "off")")
-        state.withLock { $0[window]?.fullScreen = on }
+        journal.add("fullscreen \(window.id) \(on ? "on" : "off")\(mark)")
+        state.withLock {
+            guard var w = $0[window], w.fullScreen != on else { return }
+            (w.frame, w.otherFrame) = (w.otherFrame ?? w.frame, w.frame)
+            w.fullScreen = on
+            $0[window] = w
+        }
     }
 
     func setMinimized(_ window: WindowKey, _ on: Bool) async {
         guard reachable else { return }
-        journal.add("minimize \(window.id) \(on ? "on" : "off")")
+        journal.add("minimize \(window.id) \(on ? "on" : "off")\(mark)")
         state.withLock { $0[window]?.minimized = on }
     }
 
     func focus(_ window: WindowKey) async { journal.add("focus \(window.id)") }
 
     func zoom(_ window: WindowKey, steps: Int) async -> Bool {
-        guard reachable, self.window(window) != nil else { return false }
+        guard reachable, !zoomBlocked.withLock({ $0 }), self.window(window) != nil else { return false }
         journal.add("zoom \(window.id) \(steps > 0 ? "+" : "")\(steps)\(mark)")
         let grow = grows.withLock { $0 }
         state.withLock {

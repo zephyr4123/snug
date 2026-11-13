@@ -5,6 +5,8 @@ import Foundation
 
 public struct PhoneRecord: Codable, Equatable, Sendable {
     public var window: WindowKey
+    /// 提示里用（「Ghostty 无响应」）
+    public var app: String
     /// 日志里用
     public var label: String
     /// 原位（辅助功能坐标：左上原点）
@@ -14,9 +16,10 @@ public struct PhoneRecord: Codable, Equatable, Sendable {
     /// 比原来放大了几级
     public var zoom: Int
 
-    public init(window: WindowKey, label: String, original: CGRect, wasFullScreen: Bool = false, wasMinimized: Bool = false,
-                zoom: Int = 0) {
+    public init(window: WindowKey, app: String, label: String, original: CGRect, wasFullScreen: Bool = false,
+                wasMinimized: Bool = false, zoom: Int = 0) {
         self.window = window
+        self.app = app
         self.label = label
         self.original = original
         self.wasFullScreen = wasFullScreen
