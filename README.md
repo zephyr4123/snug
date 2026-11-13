@@ -6,22 +6,15 @@
 
 **让 Mac 在手机上拥有原生级的操作体验**
 
-为 UU远程 打造的移动端工作区<br>
-独立竖屏 · 窗口铺满 · 字号放大 · iOS 手势
+为 UU远程 打造的移动端工作区<br>独立竖屏 · 窗口铺满 · 字号放大 · iOS 手势
 
-[![最新版本](https://img.shields.io/github/v/release/zephyr4123/snug?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=blue)](https://github.com/zephyr4123/snug/releases/latest)
-![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue)
-![Apple Silicon · Intel](https://img.shields.io/badge/Apple%20Silicon%20%C2%B7%20Intel-%E9%80%9A%E7%94%A8-success)
-![已公证](https://img.shields.io/badge/Apple-%E5%B7%B2%E5%85%AC%E8%AF%81-black?logo=apple)
-[![许可证 MIT](https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT-green)](LICENSE)
+[![最新版本](https://img.shields.io/github/v/release/zephyr4123/snug?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=blue)](https://github.com/zephyr4123/snug/releases/latest) ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue) ![Apple Silicon · Intel](https://img.shields.io/badge/Apple%20Silicon%20%C2%B7%20Intel-%E9%80%9A%E7%94%A8-success) ![已公证](https://img.shields.io/badge/Apple-%E5%B7%B2%E5%85%AC%E8%AF%81-black?logo=apple) [![许可证 MIT](https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT-green)](LICENSE)
 
 [下载](https://github.com/zephyr4123/snug/releases/latest) · [核心体验](#-核心体验) · [交互](#-与-iphone-一致的交互) · [对比](#-与其他方案的对比) · [安装](#-安装) · [使用](#-使用方式) · [限制](#-已知限制) · [开发](#-开发)
 
 <br>
 
-<img src="docs/images/phone-list.png" width="30%" alt="窗口列表">
-<img src="docs/images/phone-placing.png" width="30%" alt="正在打开">
-<img src="docs/images/phone-placed.png" width="30%" alt="当前窗口">
+<img src="docs/images/phone-list.png" width="30%" alt="窗口列表"> <img src="docs/images/phone-placing.png" width="30%" alt="正在打开"> <img src="docs/images/phone-placed.png" width="30%" alt="当前窗口">
 <p><sub>窗口列表 · 正在打开 · 当前窗口</sub></p>
 
 </div>
@@ -88,8 +81,7 @@ UU远程 手机端沿用触控板的手势逻辑；Snug 在手机屏上按手机
 完成后 Snug 常驻菜单栏，此后无需任何操作。
 
 <div align="center">
-<img src="docs/images/welcome.png" width="45%" alt="欢迎页">
-<img src="docs/images/settings-ready.png" width="45%" alt="设置">
+<img src="docs/images/welcome.png" width="45%" alt="欢迎页"> <img src="docs/images/settings-ready.png" width="45%" alt="设置">
 <p><sub>欢迎页 · 设置</sub></p>
 </div>
 

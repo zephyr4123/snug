@@ -10,3 +10,6 @@ dist/
 
 # 本机配置（签名证书、公证档案、发版账号），样板见 .machine.env.example
 .machine.env
+
+# Playwright MCP 的截图与页面快照（浏览器预览时生成）
+.playwright-mcp/
