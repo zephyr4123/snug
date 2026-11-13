@@ -51,7 +51,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.restorePhysical = { [weak self] in self?.coordinator.restorePhysical() }
         settings.openTour = { [weak self] in self?.tour.show() }
         coordinator.onChange = { [weak self] in self?.statusBar?.refresh() }
-        AboutPage.setUpDebugLabels()
 
         // 心跳：看门狗据此判断主程序是否卡死（主线程定时器，卡住即停跳）
         Heartbeat.beat(Heartbeat.appURL)

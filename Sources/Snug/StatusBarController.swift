@@ -1,5 +1,4 @@
 // 菜单栏：状态 / 远程时只保留虚拟屏 / 设置 / 完全退出
-import AboutKit
 import AppKit
 
 final class StatusBarController: NSObject, NSMenuDelegate {
@@ -51,7 +50,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(action("设置…", #selector(reconfigure), key: ","))
         menu.addItem(.separator())
         menu.addItem(action("完全退出", #selector(quit), key: "q"))
-        DebugLabels.decorate(menu)
     }
 
     private func action(_ title: String, _ sel: Selector, key: String = "") -> NSMenuItem {

@@ -20,8 +20,9 @@ if [[ "$SIGN_IDENTITY" != "-" ]] && ! security find-identity -v -p codesigning |
   exit 1
 fi
 
-swift build -c release --build-system native --product UUDisplay
-BIN="$(swift build -c release --build-system native --show-bin-path)/UUDisplay"
+# 可执行目标已改名为 Snug；包内文件名、Bundle ID 等第二阶段随 App 标识一起换
+swift build -c release --build-system native --product Snug
+BIN="$(swift build -c release --build-system native --show-bin-path)/Snug"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -30,8 +31,6 @@ cp "$BIN" "$APP/Contents/MacOS/UUDisplay"
 cp "$BIN" "$APP/Contents/MacOS/UUDisplayWatchdog"
 # PermissionFlow 资源包（本地化文案等），放 Contents/Resources 供 PermissionFlowResources 查找
 cp -R "$(dirname "$BIN")/PermissionFlow_PermissionFlow.bundle" "$APP/Contents/Resources/"
-# AboutKit 资源包（作者头像），放 Contents/Resources
-cp -R "$(dirname "$BIN")/AboutKit_AboutKit.bundle" "$APP/Contents/Resources/"
 # 功能导览配图（TourKit 从 Bundle.main 的 Resources 根目录按文件名查找）
 cp Assets/Tour/*.png "$APP/Contents/Resources/"
 # App 图标与菜单栏模板图（见 Assets/AppIcon/README.md）

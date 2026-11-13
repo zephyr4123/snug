@@ -1,29 +1,28 @@
-// swift-tools-version:5.9
+// swift-tools-version: 6.0
 import PackageDescription
 
 let package = Package(
-    name: "UUDisplay",
+    name: "Snug",
     platforms: [.macOS(.v14)],
     dependencies: [
         // 权限引导：打开系统设置隐私页 + 拖拽授权悬浮面板（MIT，内置副本见 Vendor/PermissionFlow/VENDORED.md）
         .package(path: "Vendor/PermissionFlow"),
         // 首次启动功能导览（MIT，内置副本见 Vendor/TourKit/VENDORED.md）
         .package(path: "Vendor/TourKit"),
-        // 「关于」窗口与 Debug 编号（作者自己的公用模块）
-        .package(url: "https://github.com/aoyamashou/AboutKit.git", from: "3.0.0"),
     ],
     targets: [
+        // 私有 API（CGVirtualDisplay）头文件
         .target(name: "CGVirtualDisplayBridge"),
-        .executableTarget(name: "vdprobe", dependencies: ["CGVirtualDisplayBridge"]),
-        .executableTarget(name: "uuprobe"),
-        .executableTarget(name: "uuwatch"),
-        .executableTarget(name: "UUDisplay", dependencies: [
-            "CGVirtualDisplayBridge",
-            .product(name: "PermissionFlow", package: "PermissionFlow"),
-            .product(name: "SystemSettingsKit", package: "PermissionFlow"),
-            .product(name: "TourKit", package: "TourKit"),
-            .product(name: "AboutKit", package: "AboutKit"),
-        ]),
-        .executableTarget(name: "dispoff", dependencies: ["CGVirtualDisplayBridge"]),
+        .executableTarget(
+            name: "Snug",
+            dependencies: [
+                "CGVirtualDisplayBridge",
+                .product(name: "PermissionFlow", package: "PermissionFlow"),
+                .product(name: "SystemSettingsKit", package: "PermissionFlow"),
+                .product(name: "TourKit", package: "TourKit"),
+            ],
+            // 旧 App 代码第二阶段整体改写；在那之前停在 Swift 5 语言模式，避免为了严格并发检查去改界面逻辑
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
     ]
 )
