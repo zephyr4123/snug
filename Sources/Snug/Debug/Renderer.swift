@@ -64,7 +64,6 @@ final class RenderStub: AppIntents, PhoneIntents, Navigation {
     func showList() {}
     func returnToPlaced() {}
     func putBack() {}
-    func rotate() {}
     func zoom(by delta: Int) {}
     func openSettings() {}
     func openWelcome() {}

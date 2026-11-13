@@ -49,7 +49,6 @@ extension PhoneDesk.Notice {
         case .windowUnresponsive: "窗口无响应"
         case .recordUnwritable: "无法写入还原记录"
         case .screenNotReady: "手机屏未就绪"
-        case .rotateFailed: "横竖切换失败"
         }
     }
 }

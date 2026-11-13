@@ -1,6 +1,6 @@
 // 手机屏空着时显示的「App 界面」：盖住整块手机屏（连这块屏上的菜单栏一起），看起来像手机上的原生 App。
 // 上面是手机屏上当前的窗口和它的操作（字号、还原），下面是 Mac 上其它窗口，点一下就放上来。
-// 右上角切换横屏 / 竖屏。横屏两列，竖屏一列。文字只用短词，图标全用 SF Symbols
+// 文字只用短词，图标全用 SF Symbols
 import AppKit
 import SnugCore
 import SwiftUI
@@ -12,9 +12,6 @@ struct PhoneHomeView: View {
 
     private var phone: PhoneDesk.State { state.phone }
     private var others: [WindowInfo] { catalog.windows.filter { $0.key != phone.placed?.window.key } }
-    private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 12), count: phone.orientation == .landscape ? 2 : 1)
-    }
 
     var body: some View {
         ScrollView {
@@ -24,10 +21,10 @@ struct PhoneHomeView: View {
                 if let placed = phone.placed {
                     section("当前窗口") {
                         CurrentWindowCard(placed: placed, catalog: catalog, busy: phone.work != nil,
-                                          compact: phone.orientation == .landscape || !placed.zoomable, intents: intents)
+                                          compact: !placed.zoomable, intents: intents)
                     }
                 }
-                section(phone.placed == nil ? "全部窗口" : "其他窗口") { windowGrid }
+                section(phone.placed == nil ? "全部窗口" : "其他窗口") { windowList }
             }
             .padding(.horizontal, 20)
             .padding(.top, 32)
@@ -38,19 +35,14 @@ struct PhoneHomeView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 16) {
-            Text("窗口").font(PhoneStyle.largeTitle)
-            Spacer(minLength: 8)
-            RotateButton(orientation: phone.orientation, rotating: phone.work == .rotating) { intents.rotate() }
-                .disabled(phone.work != nil)
-        }
+        Text("窗口").font(PhoneStyle.largeTitle)
     }
 
-    @ViewBuilder private var windowGrid: some View {
+    @ViewBuilder private var windowList: some View {
         if others.isEmpty {
             EmptyWindows(loading: !catalog.loaded)
         } else {
-            LazyVGrid(columns: columns, spacing: 12) {
+            LazyVStack(spacing: 12) {
                 ForEach(others) { window in
                     Button { intents.pull(window) } label: {
                         WindowRow(window: window, icon: catalog.icon(for: window), placing: phone.work == .placing(window.key))
@@ -106,7 +98,7 @@ private struct WindowRow: View {
 }
 
 /// 手机屏上当前的窗口：点它回到这个窗口；旁边是字号和还原。
-/// 竖屏分两行（操作在下面一行）；横屏高度紧张、或者这个 App 不能调字号只剩一个按钮时，排成一行
+/// 分两行（操作在下面一行）；这个 App 不能调字号、只剩一个按钮时排成一行
 private struct CurrentWindowCard: View {
     let placed: PhoneDesk.Placed
     let catalog: WindowCatalog
@@ -183,30 +175,6 @@ private struct RoundButton: View {
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel(label)
-    }
-}
-
-private struct RotateButton: View {
-    let orientation: Orientation
-    let rotating: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                if rotating {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Image(systemName: orientation == .portrait ? "rectangle.landscape.rotate" : "rectangle.portrait.rotate")
-                }
-                Text(orientation == .portrait ? "横屏" : "竖屏")
-            }
-            .font(PhoneStyle.body.weight(.medium))
-            .padding(.horizontal, 20)
-            .frame(height: PhoneStyle.touchTarget)
-            .background(PhoneStyle.card, in: Capsule())
-        }
-        .buttonStyle(PressableStyle())
     }
 }
 

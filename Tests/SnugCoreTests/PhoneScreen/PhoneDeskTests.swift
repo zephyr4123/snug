@@ -59,18 +59,17 @@ private final class Rig {
 @Suite("手机屏调度 PhoneDesk")
 @MainActor
 struct PhoneDeskTests {
-    @Test("要手机屏：加屏前给窗口拍快照，加好后把被系统拉走的窗口放回去；默认竖屏、显示窗口列表")
+    @Test("要手机屏：加屏前给窗口拍快照，加好后把被系统拉走的窗口放回去；显示窗口列表")
     func addScreen() async throws {
         let rig = try Rig()
         // macOS 会把上次留在这块屏上的窗口拉过去
         rig.displays.onCreate = { rig.windows.setFrame(finder.key, phoneArea) }
         rig.desk.setWanted(true)
         await rig.desk.idle()
-        #expect(rig.journal.all == ["snapshot", "create portrait", "restore"])
+        #expect(rig.journal.all == ["snapshot", "create", "restore"])
         #expect(rig.windows.window(finder.key)?.frame == finderHome)
         #expect(rig.desk.state.screen == .ready(101))
         #expect(rig.desk.state.listVisible)
-        #expect(rig.desk.state.orientation == .portrait)
     }
 
     @Test("同一个结论重复传不重复动手")
@@ -150,38 +149,6 @@ struct PhoneDeskTests {
         #expect(rig.desk.state.listVisible == false)
     }
 
-    @Test("横过来：先撤旧屏再建横屏，窗口挪到新屏，字号不重复放大，直接回到窗口")
-    func rotate() async throws {
-        let rig = try Rig()
-        await rig.ready()
-        await rig.pull(ghostty)
-        rig.desk.showList()
-        rig.journal.clear()
-        rig.timeline.advance(10)
-        rig.desk.rotate()
-        await rig.desk.idle()
-        #expect(rig.journal.all == [
-            "snapshot", "retire 101", "restore except 7",
-            "snapshot", "create landscape", "restore except 7",
-            "move 7 \(phoneArea.short) ✎", "focus 7",
-        ])
-        #expect(rig.desk.state.orientation == .landscape)
-        #expect(rig.desk.state.screen == .ready(102))
-        #expect(rig.windows.window(ghostty.key)?.zoom == 2)
-        #expect(rig.desk.state.listVisible == false)
-    }
-
-    @Test("没放窗口时横过来：换成横屏，停在窗口列表")
-    func rotateEmpty() async throws {
-        let rig = try Rig()
-        await rig.ready()
-        rig.timeline.advance(10)
-        rig.desk.rotate()
-        await rig.desk.idle()
-        #expect(rig.desk.state.orientation == .landscape)
-        #expect(rig.desk.state.listVisible)
-    }
-
     @Test("建好不到 2.5 秒就要撤：先等够再撤（太早释放会让 WindowServer 卡死）")
     func minimumLifetime() async throws {
         let rig = try Rig()
@@ -193,25 +160,22 @@ struct PhoneDeskTests {
         #expect(retired - created >= PhoneScreenSpec.minimumLifetime)
     }
 
-    @Test("不要手机屏了（会话结束）：窗口放回原位、字号缩回，再撤屏；记录销账，回到竖屏")
+    @Test("不要手机屏了（会话结束）：窗口放回原位、字号缩回，再撤屏；记录销账")
     func teardown() async throws {
         let rig = try Rig()
         await rig.ready()
         await rig.pull(ghostty)
-        rig.desk.rotate()
-        await rig.desk.idle()
         rig.journal.clear()
         rig.timeline.advance(10)
         rig.desk.setWanted(false)
         await rig.desk.idle()
         #expect(rig.journal.all == [
             "zoom 7 -2 ✎", "move 7 \(ghosttyHome.short) ✎",
-            "snapshot", "retire 102", "restore",
+            "snapshot", "retire 101", "restore",
         ])
         #expect(rig.windows.window(ghostty.key)?.frame == ghosttyHome)
         #expect(rig.record == nil)
         #expect(rig.desk.state.screen == .off)
-        #expect(rig.desk.state.orientation == .portrait)
         #expect(rig.desk.state.placed == nil)
     }
 
@@ -444,23 +408,6 @@ struct PhoneDeskTests {
         #expect(rig.desk.state.screen == .ready(101))
     }
 
-    @Test("横竖切换时新屏建不出来：退回原来的方向，窗口放回新建的屏上，提示切换失败")
-    func rotateFallsBack() async throws {
-        let rig = try Rig()
-        await rig.ready()
-        await rig.pull(ghostty)
-        rig.journal.clear()
-        rig.timeline.advance(10)
-        rig.displays.failuresLeft = 1
-        rig.desk.rotate()
-        await rig.desk.idle()
-        #expect(rig.journal.all.filter { $0.hasPrefix("create") } == ["create landscape", "create portrait"])
-        #expect(rig.desk.state.orientation == .portrait)
-        #expect(rig.desk.state.screen == .ready(102))
-        #expect(rig.desk.state.notice == .rotateFailed)
-        #expect(rig.windows.window(ghostty.key)?.frame == phoneArea)
-    }
-
     @Test("设置里改默认级数：各 App 记住的级数清掉，以新的为准")
     func defaultZoomResetsMemory() async throws {
         let rig = try Rig()
@@ -473,6 +420,25 @@ struct PhoneDeskTests {
         rig.journal.clear()
         await rig.pull(ghostty)
         #expect(rig.journal.all.last == "zoom 7 +1 ✎")
+    }
+
+    @Test("App 限定了最小宽度（系统设置、Safari）：靠左放；之后核对不再白挪，被挪动了才重新铺满")
+    func minimumWidthWindow() async throws {
+        let rig = try Rig()
+        rig.windows.setMinWidth(finder.key, 740)
+        await rig.ready()
+        await rig.pull(finder)
+        let clamped = CGRect(x: phoneArea.minX, y: phoneArea.minY, width: 740, height: phoneArea.height)
+        #expect(rig.windows.window(finder.key)?.frame == clamped)
+        rig.journal.clear()
+        rig.desk.displaysChanged()
+        await rig.desk.idle()
+        #expect(rig.journal.all == ["ensure 101"])      // 铺不满是 App 定的，不再挪
+        rig.windows.setFrame(finder.key, CGRect(x: 0, y: 25, width: 740, height: 500))
+        rig.journal.clear()
+        rig.desk.displaysChanged()
+        await rig.desk.idle()
+        #expect(rig.journal.all == ["ensure 101", "move 8 \(phoneArea.short) ✎"])
     }
 
     @Test("屏幕配置变了：过一会儿检查 2 倍，窗口不铺满了就重新铺满")

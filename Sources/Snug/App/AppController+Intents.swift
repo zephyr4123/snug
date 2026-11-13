@@ -88,6 +88,5 @@ extension AppController: PhoneIntents {
     func showList() { desk.showList() }
     func returnToPlaced() { desk.returnToPlaced() }
     func putBack() { desk.putBack() }
-    func rotate() { desk.rotate() }
     func zoom(by delta: Int) { desk.zoom(by: delta) }
 }

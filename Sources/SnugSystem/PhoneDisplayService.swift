@@ -18,10 +18,10 @@ public final class PhoneDisplayService: PhoneDisplays {
 
     public init(helper: URL) { self.helper = helper }
 
-    public func create(_ spec: PhoneScreenSpec) async throws -> DisplayID {
+    public func create() async throws -> DisplayID {
         var madeAny = false
-        for serial in spec.serials {
-            guard let display = make(spec, serial: serial) else {
+        for serial in PhoneScreenSpec.serials {
+            guard let display = make(serial: serial) else {
                 Log.warn("手机屏（serial=\(serial)）建不出来，换备用身份")
                 continue
             }
@@ -35,7 +35,7 @@ public final class PhoneDisplayService: PhoneDisplays {
             }
             // 刚上线时模式还在变，等它定下来再看是不是 2 倍
             try? await Task.sleep(for: .seconds(0.8))
-            if await !ensureHiDPI(id, spec) { Log.warn("手机屏 #\(id) 不是 2 倍：\(DisplayMode.describe(id))") }
+            if await !ensureHiDPI(id) { Log.warn("手机屏 #\(id) 不是 2 倍：\(DisplayMode.describe(id))") }
             return id
         }
         throw madeAny ? PhoneScreenError.neverOnline : PhoneScreenError.createFailed
@@ -54,10 +54,10 @@ public final class PhoneDisplayService: PhoneDisplays {
         try? await Task.sleep(for: .seconds(1))
     }
 
-    public func ensureHiDPI(_ id: DisplayID, _ spec: PhoneScreenSpec) async -> Bool {
+    public func ensureHiDPI(_ id: DisplayID) async -> Bool {
         if DisplayMode.isHiDPI(id) { return true }
         Log.info("手机屏 #\(id) 现在是 \(DisplayMode.describe(id))，让帮手进程切到 2 倍")
-        let status = await runHelper(id, spec)
+        let status = await runHelper(id)
         try? await Task.sleep(for: .seconds(1))
         let ok = DisplayMode.isHiDPI(id)
         if ok {
@@ -83,19 +83,19 @@ public final class PhoneDisplayService: PhoneDisplays {
 
     // MARK: 内部
 
-    private func make(_ spec: PhoneScreenSpec, serial: UInt32) -> CGVirtualDisplay? {
+    private func make(serial: UInt32) -> CGVirtualDisplay? {
         let descriptor = CGVirtualDisplayDescriptor()
         descriptor.name = PhoneScreenSpec.name
-        descriptor.maxPixelsWide = UInt32(spec.pixelWidth)
-        descriptor.maxPixelsHigh = UInt32(spec.pixelHeight)
-        descriptor.sizeInMillimeters = CGSize(width: spec.millimeters.width, height: spec.millimeters.height)
+        descriptor.maxPixelsWide = UInt32(PhoneScreenSpec.pixelWidth)
+        descriptor.maxPixelsHigh = UInt32(PhoneScreenSpec.pixelHeight)
+        descriptor.sizeInMillimeters = CGSize(width: PhoneScreenSpec.millimeters.width, height: PhoneScreenSpec.millimeters.height)
         descriptor.vendorID = PhoneScreenSpec.vendorID
         descriptor.productID = PhoneScreenSpec.productID
         descriptor.serialNum = serial
         guard let display = autoreleasepool(invoking: { CGVirtualDisplay(descriptor: descriptor) }) else { return nil }
         let settings = CGVirtualDisplaySettings()
         settings.hiDPI = true
-        settings.modes = [CGVirtualDisplayMode(width: UInt(spec.width), height: UInt(spec.height), refreshRate: 60)]
+        settings.modes = [CGVirtualDisplayMode(width: UInt(PhoneScreenSpec.width), height: UInt(PhoneScreenSpec.height), refreshRate: 60)]
         guard autoreleasepool(invoking: { display.apply(settings) }) else {
             Log.warn("手机屏（serial=\(serial)）apply 失败")
             return nil
@@ -121,10 +121,10 @@ public final class PhoneDisplayService: PhoneDisplays {
     }
 
     /// 起帮手进程切模式，等它退出；返回退出码，起不来返回 nil
-    private func runHelper(_ id: DisplayID, _ spec: PhoneScreenSpec) async -> Int32? {
+    private func runHelper(_ id: DisplayID) async -> Int32? {
         let process = Process()
         process.executableURL = helper
-        process.arguments = ["--set-mode", "\(id)", "\(spec.width)", "\(spec.height)"]
+        process.arguments = ["--set-mode", "\(id)", "\(PhoneScreenSpec.width)", "\(PhoneScreenSpec.height)"]
         return await withCheckedContinuation { continuation in
             process.terminationHandler = { continuation.resume(returning: $0.terminationStatus) }
             do {

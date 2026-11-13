@@ -6,11 +6,11 @@ import Foundation
 @MainActor
 public protocol PhoneDisplays: AnyObject {
     /// 建一块手机屏，等它上线并确保 2 倍。上线不了就换备用身份，都不行就抛错
-    func create(_ spec: PhoneScreenSpec) async throws -> DisplayID
+    func create() async throws -> DisplayID
     /// 释放，等它下线
     func retire(_ id: DisplayID) async
     /// 不是 2 倍就让帮手进程切过去；返回此刻是不是 2 倍
-    func ensureHiDPI(_ id: DisplayID, _ spec: PhoneScreenSpec) async -> Bool
+    func ensureHiDPI(_ id: DisplayID) async -> Bool
     /// 整块屏的范围（辅助功能坐标，左上原点）。撤屏前用它认出原本就在这块屏上的窗口
     func bounds(_ id: DisplayID) -> CGRect?
     /// 窗口该铺满的区域（辅助功能坐标，左上原点）：这块屏扣掉菜单栏和底部小横条

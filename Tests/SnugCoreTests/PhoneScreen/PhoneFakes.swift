@@ -30,8 +30,8 @@ final class FakeDisplays: PhoneDisplays {
 
     init(journal: Journal) { self.journal = journal }
 
-    func create(_ spec: PhoneScreenSpec) async throws -> DisplayID {
-        journal.add("create \(spec.orientation)")
+    func create() async throws -> DisplayID {
+        journal.add("create")
         if failuresLeft > 0 {
             failuresLeft -= 1
             throw PhoneScreenError.neverOnline
@@ -48,7 +48,7 @@ final class FakeDisplays: PhoneDisplays {
         onRetire?()
     }
 
-    func ensureHiDPI(_ id: DisplayID, _ spec: PhoneScreenSpec) async -> Bool {
+    func ensureHiDPI(_ id: DisplayID) async -> Bool {
         journal.add("ensure \(id)")
         return hiDPI
     }
@@ -70,6 +70,7 @@ final class FakeWindows: WindowControl {
     private let state = Locked<[WindowKey: Window]>([:])
     private let blocked = Locked(false)
     private let grows = Locked(false)
+    private let minWidths = Locked<[WindowKey: CGFloat]>([:])
     private let moveHook = Locked<(@Sendable (WindowKey) -> Void)?>(nil)
     /// 设了就在每次挪窗口、发按键时记一下此刻还原记录在不在（检查「先记账再动手」）
     let ledger: URL?
@@ -83,6 +84,8 @@ final class FakeWindows: WindowControl {
     func block() { blocked.withLock { $0 = true } }
     /// 像终端那样：调字号时保持行列数，窗口跟着变大
     func growOnZoom() { grows.withLock { $0 = true } }
+    /// 像系统设置、Safari 那样：App 限定了最小宽度，再窄也压不下去
+    func setMinWidth(_ key: WindowKey, _ width: CGFloat) { minWidths.withLock { $0[key] = width } }
     /// 每次挪窗口前先调一下（检查挪的那一刻还原记录里写的是什么）
     func onMove(_ hook: @escaping @Sendable (WindowKey) -> Void) { moveHook.withLock { $0 = hook } }
 
@@ -112,8 +115,10 @@ final class FakeWindows: WindowControl {
         guard reachable, self.window(window) != nil else { return nil }
         moveHook.withLock { $0 }?(window)
         journal.add("move \(window.id) \(frame.short)\(mark)")
-        setFrame(window, frame)
-        return frame
+        var got = frame
+        if let min = minWidths.withLock({ $0[window] }) { got.size.width = max(got.width, min) }
+        setFrame(window, got)
+        return got
     }
 
     func setFullScreen(_ window: WindowKey, _ on: Bool) async {

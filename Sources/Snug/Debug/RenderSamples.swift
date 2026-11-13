@@ -87,31 +87,26 @@ enum RenderSamples {
 
     private static var phone: [RenderSample] {
         [
-            phoneSample("phone-portrait") { _ in },
-            phoneSample("phone-portrait-placed") { s in s.phone.placed = PhoneDesk.Placed(window: windows[0], zoom: 2) },
-            phoneSample("phone-portrait-placed-dark", dark: true) { s in s.phone.placed = PhoneDesk.Placed(window: windows[0], zoom: 2) },
-            phoneSample("phone-portrait-finder-notice") { s in
+            phoneSample("phone-list") { _ in },
+            phoneSample("phone-placed") { s in s.phone.placed = PhoneDesk.Placed(window: windows[0], zoom: 2) },
+            phoneSample("phone-placed-dark", dark: true) { s in s.phone.placed = PhoneDesk.Placed(window: windows[0], zoom: 2) },
+            phoneSample("phone-notice") { s in
                 s.phone.placed = PhoneDesk.Placed(window: windows[3], zoom: 0)
                 s.phone.notice = .windowGone
-            },
-            phoneSample("phone-landscape-placed", orientation: .landscape) { s in
-                s.phone.placed = PhoneDesk.Placed(window: windows[1], zoom: 1)
             },
             phoneSample("phone-empty", windows: []) { _ in },
         ]
     }
 
-    private static func phoneSample(_ name: String, dark: Bool = false, orientation: Orientation = .portrait,
-                                    windows list: [WindowInfo] = windows,
+    private static func phoneSample(_ name: String, dark: Bool = false, windows list: [WindowInfo] = windows,
                                     _ configure: @escaping @MainActor (AppState) -> Void) -> RenderSample {
-        let spec = PhoneScreenSpec(orientation)
-        return RenderSample(name: name, dark: dark, size: CGSize(width: spec.width, height: spec.height)) {
+        let size = CGSize(width: PhoneScreenSpec.width, height: PhoneScreenSpec.height)
+        return RenderSample(name: name, dark: dark, size: size) {
             let s = AppState()
             s.phone.screen = .ready(14)
-            s.phone.orientation = orientation
             configure(s)
             return AnyView(PhoneHomeView(state: s, catalog: WindowCatalog(sample: list), intents: stub)
-                .frame(width: CGFloat(spec.width), height: CGFloat(spec.height)))
+                .frame(width: size.width, height: size.height))
         }
     }
 }

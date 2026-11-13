@@ -5,7 +5,7 @@ import Foundation
 
 public enum RenderTarget: String, CaseIterable, Equatable, Sendable {
     case settings, welcome, about, legacy
-    /// 手机屏上的窗口列表（竖屏、横屏各几种状态）
+    /// 手机屏上的窗口列表（几种状态）
     case phone
 }
 

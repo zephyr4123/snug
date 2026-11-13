@@ -65,7 +65,6 @@ protocol PhoneIntents: AnyObject {
     func showList()
     func returnToPlaced()
     func putBack()
-    func rotate()
     func zoom(by delta: Int)
 }
 

@@ -1,4 +1,4 @@
-// 手机屏的调度中枢：什么时候加屏、撤屏，窗口怎么放上来、放回去，横竖怎么切，字号怎么改。
+// 手机屏的调度中枢：什么时候加屏、撤屏，窗口怎么放上来、放回去，字号怎么改。
 // 所有动作排成一队依次做（加屏要等上线、搬窗口要核对重试，中间不能被别的动作插进来）。
 // 隔离：只动手机屏和放上来的那一个窗口；加屏、撤屏被系统挪动的其它窗口放回原处；
 // 每一处改动先记账再动手，还原成功、或窗口确实没了才销账（崩溃后下次启动 recover() 按账还原）
@@ -17,7 +17,6 @@ public final class PhoneDesk {
         }
 
         public var screen = Screen.off
-        public var orientation = Orientation.portrait
         /// 手机屏上的窗口
         public var placed: Placed?
         /// 手机屏上显示窗口列表。没放窗口时总是显示
@@ -42,10 +41,8 @@ public final class PhoneDesk {
         case windowUnresponsive
         /// 还原记录写不进去，不敢动窗口
         case recordUnwritable
-        /// 手机屏还没好（刚切完横竖、屏幕组合还在变）
+        /// 手机屏还没好（屏幕组合还在变）
         case screenNotReady
-        /// 横竖切换没成，退回了原来的方向
-        case rotateFailed
     }
 
     public struct Placed: Equatable, Sendable {
@@ -63,7 +60,6 @@ public final class PhoneDesk {
     public enum Work: Equatable, Sendable {
         case placing(WindowKey)
         case puttingBack
-        case rotating
         case zooming
     }
 
@@ -152,15 +148,6 @@ public final class PhoneDesk {
         begin(.puttingBack)
         lane.run {
             if let p = self.placement { await self.returnToOriginal(p) }
-            self.state.work = nil
-        }
-    }
-
-    /// 横过来 / 竖回去
-    public func rotate() {
-        begin(.rotating)
-        lane.run {
-            await self.flipOrientation()
             self.state.work = nil
         }
     }
@@ -255,17 +242,16 @@ public final class PhoneDesk {
     }
 
     private func addScreen() async {
-        let spec = PhoneScreenSpec(state.orientation)
         state.screen = .preparing
         let before = await windows.snapshot()
         onTopologyChange?()
         do {
-            let id = try await displays.create(spec)
+            let id = try await displays.create()
             display = (id, timeline.now)
             failures = 0
             await windows.restore(before, except: placement?.window.key)
             state.screen = .ready(id)
-            Log.info("手机屏 #\(id) 已就绪（\(spec.width)x\(spec.height)）")
+            Log.info("手机屏 #\(id) 已就绪（\(PhoneScreenSpec.width)x\(PhoneScreenSpec.height)）")
         } catch {
             state.screen = .failed
             Log.error("加手机屏失败：\(error)")
@@ -301,7 +287,6 @@ public final class PhoneDesk {
         if let p = placement { await returnToOriginal(p) }
         await retireDisplay()
         state.screen = .off
-        state.orientation = .portrait
         state.listVisible = true
     }
 
@@ -320,44 +305,22 @@ public final class PhoneDesk {
         Log.info("已撤掉手机屏 #\(id)")
     }
 
-    private func flipOrientation() async {
-        let from = state.orientation
-        state.orientation = from.flipped
-        guard display != nil else { return }
-        // 先撤旧屏再建新屏：两块手机屏同时在时切好的 2 倍，旧屏一撤、屏幕组合一变，系统会把新屏退回 1 倍（实测）
-        await retireDisplay()
-        await addScreen()
-        if display == nil {
-            // 新方向建不出来：退回原来的方向，别让手机屏就此消失
-            Log.warn("横竖切换：\(state.orientation) 的手机屏建不出来，退回 \(from)")
-            state.orientation = from
-            state.notice = .rotateFailed
-            await addScreen()
-        }
-        guard let p = placement else { return }
-        guard let area = readyArea(for: "横竖切换后放回 \(p.window.label)") else {
-            await returnToOriginal(p)
-            return
-        }
-        await windows.move(p.window.key, to: area)
-        await windows.focus(p.window.key)
-        state.listVisible = false
-    }
-
     private func recheck() async {
         guard let id = display?.id else { return }
-        if await !displays.ensureHiDPI(id, PhoneScreenSpec(state.orientation)) {
+        if await !displays.ensureHiDPI(id) {
             Log.warn("守护：手机屏 #\(id) 切不回 2 倍")
         }
         await refill(because: "屏幕配置变了")
     }
 
-    /// 窗口不再铺满手机屏就重新铺满（屏幕配置变了；终端类 App 调字号时会按行列数撑大窗口）
+    /// 窗口被挪动、撑大了（屏幕配置变了；终端类 App 调字号时会按行列数撑大窗口）就重新铺满。
+    /// 跟上次挪完的样子比，不跟手机屏比：App 限定了最小宽度时本来就铺不满，再挪也一样
     private func refill(because reason: String) async {
-        guard let id = display?.id, let p = placement, let area = displays.windowArea(id),
-              let frame = await windows.look(p.window.key)?.frame, !frame.matches(area) else { return }
+        guard let id = display?.id, var p = placement, let area = displays.windowArea(id),
+              let frame = await windows.look(p.window.key)?.frame, !frame.matches(p.settled ?? area) else { return }
         Log.info("\(reason)，\(p.window.label) 变成了 \(frame.short)，重新铺满")
-        await windows.move(p.window.key, to: area)
+        p.settled = await windows.move(p.window.key, to: area)
+        placement = p
     }
 
     // MARK: 放窗口
@@ -405,11 +368,12 @@ public final class PhoneDesk {
             state.notice = notice
             return
         }
+        next.settled = got
+        placement = next
         await windows.focus(window.key)
         state.listVisible = false
         let was = look.fullScreen ? "（原来全屏）" : look.minimized ? "（原来最小化）" : ""
-        Log.info("\(window.label) 放上手机屏：原位 \(next.original.short)\(was)，"
-                 + "\(got.matches(area) ? "已铺满" : "没铺满，实际 \(got.short)")")
+        Log.info("\(window.label) 放上手机屏：原位 \(next.original.short)\(was)，\(Self.describeFill(got, in: area))")
 
         let steps = zoomBook.steps(for: window.bundleID, default: defaultZoom)
         guard steps != 0 else { return }
@@ -504,6 +468,13 @@ public final class PhoneDesk {
         return area
     }
 
+    /// 铺满了没有；没铺满多半是 App 限定了最小尺寸（系统设置宽度固定 740，Safari 至少 574），窗口靠左放
+    private static func describeFill(_ got: CGRect, in area: CGRect) -> String {
+        if got.matches(area) { return "已铺满" }
+        if got.width > area.width + 2 { return "App 限定宽度至少 \(Int(got.width))，铺不满，靠左放（实际 \(got.short)）" }
+        return "没铺满，实际 \(got.short)"
+    }
+
     /// 读不到、挪不动的窗口：是关了，还是 App 没响应
     private func unreachable(_ window: WindowKey) async -> Notice {
         await windows.exists(window) ? .windowUnresponsive : .windowGone
@@ -545,6 +516,8 @@ private struct Placement {
     let wasFullScreen: Bool
     let wasMinimized: Bool
     var zoom: Int
+    /// 上次挪完的样子：App 限定了最小尺寸时铺不满，以它为准判断窗口有没有被再挪动
+    var settled: CGRect?
 
     var record: PhoneRecord {
         PhoneRecord(window: window.key, label: window.label, original: original, wasFullScreen: wasFullScreen,

@@ -151,7 +151,8 @@ public final class WindowService: WindowControl {
         Thread.sleep(forTimeInterval: 0.5)
     }
 
-    /// 先改大小、再挪、再改大小，然后核对，对不上就重来
+    /// 先改大小、再挪、再改大小，然后核对，对不上就重来。
+    /// 位置对了、连着两次尺寸都一样，就是 App 限定了最小尺寸（系统设置、Safari……），再试也一样，不空等
     private static func move(_ element: AXUIElement, to target: CGRect) -> CGRect? {
         var got: CGRect?
         for _ in 0..<maxTries {
@@ -159,8 +160,11 @@ public final class WindowService: WindowControl {
             AX.setPosition(element, target.origin)
             AX.setSize(element, target.size)
             Thread.sleep(forTimeInterval: retryDelay)
+            let previous = got
             got = AX.frame(element)
-            if got?.matches(target) == true { break }
+            guard let now = got, !now.matches(target) else { break }
+            let placed = abs(now.minX - target.minX) < 2 && abs(now.minY - target.minY) < 2
+            if let previous, now.matches(previous), placed { break }
         }
         return got
     }
