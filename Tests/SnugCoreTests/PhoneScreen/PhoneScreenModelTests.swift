@@ -35,7 +35,9 @@ struct ControllerKindTests {
 
     @Test("电脑不加")
     func computer() {
-        for name in ["MacBook Air", "张三的Mac mini", "iMac", "DESKTOP-7Q2K1LM", "LAPTOP-AB12", "ThinkPad-X1", "办公室电脑", "Windows 11"] {
+        for name in ["MacBook Air", "张三的Mac mini", "iMac", "DESKTOP-7Q2K1LM", "LAPTOP-AB12", "ThinkPad-X1", "办公室电脑", "Windows 11",
+                     "HUAWEI MateBook X Pro", "HONOR MagicBook 14", "RedmiBook Pro 15", "Xiaomi Book Air", "Galaxy Book4",
+                     "Surface Laptop 5", "Surface Pro 9"] {
             #expect(ControllerKind(name: name) == .computer, "\(name)")
             #expect(!ControllerKind(name: name).wantsPhoneScreen)
         }

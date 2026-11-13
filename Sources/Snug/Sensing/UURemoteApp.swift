@@ -10,6 +10,12 @@ enum UURemoteApp {
         NSRunningApplication.runningApplications(withBundleIdentifier: UURemote.bundleID).first?.processIdentifier
     }
 
+    /// UURemoteServer（被远程时推流的后台进程）的进程号；没在运行返回 nil。它没有 bundle ID，按可执行文件名认
+    static func serverPID() -> pid_t? {
+        NSWorkspace.shared.runningApplications
+            .first { $0.executableURL?.lastPathComponent == UURemote.serverProcess }?.processIdentifier
+    }
+
     /// UURemoteServer 的覆盖窗口在屏：被远程时 UU 会在本机屏幕上放一个提示窗口
     static func overlayVisible() -> Bool {
         guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else {

@@ -9,6 +9,8 @@ private let none = UUSignals(overlayVisible: false, controllers: [], captureActi
 private let overlay = UUSignals(overlayVisible: true, controllers: nil, captureActive: nil)
 private func table(_ names: String...) -> UUSignals { UUSignals(overlayVisible: false, controllers: names, captureActive: nil) }
 private func capture(_ on: Bool?) -> UUSignals { UUSignals(overlayVisible: false, controllers: nil, captureActive: on) }
+/// 推流还在，表格读得到、明确没人
+private func captureButNobody(_ on: Bool?) -> UUSignals { UUSignals(overlayVisible: false, controllers: [], captureActive: on) }
 
 @Suite("连接判定 ConnectionTracker")
 struct ConnectionTrackerTests {
@@ -86,26 +88,40 @@ struct ConnectionTrackerTests {
         #expect(t.update(capture(false), now: at(11.6)) == .disconnected)
     }
 
-    @Test("推流卡在 true：其余信号连续缺席超过 60s 判断开，之后卡住的 true 不再算在场，推流重新开始才算")
+    @Test("推流卡在 true：控制端表格连续 60s 明确显示没人才判断开，之后卡住的 true 不再算在场，推流重新开始才算")
     func captureVetoCap() {
         var t = ConnectionTracker()
         _ = t.update(UUSignals(overlayVisible: true, controllers: ["iPhone"], captureActive: true), now: at(0))
-        #expect(t.update(capture(true), now: at(30)) == nil)
-        #expect(t.update(capture(true), now: at(60)) == nil)
-        #expect(t.update(capture(true), now: at(60.1)) == .disconnected)
-        #expect(t.update(capture(true), now: at(61)) == nil)
-        #expect(t.update(capture(true), now: at(120)) == nil)
-        #expect(t.update(capture(false), now: at(121)) == nil)
-        #expect(t.update(capture(true), now: at(122)) == .connected(controller: nil))
+        #expect(t.update(captureButNobody(true), now: at(30)) == nil)
+        #expect(t.update(captureButNobody(true), now: at(60)) == nil)
+        #expect(t.update(captureButNobody(true), now: at(60.1)) == .disconnected)
+        #expect(t.update(captureButNobody(true), now: at(61)) == nil)
+        #expect(t.update(captureButNobody(true), now: at(120)) == nil)
+        #expect(t.update(captureButNobody(false), now: at(121)) == nil)
+        #expect(t.update(captureButNobody(true), now: at(122)) == .connected(controller: nil))
+    }
+
+    @Test("表格读不到（UU 主窗口关着）时推流是唯一的信号：一直连着，不按缺席计时")
+    func captureAloneWhenTableUnreadable() {
+        var t = ConnectionTracker()
+        #expect(t.update(capture(true), now: at(0)) == .connected(controller: nil))
+        for s in stride(from: 10.0, through: 300.0, by: 10.0) {
+            #expect(t.update(capture(true), now: at(s)) == nil)
+        }
+        #expect(t.isConnected)
+        // 下一拍起表格读得到、没人：从最后一次读不到（300）起计时
+        #expect(t.update(captureButNobody(true), now: at(300.5)) == nil)
+        #expect(t.update(captureButNobody(true), now: at(360)) == nil)
+        #expect(t.update(captureButNobody(true), now: at(360.1)) == .disconnected)
     }
 
     @Test("推流否决上限也要等过静默期")
     func captureCapRespectsQuiet() {
         var t = ConnectionTracker()
-        _ = t.update(UUSignals(overlayVisible: true, controllers: nil, captureActive: true), now: at(0))
+        _ = t.update(UUSignals(overlayVisible: true, controllers: [], captureActive: true), now: at(0))
         t.noteSelfInducedChange(at: at(58))
-        #expect(t.update(capture(true), now: at(61)) == nil)
-        #expect(t.update(capture(true), now: at(63.1)) == .disconnected)
+        #expect(t.update(captureButNobody(true), now: at(61)) == nil)
+        #expect(t.update(captureButNobody(true), now: at(63.1)) == .disconnected)
     }
 
     @Test("控制端名字：先没有后出现、或换人，发 controllerChanged；读不到时保留原名")

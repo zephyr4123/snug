@@ -4,7 +4,9 @@
 //   1. 连续不在场超过 disconnectDebounce（UU 切屏时覆盖窗口会短暂重建）
 //   2. 过了自扰静默期：本工具自己加屏、撤屏后 quietWindow 内不判。屏幕组合一变，UU 会停流重开、重建窗口，
 //      2026-11-12 19:01 就因为改屏幕扰乱了 UU 的信号被误判为断开，屏幕改回去信号又回来，如此反复
-//   3. 推流不在进行；推流还在但其余信号已连续缺席超过 maxCaptureVeto 时也判（安全上限，防推流日志误判让手机屏一直撤不掉）。
+//   3. 推流不在进行；推流还在但控制端表格连续 maxCaptureVeto 明确显示没人时也判（安全上限，防推流日志误判让手机屏一直撤不掉）。
+//      只认「读得到、没人」这个反证：表格读不到（UU 主窗口关着）时不计时——覆盖窗口实测从没出现过，
+//      主窗口关着时推流就是唯一的信号，按「缺席」计时会在正常远程 60s 后把手机屏撤掉。
 //      上限生效后，这段卡住的「推流中」不再算在场，直到推流状态先变成非 true 再重新开始
 import Foundation
 
@@ -18,7 +20,8 @@ public struct ConnectionTracker: Sendable {
 
     private var connectedAt: Date?
     private var lastPresentAt: Date?
-    private var lastUIPresentAt: Date?
+    /// 最近一次没有「明确没人」的反证（其余信号在场，或表格读不到）
+    private var lastUnrefutedAt: Date?
     private var quietUntil: Date?
     /// 推流否决上限已经用过：卡住的 true 不再算在场
     private var captureDistrusted = false
@@ -35,7 +38,7 @@ public struct ConnectionTracker: Sendable {
         if signals.captureActive != true { captureDistrusted = false }
         let captureCounts = signals.captureActive == true && !captureDistrusted
         let present = signals.uiPresent || captureCounts
-        if signals.uiPresent { lastUIPresentAt = now }
+        if signals.uiPresent || signals.controllers == nil { lastUnrefutedAt = now }
         if present { lastPresentAt = now }
 
         guard isConnected else {
@@ -54,11 +57,11 @@ public struct ConnectionTracker: Sendable {
                 return .controllerChanged(name)
             }
             if !captureCounts || signals.uiPresent { return nil }
-            // 只剩推流在撑着：看是否超过否决上限
-            let uiSince = max(lastUIPresentAt ?? .distantPast, connectedAt ?? now)
-            guard now.timeIntervalSince(uiSince) > Self.maxCaptureVeto, quietPassed(now) else { return nil }
+            // 只剩推流在撑着：表格明确显示没人超过否决上限才判
+            let refutedSince = max(lastUnrefutedAt ?? .distantPast, connectedAt ?? now)
+            guard now.timeIntervalSince(refutedSince) > Self.maxCaptureVeto, quietPassed(now) else { return nil }
             captureDistrusted = true
-            Log.warn("推流信号持续 \(Int(Self.maxCaptureVeto))s 以上没有其余信号佐证，按安全上限判为断开")
+            Log.warn("推流信号还在，但控制端表格已连续 \(Int(Self.maxCaptureVeto))s 显示没人，按安全上限判为断开")
             return disconnect(signals, now: now)
         }
 

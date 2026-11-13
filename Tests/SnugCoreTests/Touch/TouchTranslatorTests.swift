@@ -137,4 +137,45 @@ struct TouchTranslatorTests {
         #expect(scrolls(r).map(\.momentum) == [.end])
         #expect(!t.isCoasting)
     }
+
+    @Test("惯性中点一下：只是停住，不补发点击（不点到还在滚的内容）")
+    func tapStopsCoastWithoutClick() {
+        var t = TouchTranslator()
+        _ = t.handle(input(.press, 100, 300, 0), insidePhoneScreen: true)
+        for i in 1...5 { _ = t.handle(input(.drag, 100, 300 + 20 * Double(i), 0.02 * Double(i)), insidePhoneScreen: true) }
+        _ = t.handle(input(.release, 100, 400, 0.1), insidePhoneScreen: true)
+        _ = t.momentumFrame()
+        _ = t.handle(input(.press, 100, 300, 0.2), insidePhoneScreen: true)
+        let r = t.handle(input(.release, 100, 300, 0.3), insidePhoneScreen: true)
+        #expect(r.passOriginal == false)
+        #expect(r.commands.isEmpty)
+        // 下一次普通的点照常点击
+        _ = t.handle(input(.press, 100, 300, 1.0), insidePhoneScreen: true)
+        #expect(t.handle(input(.release, 100, 300, 1.1), insidePhoneScreen: true).commands == [.replayPress, .replayCurrent])
+    }
+
+    @Test("事件扎堆到达（网络抖了一下）：慢慢拖不会甩出几屏，速度按更长的跨度算、并且封顶")
+    func bunchedEventsDoNotOverFling() {
+        var t = TouchTranslator()
+        _ = t.handle(input(.press, 100, 300, 0), insidePhoneScreen: true)
+        // 每 50ms 拖 5 点，很慢
+        for i in 1...4 { _ = t.handle(input(.drag, 100, 300 + 5 * Double(i), 0.05 * Double(i)), insidePhoneScreen: true) }
+        // 停了 120ms，3 个拖动挤在 3ms 里一起到，随即松手
+        for i in 1...3 { _ = t.handle(input(.drag, 100, 320 + 5 * Double(i), 0.32 + 0.001 * Double(i)), insidePhoneScreen: true) }
+        _ = t.handle(input(.release, 100, 335, 0.324), insidePhoneScreen: true)
+        var total = 0.0
+        while let f = t.momentumFrame() { total += f.deltaY }
+        #expect(total < 200)
+    }
+
+    @Test("甩得再快，惯性速度也有上限")
+    func flingSpeedCapped() {
+        var t = TouchTranslator()
+        _ = t.handle(input(.press, 100, 0, 0), insidePhoneScreen: true)
+        for i in 1...5 { _ = t.handle(input(.drag, 100, 200 * Double(i), 0.02 * Double(i)), insidePhoneScreen: true) }
+        _ = t.handle(input(.release, 100, 1000, 0.1), insidePhoneScreen: true)
+        let first = t.momentumFrame()
+        let cap = TouchTranslator.maxFlingSpeed / Momentum.frameRate
+        #expect((first?.deltaY ?? 0) <= cap + 1)
+    }
 }

@@ -19,9 +19,10 @@ final class UUSensor {
 
     /// now 是墙钟：推流日志的时间戳是墙钟
     func sample(now: Date) -> UUSample {
-        UUSample(signals: UUSignals(overlayVisible: UURemoteApp.overlayVisible(),
-                                    controllers: controllers.poll(),
-                                    captureActive: captureLog.captureActive(at: now)),
-                 streamingDisplay: captureLog.streamingDisplay(at: now))
+        let capture = captureLog.sample(at: now)
+        return UUSample(signals: UUSignals(overlayVisible: UURemoteApp.overlayVisible(),
+                                           controllers: controllers.poll(),
+                                           captureActive: capture.active),
+                        streamingDisplay: capture.display)
     }
 }

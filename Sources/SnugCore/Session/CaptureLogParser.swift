@@ -30,6 +30,12 @@ public struct CaptureLogRecord: Equatable, Sendable {
 }
 
 public struct CaptureLogParser {
+    /// classify 认的几类行都含其中一个词。log 子进程按它过滤：Snug 少收、少解析，回看几个小时的日志也只有几百行
+    static let keywords = ["SCDisplay initWithDict:", "CaptureWithCompletionHandler:]", "Stopping stream due to", "VTCompressionSession"]
+    /// `log stream` / `log show` 的 --predicate
+    public static let predicate = "process == \"\(UURemote.serverProcess)\" AND ("
+        + keywords.map { "eventMessage CONTAINS \"\($0)\"" }.joined(separator: " OR ") + ")"
+
     private let formatter: DateFormatter
 
     public init() {
@@ -67,5 +73,33 @@ public struct CaptureLogParser {
     private static func displayID(in message: String) -> DisplayID? {
         guard let key = message.range(of: "displayID=") else { return nil }
         return DisplayID(message[key.upperBound...].prefix { $0.isNumber })
+    }
+}
+
+/// 把 log 子进程的输出切成行再解析：一行常被切在两块数据里，按字节攒到换行再解码（先解码会把切在中间的汉字解坏）
+public struct CaptureLogLineBuffer {
+    private var pending = Data()
+    private let parser = CaptureLogParser()
+
+    public init() {}
+
+    public mutating func feed(_ data: Data) -> [CaptureLogRecord] {
+        pending.append(data)
+        var records: [CaptureLogRecord] = []
+        while let newline = pending.firstIndex(of: 0x0A) {
+            if let r = parse(pending[pending.startIndex..<newline]) { records.append(r) }
+            pending.removeSubrange(pending.startIndex...newline)
+        }
+        return records
+    }
+
+    /// 输出结束：最后一行可能没有换行
+    public mutating func finish() -> [CaptureLogRecord] {
+        defer { pending.removeAll() }
+        return parse(pending).map { [$0] } ?? []
+    }
+
+    private func parse(_ line: Data) -> CaptureLogRecord? {
+        parser.parse(line: String(decoding: line, as: UTF8.self))
     }
 }

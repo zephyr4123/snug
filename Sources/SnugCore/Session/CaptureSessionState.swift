@@ -6,7 +6,10 @@
 // 只认推流开始的话，这两段会在会话进行中误判为已停流。
 // 探测性的编码会话（没有 encoded 摘要）不算终止；单独出现的新建编码会话也不会让状态变成推流中
 // （UU 进程启动时会成批试探编码参数）。
-// 顺带记下「UU 在推哪块屏」：推流开始前最后一次被描述的那块屏（UU 先枚举全部屏幕，再为要推的那块建过滤器、开推）
+// 顺带记下「UU 在推哪块屏」：推流开始前最后一次被描述的那块屏（UU 先枚举全部屏幕，再为要推的那块建过滤器、开推）。
+// UU 一次远程开头会先后起两路推流：第一路是画面，推用户在看的那块；紧跟着（中间没有终止）再起一路常驻的，
+// 开推前描述的总是主屏，一直推到远程结束。这第二路不能盖掉第一路的屏——
+// 22:57:12.969 先为 79（手机屏）开推，13.023 又为 1 开推，画面一直在 79 上
 import Foundation
 
 public struct CaptureSessionState: Sendable {
@@ -17,6 +20,8 @@ public struct CaptureSessionState: Sendable {
     private var pendingEndAt: Date?
     private var lastDescribed: DisplayID?
     private var captured: DisplayID?
+    /// 上次推流开始之后见过终止：没见过就是紧跟着起的第二路，不改 captured
+    private var stoppedSinceStart = true
 
     public init() {}
 
@@ -26,12 +31,14 @@ public struct CaptureSessionState: Sendable {
         case .displayDescribed(let id):
             lastDescribed = id
         case .captureStarted:
+            if !active || stoppedSinceStart { captured = lastDescribed }
+            stoppedSinceStart = false
             active = true
             pendingEndAt = nil
-            captured = lastDescribed
         case .encoderCreated:
             pendingEndAt = nil
         case .captureStopped, .encoderEnded:
+            stoppedSinceStart = true
             if active, pendingEndAt == nil { pendingEndAt = record.date }
         case .encoderProbeEnded:
             break
@@ -49,12 +56,23 @@ public struct CaptureSessionState: Sendable {
         isActive(at: now) ? captured : nil
     }
 
+    /// 日志监听（重新）启动时：先按时间回放启动前的日志（UU 的常驻推流只在远程开头打一次「开始」，不回放就以为没在推），
+    /// 再接上启动后收到的；两段重叠的部分按时间去掉
+    public static func resumed(history: [CaptureLogRecord], live: [CaptureLogRecord]) -> CaptureSessionState {
+        var state = CaptureSessionState()
+        for r in history { state.apply(r) }
+        let after = history.last?.date ?? .distantPast
+        for r in live where r.date > after { state.apply(r) }
+        return state
+    }
+
     /// 宽限已过的终止先落定，免得之后来的事件把一段早已结束的推流续上
     private mutating func settle(before date: Date) {
         if active, !isActive(at: date) {
             active = false
             pendingEndAt = nil
             captured = nil
+            stoppedSinceStart = true
         }
     }
 }

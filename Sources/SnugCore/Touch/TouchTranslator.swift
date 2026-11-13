@@ -1,5 +1,5 @@
 // 手势翻译：手机屏上，UU 发来的单指操作按 iPhone 的习惯重新解释。
-//   点一下          → 点击（连击计数原样保留，双击照常）
+//   点一下          → 点击（连击计数原样保留，双击照常）；惯性滚动时点一下只是停住，不点到内容
 //   单指滑动        → 滚动，松手带惯性
 //   按住 0.5 秒再拖 → 选择（照旧拖动）
 //   按住 0.5 秒松手 → 右键菜单（选区不丢，菜单里有拷贝、粘贴）
@@ -50,6 +50,10 @@ public struct TouchTranslator: Sendable {
     public static let holdDuration: TimeInterval = 0.5
     /// 用松手前这段时间的位移估算甩出去的速度
     static let flingWindow: TimeInterval = 0.1
+    /// 估速的样本至少跨这么久：事件经网络转发，会几个挤在几毫秒里一起到，跨度太短算出来的速度是假的
+    static let minFlingSpan: TimeInterval = 0.04
+    /// 甩出去的速度上限（点/秒）：约滚一千多点就停
+    static let maxFlingSpeed = 4000.0
 
     private enum Phase: Equatable {
         case idle
@@ -65,6 +69,8 @@ public struct TouchTranslator: Sendable {
     private var samples: [(time: TimeInterval, point: CGPoint)] = []
     private var wheel = ScrollWheel()
     private var momentum: Momentum?
+    /// 这次按下停掉了惯性：很快松手就只是停住，不补发点击
+    private var pressStoppedCoast = false
 
     public init() {}
 
@@ -98,6 +104,7 @@ public struct TouchTranslator: Sendable {
             phase = .idle
             return TouchResponse(passOriginal: true, commands: stop)
         }
+        pressStoppedCoast = !stop.isEmpty
         phase = .pending(since: input.time)
         origin = input.location
         last = input.location
@@ -135,7 +142,8 @@ public struct TouchTranslator: Sendable {
             if input.time - since >= Self.holdDuration {
                 return .swallow([.rightClick(at: origin)])
             }
-            return .swallow([.replayPress, .replayCurrent])
+            // iPhone 上点一下正在滚的列表只是停住；补发点击会点到手指下还在移动的东西
+            return pressStoppedCoast ? .swallow() : .swallow([.replayPress, .replayCurrent])
         case .scrolling:
             phase = .idle
             let ended = wheel.step(dx: 0, dy: 0, phase: .ended, momentum: .none, at: origin)
@@ -159,12 +167,19 @@ public struct TouchTranslator: Sendable {
         return [.scroll(wheel.step(dx: 0, dy: 0, phase: .none, momentum: .end, at: origin))]
     }
 
-    /// 松手前 flingWindow 内的平均速度（点/秒）
+    /// 松手前 flingWindow 内的平均速度（点/秒）。松手前停住了（窗口里不到两个样本）就不甩。
+    /// 样本跨度不到 minFlingSpan 时往前多取，再封顶 maxFlingSpeed
     private func flingVelocity(at time: TimeInterval) -> (x: Double, y: Double) {
         let recent = samples.filter { time - $0.time <= Self.flingWindow }
-        guard let a = recent.first, let b = recent.last, b.time > a.time else { return (0, 0) }
+        guard var a = recent.first, let b = recent.last, b.time > a.time else { return (0, 0) }
+        if b.time - a.time < Self.minFlingSpan {
+            a = samples.last { b.time - $0.time >= Self.minFlingSpan } ?? samples[0]
+        }
         let dt = b.time - a.time
-        return (Double(b.point.x - a.point.x) / dt, Double(b.point.y - a.point.y) / dt)
+        let v = (x: Double(b.point.x - a.point.x) / dt, y: Double(b.point.y - a.point.y) / dt)
+        let speed = hypot(v.x, v.y)
+        guard speed > Self.maxFlingSpeed else { return v }
+        return (v.x / speed * Self.maxFlingSpeed, v.y / speed * Self.maxFlingSpeed)
     }
 
     private func distance(_ a: CGPoint, _ b: CGPoint) -> Double { hypot(Double(a.x - b.x), Double(a.y - b.y)) }

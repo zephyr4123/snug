@@ -13,8 +13,12 @@ public enum ControllerKind: Equatable, Sendable {
     private static let mobileHints = ["iphone", "ipad", "matepad", "android", "phone", "手机", "平板"]
     /// 单独成词的「pad」才算平板（OPPO Pad、Xiaomi Pad）：ThinkPad 是笔记本
     private static let tabletWord = "pad"
-    /// Windows 默认的机器名是 DESKTOP-xxxx / LAPTOP-xxxx；Mac 的名字里带 Mac（MacBook、iMac、Mac mini）
-    private static let computerHints = ["mac", "desktop-", "laptop-", "thinkpad", "pc", "windows", "电脑", "笔记本", "台式"]
+    /// Windows 默认的机器名是 DESKTOP-xxxx / LAPTOP-xxxx；Mac 的名字里带 Mac（MacBook、iMac、Mac mini）；
+    /// 国产和其它品牌的笔记本常用出厂名（HUAWEI MateBook、HONOR MagicBook、RedmiBook、Galaxy Book、Surface）
+    private static let computerHints = ["mac", "desktop-", "thinkpad", "pc", "windows", "matebook", "magicbook", "redmibook",
+                                        "xiaomi book", "galaxy book", "surface", "电脑", "笔记本", "台式"]
+    /// 单独成词才算（LAPTOP-AB12、Surface Laptop 5）
+    private static let computerWords: Set<Substring> = ["laptop", "notebook"]
 
     public init(name: String?) {
         guard let n = name?.lowercased(), !n.isEmpty else {
@@ -24,7 +28,7 @@ public enum ControllerKind: Equatable, Sendable {
         let words = n.split { !$0.isLetter && !$0.isNumber }
         if Self.mobileHints.contains(where: n.contains) || words.contains(Substring(Self.tabletWord)) {
             self = .mobile
-        } else if Self.computerHints.contains(where: n.contains) {
+        } else if Self.computerHints.contains(where: n.contains) || words.contains(where: Self.computerWords.contains) {
             self = .computer
         } else {
             self = .unknown

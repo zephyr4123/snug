@@ -168,4 +168,74 @@ struct CaptureLogTests {
         s.apply(CaptureLogRecord(date: d, event: .encoderProbeEnded))
         #expect(!s.isActive(at: d.addingTimeInterval(1)))
     }
+
+    @Test("22:57 夹具：一开场就落在手机屏 79；紧跟着起的常驻第二路描述成主屏 1，不能盖掉 79")
+    func secondStreamKeepsDisplay() throws {
+        let parser = CaptureLogParser()
+        var state = CaptureSessionState()
+        for line in try fixture("2257") { if let r = parser.parse(line: line) { state.apply(r) } }
+        #expect(state.streamingDisplay(at: ts("22:57:14.000")) == 79)
+    }
+
+    @Test("停流后再开推（切屏）照常换成新描述的屏")
+    func restartAfterStopSwitchesDisplay() {
+        var s = CaptureSessionState()
+        let d = ts("21:00:00.000")
+        s.apply(CaptureLogRecord(date: d, event: .displayDescribed(79)))
+        s.apply(CaptureLogRecord(date: d.addingTimeInterval(0.1), event: .captureStarted))
+        s.apply(CaptureLogRecord(date: d.addingTimeInterval(0.2), event: .displayDescribed(1)))
+        s.apply(CaptureLogRecord(date: d.addingTimeInterval(0.3), event: .captureStarted))   // 第二路
+        #expect(s.streamingDisplay(at: d.addingTimeInterval(4)) == 79)
+        s.apply(CaptureLogRecord(date: d.addingTimeInterval(5), event: .captureStopped))     // 用户切屏
+        s.apply(CaptureLogRecord(date: d.addingTimeInterval(5.04), event: .displayDescribed(5)))
+        s.apply(CaptureLogRecord(date: d.addingTimeInterval(5.05), event: .captureStarted))
+        #expect(s.streamingDisplay(at: d.addingTimeInterval(6)) == 5)
+    }
+
+    @Test("监听中途启动：回放启动前的日志再接上实时日志，认得出正在推、推的是哪块屏")
+    func resumedFromHistory() {
+        let d = ts("22:00:00.000")
+        let history = [
+            CaptureLogRecord(date: d, event: .displayDescribed(79)),
+            CaptureLogRecord(date: d.addingTimeInterval(0.1), event: .captureStarted),
+            CaptureLogRecord(date: d.addingTimeInterval(600), event: .captureStopped),
+        ]
+        // 实时这段和回放的最后一条重叠，之后又开推
+        let live = [
+            CaptureLogRecord(date: d.addingTimeInterval(600), event: .captureStopped),
+            CaptureLogRecord(date: d.addingTimeInterval(600.5), event: .displayDescribed(5)),
+            CaptureLogRecord(date: d.addingTimeInterval(600.6), event: .captureStarted),
+        ]
+        let s = CaptureSessionState.resumed(history: history, live: live)
+        #expect(s.isActive(at: d.addingTimeInterval(700)))
+        #expect(s.streamingDisplay(at: d.addingTimeInterval(700)) == 5)
+        // 没有回放时（回看失败）只靠实时日志
+        #expect(CaptureSessionState.resumed(history: [], live: Array(live.prefix(1))).isActive(at: d.addingTimeInterval(700)) == false)
+    }
+
+    @Test("按字节切行：一行切在两块里、一块里有多行、结尾半行等到 finish 才解析")
+    func lineBuffer() {
+        let a = message(startCapture, at: "19:01:43.000000"), b = message(stopCapture, at: "19:01:44.000000")
+        let bytes = Array((a + "\n" + b).utf8)
+        var buffer = CaptureLogLineBuffer()
+        let cut = a.utf8.count / 2
+        #expect(buffer.feed(Data(bytes[..<cut])).isEmpty)
+        #expect(buffer.feed(Data(bytes[cut...])).map(\.event) == [.captureStarted])
+        #expect(buffer.finish().map(\.event) == [.captureStopped])
+        var many = CaptureLogLineBuffer()
+        #expect(many.feed(Data((a + "\n" + b + "\n").utf8)).map(\.event) == [.captureStarted, .captureStopped])
+    }
+
+    @Test("日志过滤条件：解析器认得的每类行都含其中一个关键词（过滤了不会漏）")
+    func predicateCoversClassified() {
+        let samples = [scDisplay(1), startCapture, stopCapture,
+                       " [INFO] Stopping stream due to stream frameStatus=7",
+                       "<<<< VT-CS >>>> VTCompressionSessionCreateWithOptions: [0x1:CS/A] new compression session",
+                       "<<<< VT-CS >>>> VTCompressionSessionInvalidate: [0x1:CS/A] invalidating compression session"]
+        for text in samples {
+            #expect(CaptureLogParser.classify(text) != nil)
+            #expect(CaptureLogParser.keywords.contains { text.contains($0) })
+        }
+        #expect(CaptureLogParser.predicate.hasPrefix("process == \"UURemoteServer\" AND ("))
+    }
 }
