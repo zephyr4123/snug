@@ -1,37 +1,61 @@
 #!/bin/zsh
-# 构建「UUyc companion.app」（中文系统显示为「UU远程伴侣」，「UUDisplay Signing」证书签名）。
-# 用法：scripts/build-app.sh [--install]
-# 对外名称已改，内部标识保持不变：Bundle ID com.corndog.uudisplay（辅助功能授权按它识别）、
-# 可执行文件 UUDisplay / UUDisplayWatchdog、配置目录与日志文件名
-# 固定证书签名后，签名要求不随每次构建变化，升级后「辅助功能」等授权可保留（ad-hoc 签名每次都会失效）
-# --install：复制到 /Applications 并启动
+# 构建 build/Snug.app：主程序 Snug、看门狗 SnugWatchdog（同一个二进制，带 --watchdog 运行）、救急命令行 snug-rescue。
+# 只构建，不安装、不启动。版本号只从仓库根目录的 VERSION 读。
+#
+# 签名（按顺序）：
+#   1. SIGN_IDENTITY 环境变量：证书名或 SHA-1；"-" 表示 ad-hoc
+#   2. 没设就在钥匙串里找唯一一张「Developer ID Application」证书（有多张时报错，请用 SIGN_IDENTITY 指定）
+#   3. 都没有就退回 ad-hoc 并警告：ad-hoc 签名每次构建后，辅助功能授权都会失效
+# Developer ID 证书签名时带 --options runtime --timestamp（公证要求）
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="1.1.3"
-APP_NAME="UUyc companion"
-APP="build/$APP_NAME.app"
-LEGACY_APP="/Applications/UUDisplay.app"   # 改名前的安装位置
-SIGN_IDENTITY="${SIGN_IDENTITY:-UUDisplay Signing}"
+VERSION="$(tr -d '[:space:]' < VERSION)"
+BUNDLE_ID="com.zephyr4123.snug"
+APP="build/Snug.app"
 
-# SIGN_IDENTITY=- 表示 ad-hoc 签名（没有证书时从源码构建用；每次构建后辅助功能授权会失效）
-if [[ "$SIGN_IDENTITY" != "-" ]] && ! security find-identity -v -p codesigning | grep -q "\"$SIGN_IDENTITY\""; then
-  echo "❌ 钥匙串中找不到有效的代码签名证书「$SIGN_IDENTITY」；没有证书可用 SIGN_IDENTITY=- 改为 ad-hoc 签名" >&2
-  exit 1
+[[ "$VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || { echo "❌ VERSION 文件里的版本号不合法：「$VERSION」" >&2; exit 1; }
+
+# —— 选签名身份 ——
+IDENTITIES="$(security find-identity -v -p codesigning 2>/dev/null || true)"
+if [[ -n "${SIGN_IDENTITY:-}" ]]; then
+  IDENTITY="$SIGN_IDENTITY"
+  if [[ "$IDENTITY" != "-" ]] && ! print -r -- "$IDENTITIES" | grep -qF -- "$IDENTITY"; then
+    echo "❌ 钥匙串里找不到 SIGN_IDENTITY 指定的有效证书；ad-hoc 签名请设 SIGN_IDENTITY=-" >&2
+    exit 1
+  fi
+else
+  DEVELOPER_IDS=("${(@f)$(print -r -- "$IDENTITIES" | awk '/"Developer ID Application: /{print $2}')}")
+  DEVELOPER_IDS=(${DEVELOPER_IDS:#})   # 去掉空行
+  case ${#DEVELOPER_IDS} in
+    0) IDENTITY="-"
+       echo "⚠️  钥匙串里没有 Developer ID Application 证书，改用 ad-hoc 签名：每次构建后辅助功能授权都会失效，也不能公证分发" >&2 ;;
+    1) IDENTITY="${DEVELOPER_IDS[1]}"
+       echo "==> 使用钥匙串里唯一的 Developer ID Application 证书（SHA-1 ${IDENTITY[1,8]}…）" ;;
+    *) echo "❌ 钥匙串里有 ${#DEVELOPER_IDS} 张 Developer ID Application 证书，请用 SIGN_IDENTITY 指定一张" >&2
+       exit 1 ;;
+  esac
+fi
+SIGN_FLAGS=(--force --sign "$IDENTITY")
+if [[ "$IDENTITY" != "-" ]] && print -r -- "$IDENTITIES" | grep -F -- "$IDENTITY" | grep -q '"Developer ID Application: '; then
+  SIGN_FLAGS+=(--options runtime --timestamp)
 fi
 
-# 可执行目标已改名为 Snug；包内文件名、Bundle ID 等第二阶段随 App 标识一起换
-swift build -c release --build-system native --product Snug
-BIN="$(swift build -c release --build-system native --show-bin-path)/Snug"
+# —— 编译 ——
+swift build -c release --product Snug
+swift build -c release --product snug-rescue
+BIN_DIR="$(swift build -c release --show-bin-path)"
 
+# —— 组装 ——
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/UUDisplay"
-# 看门狗用独立文件名，避免 killall/pkill UUDisplay 时连同看门狗一起结束
-cp "$BIN" "$APP/Contents/MacOS/UUDisplayWatchdog"
-# PermissionFlow 资源包（本地化文案等），放 Contents/Resources 供 PermissionFlowResources 查找
-cp -R "$(dirname "$BIN")/PermissionFlow_PermissionFlow.bundle" "$APP/Contents/Resources/"
-# 功能导览配图（TourKit 从 Bundle.main 的 Resources 根目录按文件名查找）
+cp "$BIN_DIR/Snug" "$APP/Contents/MacOS/Snug"
+# 看门狗用独立文件名：pkill Snug 时不会连带结束它，「登录项与扩展」里也认得出来
+cp "$BIN_DIR/Snug" "$APP/Contents/MacOS/SnugWatchdog"
+cp "$BIN_DIR/snug-rescue" "$APP/Contents/MacOS/snug-rescue"
+# PermissionFlow 资源包（本地化文案等），PermissionFlowResources 在 Contents/Resources 里找
+cp -R "$BIN_DIR/PermissionFlow_PermissionFlow.bundle" "$APP/Contents/Resources/"
+# 导览配图（TourKit 按文件名从 Bundle.main 的 Resources 根目录取）
 cp Assets/Tour/*.png "$APP/Contents/Resources/"
 # App 图标与菜单栏模板图（见 Assets/AppIcon/README.md）
 cp Assets/AppIcon/AppIcon.icns Assets/AppIcon/MenuBarIconTemplate.png Assets/AppIcon/MenuBarIconTemplate@2x.png "$APP/Contents/Resources/"
@@ -40,40 +64,26 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleIdentifier</key><string>com.corndog.uudisplay</string>
-  <key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
-  <key>CFBundleLocalizations</key><array><string>zh-Hans</string><string>en</string></array>
-  <key>CFBundleName</key><string>UUyc companion</string>
-  <key>CFBundleDisplayName</key><string>UUyc companion</string>
-  <key>LSHasLocalizedDisplayName</key><true/>
-  <key>CFBundleExecutable</key><string>UUDisplay</string>
+  <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
+  <key>CFBundleName</key><string>Snug</string>
+  <key>CFBundleDisplayName</key><string>Snug</string>
+  <key>CFBundleExecutable</key><string>Snug</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>${VERSION}</string>
   <key>CFBundleVersion</key><string>${VERSION}</string>
+  <key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
+  <key>CFBundleLocalizations</key><array><string>zh-Hans</string><string>en</string></array>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
 </dict>
 </plist>
 PLIST
-# 看门狗 LaunchAgent 由 App 运行时写入 ~/Library/LaunchAgents 并用 launchctl 加载（见 WatchdogAgent）
-# 本地化名称：中文系统显示「UU远程伴侣」，其他语言显示「UUyc companion」
-mkdir -p "$APP/Contents/Resources/zh-Hans.lproj" "$APP/Contents/Resources/en.lproj"
-printf '"CFBundleDisplayName" = "UU远程伴侣";\n"CFBundleName" = "UU远程伴侣";\n' > "$APP/Contents/Resources/zh-Hans.lproj/InfoPlist.strings"
-printf '"CFBundleDisplayName" = "UUyc companion";\n"CFBundleName" = "UUyc companion";\n' > "$APP/Contents/Resources/en.lproj/InfoPlist.strings"
 
-# 先签内嵌的看门狗可执行文件，再签整个 App
-codesign --force --sign "$SIGN_IDENTITY" --identifier com.corndog.uudisplay.watchdog "$APP/Contents/MacOS/UUDisplayWatchdog"
-codesign --force --sign "$SIGN_IDENTITY" --identifier com.corndog.uudisplay "$APP"
+# —— 签名：先签内嵌的可执行文件，再签整个 App ——
+codesign "${SIGN_FLAGS[@]}" --identifier "${BUNDLE_ID}.watchdog" "$APP/Contents/MacOS/SnugWatchdog"
+codesign "${SIGN_FLAGS[@]}" --identifier "${BUNDLE_ID}.rescue" "$APP/Contents/MacOS/snug-rescue"
+codesign "${SIGN_FLAGS[@]}" --identifier "${BUNDLE_ID}" "$APP"
 codesign --verify --strict --deep "$APP"
-echo "✅ 已生成 $APP"
-
-if [[ "${1:-}" == "--install" ]]; then
-  pkill -x UUDisplay 2>/dev/null && sleep 1 || true
-  pkill -x UUDisplayWatchdog 2>/dev/null || true
-  rm -rf "$LEGACY_APP" "/Applications/$APP_NAME.app"
-  cp -R "$APP" /Applications/
-  open "/Applications/$APP_NAME.app"
-  echo "✅ 已安装到 /Applications 并启动"
-fi
+echo "✅ 已生成 $APP（版本 ${VERSION}，签名：$([[ "$IDENTITY" == "-" ]] && echo ad-hoc || echo "${IDENTITY[1,8]}…")）"
