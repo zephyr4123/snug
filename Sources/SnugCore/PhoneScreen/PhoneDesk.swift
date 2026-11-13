@@ -189,17 +189,26 @@ public final class PhoneDesk {
         }
     }
 
-    /// 定期调用：手机屏上的窗口被关掉了，就回到窗口列表。只认窗口服务器的结论：App 一时没响应不算关了
+    /// 定期调用：手机屏上的窗口被关掉了，就回到窗口列表。只认窗口服务器的结论：App 一时没响应不算关了。
+    /// 窗口还在却不在屏上（被最小化、App 被隐藏、关成了隐藏），手机屏上只剩空桌面：也回到列表，
+    /// 但它照旧算放着、还原记录留着，可以返回它、还原或换一个
     public func verifyPlacement() {
         guard placement != nil, state.work == nil, !verifying else { return }
         verifying = true
         lane.run {
             defer { self.verifying = false }
-            guard let p = self.placement, await !self.windows.exists(p.window.key) else { return }
-            Log.info("手机屏上的 \(p.window.label) 已经关了，回到窗口列表")
-            self.placement = nil
-            self.state.listVisible = true
-            self.settleRecord()
+            guard let p = self.placement else { return }
+            guard await self.windows.exists(p.window.key) else {
+                Log.info("手机屏上的 \(p.window.label) 已经关了，回到窗口列表")
+                self.placement = nil
+                self.state.listVisible = true
+                self.settleRecord()
+                return
+            }
+            if !self.state.listVisible, await !self.windows.isShown(p.window.key) {
+                Log.info("手机屏上的 \(p.window.label) 不在屏上了（最小化、隐藏或关成了隐藏），回到窗口列表")
+                self.state.listVisible = true
+            }
         }
     }
 

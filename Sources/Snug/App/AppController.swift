@@ -38,6 +38,7 @@ final class AppController {
                          defaultZoom: store.config.zoomSteps)
         state.config = store.config
         state.accessibilityTrusted = AX.isTrusted
+        AX.configureTimeout()
     }
 
     var now: Date { anchor.date.addingTimeInterval(ProcessInfo.processInfo.systemUptime - anchor.uptime) }

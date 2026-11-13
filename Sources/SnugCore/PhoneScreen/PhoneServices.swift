@@ -5,7 +5,7 @@ import Foundation
 /// 建屏、撤屏。CGVirtualDisplay 要在主线程建和释放
 @MainActor
 public protocol PhoneDisplays: AnyObject {
-    /// 建一块手机屏，等它上线并确保 2 倍。上线不了就换备用身份，都不行就抛错
+    /// 建一块手机屏，等它上线，尽量切到 2 倍（切不成只记日志、照样返回）。上线不了就换备用身份，都不行就抛错
     func create() async throws -> DisplayID
     /// 释放，等它下线
     func retire(_ id: DisplayID) async
@@ -37,6 +37,8 @@ public struct WindowLook: Equatable, Sendable {
 public protocol WindowControl: Sendable {
     /// 窗口还在不在：问窗口服务器，不经过 App，App 卡住、没有权限都不影响
     func exists(_ window: WindowKey) async -> Bool
+    /// 窗口此刻在不在屏上（也问窗口服务器）：最小化、App 被隐藏、关成了隐藏（飞书、微信点关闭只是藏起来）都不在
+    func isShown(_ window: WindowKey) async -> Bool
     /// 读不到（窗口没了、App 没响应、没有权限）返回 nil
     func look(_ window: WindowKey) async -> WindowLook?
     /// 挪到 frame 并核对，对不上就重试；返回最后的位置，挪不动返回 nil

@@ -439,6 +439,19 @@ struct PhoneDeskTests {
         #expect(rig.record == nil)
     }
 
+    @Test("手机屏上的窗口还在却不在屏上（飞书点关闭只是藏起来）：回到列表，照旧算放着、记录留着")
+    func placedWindowHidden() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        await rig.pull(finder)
+        rig.windows.hide(finder.key)
+        rig.desk.verifyPlacement()
+        await rig.desk.idle()
+        #expect(rig.desk.state.listVisible)
+        #expect(rig.desk.state.placed?.window == finder)
+        #expect(rig.record?.window == finder.key)
+    }
+
     @Test("App 没响应（或权限被收回）：核对时不当成已关；放不回去的窗口记录留着，恢复时也不动")
     func unresponsiveApp() async throws {
         let rig = try Rig()

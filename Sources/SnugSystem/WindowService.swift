@@ -26,11 +26,12 @@ public final class WindowService: WindowControl {
 
     // MARK: WindowControl
 
-    public func exists(_ window: WindowKey) async -> Bool {
-        // 窗口服务器知道每个窗口（别的桌面空间、最小化的也在），不用等 App 响应，也不要权限
-        guard let info = CGWindowListCopyWindowInfo([.optionIncludingWindow], window.id) as? [[String: Any]],
-              let owner = (info.first?[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value else { return false }
-        return owner == window.pid
+    // 窗口服务器知道每个窗口（别的桌面空间、最小化、藏起来的也在），不用等 App 响应，也不要权限
+
+    public func exists(_ window: WindowKey) async -> Bool { Self.serverInfo(window) != nil }
+
+    public func isShown(_ window: WindowKey) async -> Bool {
+        (Self.serverInfo(window)?[kCGWindowIsOnscreen as String] as? Bool) == true
     }
 
     public func look(_ window: WindowKey) async -> WindowLook? {
@@ -51,7 +52,7 @@ public final class WindowService: WindowControl {
         await run {
             guard let element = AX.element(for: window) else { return }
             AX.set(element, AX.fullScreen, on as CFBoolean)
-            for _ in 0..<20 where AX.flag(element, AX.fullScreen) != on { Thread.sleep(forTimeInterval: 0.25) }
+            Self.wait(seconds: 5) { AX.flag(element, AX.fullScreen) == on }
             // 等全屏动画走完，不然紧接着的挪动会被动画盖掉
             Thread.sleep(forTimeInterval: 1.2)
         }
@@ -68,8 +69,7 @@ public final class WindowService: WindowControl {
         await run {
             guard let element = AX.element(for: window) else { return }
             if AX.flag(element, kAXMinimizedAttribute) { Self.setMinimized(element, false) }
-            AXUIElementPerformAction(element, kAXRaiseAction as CFString)
-            AX.set(element, kAXMainAttribute, kCFBooleanTrue)
+            AX.raise(element)
         }
         await MainActor.run {
             if NSRunningApplication(processIdentifier: window.pid)?.activate() == false {
@@ -83,8 +83,7 @@ public final class WindowService: WindowControl {
             guard steps != 0 else { return true }
             guard let element = AX.element(for: window) else { return false }
             // 按键投给 App，App 交给它的当前窗口：先把这个窗口设成当前窗口
-            AXUIElementPerformAction(element, kAXRaiseAction as CFString)
-            AX.set(element, kAXMainAttribute, kCFBooleanTrue)
+            AX.raise(element)
             let key = steps > 0 ? Self.equalKey : Self.minusKey
             for _ in 0..<abs(steps) {
                 for down in [true, false] {
@@ -103,7 +102,7 @@ public final class WindowService: WindowControl {
         return await run {
             var frames: [WindowKey: CGRect] = [:]
             for app in apps {
-                for element in AX.visibleWindows(pid: app.pid) where AX.isStandard(element) && !AX.flag(element, kAXMinimizedAttribute) {
+                for element in AX.respondingWindows(pid: app.pid) ?? [] where AX.isStandard(element) && !AX.flag(element, kAXMinimizedAttribute) {
                     guard let id = AX.windowID(element), let frame = AX.frame(element) else { continue }
                     frames[WindowKey(pid: app.pid, id: id)] = frame
                 }
@@ -150,20 +149,34 @@ public final class WindowService: WindowControl {
     /// 别的桌面空间里的窗口：试一遍是一千次跨进程调用（实测十个 App 约 240ms），列表每 1.5 秒刷一次时不能每次都试。
     /// 试出来的对象记下来接着用（关掉的窗口读不到属性，自然掉出列表）。过了 remoteRescanInterval 先照旧用，
     /// 排在这次列表后面再整个试一遍，找出这期间新开、又去了别的空间的窗口：列表一露出来就要快，不等这一遍
+    /// 试到一半 App 卡住时结果不全：不记、不覆盖旧的，不然它在别的空间里的窗口要从列表里消失一阵
     private func remoteWindows(pid: pid_t, now: TimeInterval) -> [AXUIElement] {
         guard let cached = remote.withLock({ $0[pid] }) else {
-            let found = AX.remoteWindows(pid: pid)
-            remote.withLock { $0[pid] = (found, now) }
-            return found
+            let scan = AX.remoteWindows(pid: pid)
+            if scan.complete { remote.withLock { $0[pid] = (scan.windows, now) } }
+            return scan.windows
         }
         if now - cached.scannedAt >= Self.remoteRescanInterval {
             remote.withLock { $0[pid]?.scannedAt = now }
             queue.async { [remote] in
-                let found = AX.remoteWindows(pid: pid)
-                remote.withLock { $0[pid]?.windows = found }
+                let scan = AX.remoteWindows(pid: pid)
+                if scan.complete { remote.withLock { $0[pid]?.windows = scan.windows } }
             }
         }
         return cached.windows
+    }
+
+    /// 窗口服务器里这个窗口的信息；没有、或编号已经归了别的进程返回 nil
+    private static func serverInfo(_ window: WindowKey) -> [String: Any]? {
+        guard let info = (CGWindowListCopyWindowInfo([.optionIncludingWindow], window.id) as? [[String: Any]])?.first,
+              (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == window.pid else { return nil }
+        return info
+    }
+
+    /// 等到条件成立，最多等 seconds 秒。App 卡住时每次读都要等满超时，所以按截止时间算，不按次数
+    private static func wait(seconds: TimeInterval, until done: () -> Bool) {
+        let deadline = ProcessInfo.processInfo.systemUptime + seconds
+        while !done(), ProcessInfo.processInfo.systemUptime < deadline { Thread.sleep(forTimeInterval: 0.25) }
     }
 
     private func run<T: Sendable>(_ work: @escaping @Sendable () -> T) async -> T {
@@ -175,7 +188,7 @@ public final class WindowService: WindowControl {
     /// 设好后等它真的变过去，再等动画走完
     private static func setMinimized(_ element: AXUIElement, _ on: Bool) {
         AX.set(element, kAXMinimizedAttribute, on as CFBoolean)
-        for _ in 0..<12 where AX.flag(element, kAXMinimizedAttribute) != on { Thread.sleep(forTimeInterval: 0.25) }
+        wait(seconds: 3) { AX.flag(element, kAXMinimizedAttribute) == on }
         Thread.sleep(forTimeInterval: 0.5)
     }
 
@@ -218,124 +231,3 @@ public final class WindowService: WindowControl {
         return (list ?? []).compactMap { ($0[kCGWindowNumber as String] as? NSNumber)?.uint32Value }
     }
 }
-
-/// 辅助功能接口的薄封装
-public enum AX {
-    static let fullScreen = "AXFullScreen"
-    /// 远程令牌最多试到这个元素编号（AltTab 也是试前 1000 个）
-    static let remoteScanLimit: UInt64 = 1000
-
-    public static var isTrusted: Bool { AXIsProcessTrusted() }
-
-    /// App 的辅助功能对象。App 卡住时每次调用最多等 1 秒
-    public static func application(_ pid: pid_t) -> AXUIElement {
-        let app = AXUIElementCreateApplication(pid)
-        AXUIElementSetMessagingTimeout(app, 1.0)
-        return app
-    }
-
-    public static func attribute(_ element: AXUIElement, _ name: String) -> AnyObject? {
-        var value: AnyObject?
-        return AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success ? value : nil
-    }
-
-    public static func string(_ element: AXUIElement, _ name: String) -> String? { attribute(element, name) as? String }
-
-    static func flag(_ element: AXUIElement, _ name: String) -> Bool { (attribute(element, name) as? Bool) == true }
-
-    @discardableResult
-    static func set(_ element: AXUIElement, _ name: String, _ value: AnyObject) -> Bool {
-        AXUIElementSetAttributeValue(element, name as CFString, value) == .success
-    }
-
-    /// 标准窗口（不含面板、对话框）
-    static func isStandard(_ element: AXUIElement) -> Bool { string(element, kAXSubroleAttribute) == kAXStandardWindowSubrole }
-
-    /// 当前显示着的桌面空间里的窗口（系统给的窗口列表，含最小化的）
-    public static func visibleWindows(pid: pid_t) -> [AXUIElement] {
-        (attribute(application(pid), kAXWindowsAttribute) as? [AXUIElement]) ?? []
-    }
-
-    /// App 所有的窗口：不管在哪块屏、哪个桌面空间，全屏、最小化的也算。
-    /// 系统给的窗口列表只含当前显示着的空间（别的 App 全屏占着时，其余窗口全不在里面），
-    /// 其余的由 remote 给出（远程令牌试出来的，见 remoteWindows(pid:until:)）。App 没响应时不去要
-    static func allWindows(pid: pid_t, remote: () -> [AXUIElement]) -> [AXUIElement] {
-        guard var windows = respondingWindows(pid: pid) else { return [] }
-        var seen = Set(windows.compactMap(windowID))
-        for element in remote() {
-            guard let id = windowID(element), seen.insert(id).inserted else { continue }
-            windows.append(element)
-        }
-        return windows
-    }
-
-    static func element(for window: WindowKey) -> AXUIElement? {
-        guard let visible = respondingWindows(pid: window.pid) else { return nil }
-        if let hit = visible.first(where: { windowID($0) == window.id }) { return hit }
-        return remoteWindows(pid: window.pid, until: window.id).first { windowID($0) == window.id }
-    }
-
-    /// 系统给的窗口列表；App 没响应（或不支持辅助功能）返回 nil。
-    /// 这时不能再用远程令牌逐个去试：每个编号都要等一次超时，一千个编号就是好几分钟
-    private static func respondingWindows(pid: pid_t) -> [AXUIElement]? {
-        var value: AnyObject?
-        switch AXUIElementCopyAttributeValue(application(pid), kAXWindowsAttribute as CFString, &value) {
-        case .success: return (value as? [AXUIElement]) ?? []
-        case .noValue: return []
-        default: return nil
-        }
-    }
-
-    static func windowID(_ element: AXUIElement) -> UInt32? {
-        var id: CGWindowID = 0
-        return _AXUIElementGetWindow(element, &id) == .success && id != 0 ? id : nil
-    }
-
-    static func frame(_ element: AXUIElement) -> CGRect? {
-        guard let p = attribute(element, kAXPositionAttribute), let s = attribute(element, kAXSizeAttribute),
-              CFGetTypeID(p) == AXValueGetTypeID(), CFGetTypeID(s) == AXValueGetTypeID() else { return nil }
-        var origin = CGPoint.zero, size = CGSize.zero
-        guard AXValueGetValue(p as! AXValue, .cgPoint, &origin), AXValueGetValue(s as! AXValue, .cgSize, &size) else { return nil }
-        return CGRect(origin: origin, size: size)
-    }
-
-    static func setPosition(_ element: AXUIElement, _ point: CGPoint) {
-        var p = point
-        if let value = AXValueCreate(.cgPoint, &p) { set(element, kAXPositionAttribute, value) }
-    }
-
-    static func setSize(_ element: AXUIElement, _ size: CGSize) {
-        var s = size
-        if let value = AXValueCreate(.cgSize, &s) { set(element, kAXSizeAttribute, value) }
-    }
-
-    /// 用远程令牌按元素编号逐个构造辅助功能对象，找出 App 的窗口（AltTab 公开的做法，令牌 = pid + 0 + "coco" + 元素编号）。
-    /// 含当前空间里的，调用方按窗口编号去重；给了 until 就找到那个窗口为止
-    static func remoteWindows(pid: pid_t, until wanted: UInt32? = nil) -> [AXUIElement] {
-        var token = Data(count: 20)
-        token.replaceSubrange(0..<4, with: withUnsafeBytes(of: pid) { Data($0) })
-        token.replaceSubrange(8..<12, with: withUnsafeBytes(of: Int32(0x636F_636F)) { Data($0) })
-        var found: [AXUIElement] = []
-        for elementID in UInt64(0)..<remoteScanLimit {
-            token.replaceSubrange(12..<20, with: withUnsafeBytes(of: elementID) { Data($0) })
-            guard let element = _AXUIElementCreateWithRemoteToken(token as CFData)?.takeRetainedValue() else { continue }
-            AXUIElementSetMessagingTimeout(element, 0.25)
-            var role: AnyObject?
-            let result = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role)
-            // 不存在的编号回 invalidUIElement（实测）；回 cannotComplete 是 App 中途卡住了，不再往下试
-            if result == .cannotComplete { break }
-            guard result == .success, role as? String == kAXWindowRole else { continue }
-            found.append(element)
-            if let wanted, windowID(element) == wanted { break }
-        }
-        return found
-    }
-}
-
-/// 辅助功能窗口对象 → 系统窗口编号（私有接口，yabai、Rectangle、AltTab 都在用）
-@_silgen_name("_AXUIElementGetWindow")
-private func _AXUIElementGetWindow(_ element: AXUIElement, _ id: UnsafeMutablePointer<CGWindowID>) -> AXError
-
-/// 按令牌构造另一个进程里的辅助功能对象（私有接口，AltTab 用它找别的桌面空间里的窗口）
-@_silgen_name("_AXUIElementCreateWithRemoteToken")
-private func _AXUIElementCreateWithRemoteToken(_ token: CFData) -> Unmanaged<AXUIElement>?

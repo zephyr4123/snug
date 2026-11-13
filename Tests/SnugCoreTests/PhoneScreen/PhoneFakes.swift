@@ -65,6 +65,8 @@ final class FakeWindows: WindowControl {
         /// 切全屏时换过去的另一个样子：全屏时是平时的位置，平时是整屏大小（和真的一样，全屏时读到的是整屏）
         var otherFrame: CGRect?
         var minimized = false
+        /// App 把窗口藏起来了（被隐藏、关成了隐藏）：还在，但不在屏上
+        var hidden = false
         var zoom = 0
     }
 
@@ -105,6 +107,8 @@ final class FakeWindows: WindowControl {
     }
 
     func close(_ key: WindowKey) { _ = state.withLock { $0.removeValue(forKey: key) } }
+    /// 像飞书、微信点关闭那样：窗口藏起来，还在
+    func hide(_ key: WindowKey) { state.withLock { $0[key]?.hidden = true } }
     func window(_ key: WindowKey) -> Window? { state.withLock { $0[key] } }
     func setFrame(_ key: WindowKey, _ frame: CGRect) { state.withLock { $0[key]?.frame = frame } }
 
@@ -114,6 +118,11 @@ final class FakeWindows: WindowControl {
     }
 
     func exists(_ window: WindowKey) async -> Bool { self.window(window) != nil }
+
+    func isShown(_ window: WindowKey) async -> Bool {
+        guard let w = self.window(window) else { return false }
+        return !w.minimized && !w.hidden
+    }
 
     func look(_ window: WindowKey) async -> WindowLook? {
         guard reachable, let w = self.window(window) else { return nil }

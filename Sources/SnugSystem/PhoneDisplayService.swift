@@ -11,6 +11,8 @@ import SnugCore
 public final class PhoneDisplayService: PhoneDisplays {
     static let onlineTimeout: TimeInterval = 6
     static let offlineTimeout: TimeInterval = 10
+    /// 帮手切模式最多等这么久（正常不到一秒）
+    nonisolated static let helperTimeout: TimeInterval = 10
 
     private var displays: [DisplayID: CGVirtualDisplay] = [:]
     /// 帮手进程：就是 Snug 自己，带 --set-mode 运行
@@ -120,7 +122,8 @@ public final class PhoneDisplayService: PhoneDisplays {
         return ids.prefix(Int(count)).contains(id)
     }
 
-    /// 起帮手进程切模式，等它退出；返回退出码，起不来返回 nil
+    /// 起帮手进程切模式，等它退出；返回退出码，起不来返回 nil。
+    /// 最多等 helperTimeout：帮手卡在屏幕配置里不退出，就结束它（2 倍本来就是尽力而为），不能让建屏和整条调度队一直等
     private func runHelper(_ id: DisplayID) async -> Int32? {
         let process = Process()
         process.executableURL = helper
@@ -133,6 +136,13 @@ public final class PhoneDisplayService: PhoneDisplays {
                 process.terminationHandler = nil
                 Log.error("帮手进程起不来（\(helper.path)）：\(error)")
                 continuation.resume(returning: nil)
+                return
+            }
+            // 只有 terminationHandler 会 resume：结束进程后它照样回调
+            DispatchQueue.global().asyncAfter(deadline: .now() + Self.helperTimeout) {
+                guard process.isRunning else { return }
+                Log.error("帮手进程 \(Int(Self.helperTimeout))s 没退出（屏 #\(id)），结束它")
+                process.terminate()
             }
         }
     }
