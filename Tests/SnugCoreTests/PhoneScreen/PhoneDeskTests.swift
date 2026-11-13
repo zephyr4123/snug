@@ -137,6 +137,56 @@ struct PhoneDeskTests {
         #expect(rig.desk.state.listVisible)
     }
 
+    @Test("放的过程讲得清：先是「正在放」（带着是哪个窗口），挪好转成调字号，做完回到空闲")
+    func workDuringPull() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        var works: [PhoneDesk.Work?] = []
+        rig.desk.onChange = { state in
+            if works.last != .some(state.work) { works.append(state.work) }
+        }
+        await rig.pull(ghostty)
+        #expect(works == [.placing(ghostty), .zooming, nil])
+    }
+
+    @Test("还原时 App 卡住：窗口留在手机屏上照旧算放着（字号按缩回了的算），提示无响应、记录留着；好了再点能放回")
+    func putBackStuck() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        await rig.pull(ghostty)
+        rig.desk.showList()
+        rig.windows.blockMoves()
+        rig.desk.putBack()
+        await rig.desk.idle()
+        #expect(rig.desk.state.placed == PhoneDesk.Placed(window: ghostty, zoom: 0))
+        #expect(rig.desk.state.notice == .windowUnresponsive(app: "Ghostty"))
+        #expect(rig.desk.state.listVisible)
+        #expect(rig.record?.zoom == 0)
+
+        rig.windows.blockMoves(false)
+        rig.journal.clear()
+        rig.desk.putBack()
+        await rig.desk.idle()
+        #expect(rig.journal.all == ["move 7 \(ghosttyHome.short) ✎"])   // 字号已经缩回过，不再缩
+        #expect(rig.windows.window(ghostty.key)?.zoom == 0)
+        #expect(rig.desk.state.placed == nil)
+        #expect(rig.record == nil)
+    }
+
+    @Test("换窗口时原来那个放不回去：不换（两个会叠在手机屏上，记录也只记得住一个），提示原来那个无响应")
+    func switchBlockedByStuckWindow() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        await rig.pull(ghostty)
+        rig.windows.blockMoves()
+        await rig.pull(finder)
+        #expect(rig.desk.state.placed?.window == ghostty)
+        #expect(rig.desk.state.notice == .windowUnresponsive(app: "Ghostty"))
+        #expect(rig.record?.window == ghostty.key)
+        #expect(rig.windows.window(finder.key)?.frame == finderHome)
+        #expect(rig.desk.state.work == nil)
+    }
+
     @Test("点手机屏上已经在的那个窗口：只是回到它，不重新放")
     func pullSameWindowReturns() async throws {
         let rig = try Rig()
@@ -254,7 +304,7 @@ struct PhoneDeskTests {
         await rig.ready()
         rig.windows.close(finder.key)
         await rig.pull(finder)
-        #expect(rig.desk.state.notice == .windowGone)
+        #expect(rig.desk.state.notice == .windowGone(app: "Finder"))
         #expect(rig.record == nil)
         #expect(rig.desk.state.placed == nil)
     }
@@ -296,7 +346,7 @@ struct PhoneDeskTests {
         await rig.ready()
         rig.windows.block()
         await rig.pull(finder)
-        #expect(rig.desk.state.notice == .windowUnresponsive)
+        #expect(rig.desk.state.notice == .windowUnresponsive(app: "Finder"))
         #expect(rig.record == nil)
         #expect(rig.journal.all.isEmpty)
     }
@@ -353,7 +403,7 @@ struct PhoneDeskTests {
         await rig.desk.idle()
         #expect(rig.record?.zoom == 2)
         #expect(rig.desk.state.placed?.zoom == 2)
-        #expect(rig.desk.state.notice == .windowUnresponsive)
+        #expect(rig.desk.state.notice == .windowUnresponsive(app: "Ghostty"))
     }
 
     @Test("手机屏的可放区域读不到：不放，提示手机屏未就绪")

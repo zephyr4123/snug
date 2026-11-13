@@ -33,12 +33,12 @@ public final class PhoneDesk {
         }
     }
 
-    /// 要让用户知道的事。措辞归界面层
+    /// 要让用户知道的事，带上是哪个 App 的窗口。措辞归界面层
     public enum Notice: Equatable, Sendable {
         /// 要放的窗口已经关了
-        case windowGone
+        case windowGone(app: String)
         /// 窗口还在，但读不到、挪不动（App 没响应，或没有辅助功能权限）
-        case windowUnresponsive
+        case windowUnresponsive(app: String)
         /// 还原记录写不进去，不敢动窗口
         case recordUnwritable
         /// 手机屏还没好（屏幕组合还在变）
@@ -58,7 +58,8 @@ public final class PhoneDesk {
     }
 
     public enum Work: Equatable, Sendable {
-        case placing(WindowKey)
+        /// 正在把这个窗口放上来（换窗口时含放回原来那个），窗口挪好就转成 zooming
+        case placing(WindowInfo)
         case puttingBack
         case zooming
     }
@@ -121,7 +122,7 @@ public final class PhoneDesk {
 
     /// 把这个窗口放上手机屏（原来那个先放回原位）
     public func pull(_ window: WindowInfo) {
-        begin(.placing(window.key))
+        begin(.placing(window))
         lane.run {
             await self.place(window)
             self.state.work = nil
@@ -142,12 +143,14 @@ public final class PhoneDesk {
         lane.run { await self.windows.focus(p.window.key) }
     }
 
-    /// 把手机屏上的窗口放回原位
+    /// 把手机屏上的窗口放回原位。放不回去（App 卡住）就留在手机屏上，提示一下，可以再点
     public func putBack() {
         guard placement != nil else { return }
         begin(.puttingBack)
         lane.run {
-            if let p = self.placement { await self.returnToOriginal(p) }
+            if let p = self.placement, await !self.returnToOriginal(p) {
+                self.state.notice = .windowUnresponsive(app: p.window.app)
+            }
             self.state.work = nil
         }
     }
@@ -284,7 +287,9 @@ public final class PhoneDesk {
     }
 
     private func removeScreen() async {
-        if let p = placement { await returnToOriginal(p) }
+        // 屏要撤了，手机屏上不再算有窗口；放不回去的留着还原记录，下次启动再放
+        if let p = placement { await putBack(p.record) }
+        placement = nil
         await retireDisplay()
         state.screen = .off
         state.listVisible = true
@@ -326,6 +331,7 @@ public final class PhoneDesk {
     // MARK: 放窗口
 
     private func place(_ window: WindowInfo) async {
+        let started = timeline.now
         guard let area = readyArea(for: "放 \(window.label)") else {
             state.notice = .screenNotReady
             return
@@ -335,11 +341,16 @@ public final class PhoneDesk {
             await windows.focus(window.key)
             return
         }
-        if let p = placement { await returnToOriginal(p) }
+        // 原来那个放不回去（App 卡住）就不换：两个窗口会叠在手机屏上，还原记录也只记得住一个
+        if let p = placement, await !returnToOriginal(p) {
+            Log.warn("\(p.window.label) 放不回去，先不换成 \(window.label)")
+            state.notice = .windowUnresponsive(app: p.window.app)
+            return
+        }
 
         guard let look = await windows.look(window.key) else {
-            let notice = await unreachable(window.key)
-            Log.warn("读不到 \(window.label)（\(notice == .windowGone ? "已经关了" : "App 没响应或没有辅助功能权限")），不放")
+            let notice = await unreachable(window)
+            Log.warn("读不到 \(window.label)（\(Self.reason(notice, gone: "已经关了"))），不放")
             state.notice = notice
             return
         }
@@ -361,8 +372,8 @@ public final class PhoneDesk {
         }
         placement = next
         guard let got = await windows.move(window.key, to: area) else {
-            let notice = await unreachable(window.key)
-            Log.warn("\(window.label) 挪不上手机屏（\(notice == .windowGone ? "刚关了" : "App 没响应")），放回去")
+            let notice = await unreachable(window)
+            Log.warn("\(window.label) 挪不上手机屏（\(Self.reason(notice, gone: "刚关了"))），放回去")
             placement = nil
             await putBack(next.record)
             state.notice = notice
@@ -373,24 +384,36 @@ public final class PhoneDesk {
         await windows.focus(window.key)
         state.listVisible = false
         let was = look.fullScreen ? "（原来全屏）" : look.minimized ? "（原来最小化）" : ""
-        Log.info("\(window.label) 放上手机屏：原位 \(next.original.short)\(was)，\(Self.describeFill(got, in: area))")
+        let took = String(format: "%.1f", timeline.now - started)
+        Log.info("\(window.label) 放上手机屏（\(took)s）：原位 \(next.original.short)\(was)，\(Self.describeFill(got, in: area))")
 
         let steps = zoomBook.steps(for: window.bundleID, default: defaultZoom)
         guard steps != 0 else { return }
+        // 窗口已经在手机屏上了，剩下的只是调字号
+        state.work = .zooming
         await timeline.sleep(Self.settleDelay)
         await changeZoom(by: steps)
     }
 
-    private func returnToOriginal(_ p: Placement) async {
-        await putBack(p.record)
+    /// 放回原位、回到窗口列表，返回放回去了没有。
+    /// 没放回去时窗口还在手机屏上，照旧算放着（字号按实际缩回了多少算），还原记录也留着
+    private func returnToOriginal(_ p: Placement) async -> Bool {
+        if let left = await putBack(p.record) {
+            var p = p
+            p.zoom = left.zoom
+            placement = p
+            return false
+        }
         placement = nil
         state.listVisible = true
+        return true
     }
 
     /// 按记录放回：缩回字号（窗口还在手机屏上、还是它 App 的当前窗口；缩完马上记账）→ 挪回原位 →
-    /// 原来全屏的恢复全屏、原来最小化的再最小化。放回了、或窗口确实没了才销账；
-    /// 窗口还在却挪不动（App 没响应、没有权限）就留着记录，下次启动按它再放
-    private func putBack(_ record: PhoneRecord) async {
+    /// 原来全屏的恢复全屏、原来最小化的再最小化。放回了、或窗口确实没了才销账，返回 nil；
+    /// 窗口还在却挪不动（App 没响应、没有权限）就留着记录（下次启动按它再放），返回留下的这条
+    @discardableResult
+    private func putBack(_ record: PhoneRecord) async -> PhoneRecord? {
         var record = record
         let zoom = record.zoom
         if zoom != 0, await windows.zoom(record.window, steps: -zoom) {
@@ -400,11 +423,11 @@ public final class PhoneDesk {
         guard let got = await windows.move(record.window, to: record.original) else {
             if await windows.exists(record.window) {
                 Log.warn("\(record.label) 还在，但挪不动（App 没响应或没有辅助功能权限），还原记录留着，下次启动再放回")
-            } else {
-                Log.info("\(record.label) 已经关了，不用放回")
-                settleRecord()
+                return record
             }
-            return
+            Log.info("\(record.label) 已经关了，不用放回")
+            settleRecord()
+            return nil
         }
         if record.wasFullScreen {
             await timeline.sleep(Self.settleDelay)
@@ -419,6 +442,7 @@ public final class PhoneDesk {
         } else {
             Log.warn("\(record.label) 放回没对上：目标 \(record.original.short)，实际 \(got.short)")
         }
+        return nil
     }
 
     /// 先记账再发按键，改完核对窗口还铺不铺满。返回是否真的改了
@@ -436,7 +460,7 @@ public final class PhoneDesk {
         guard await windows.zoom(p.window.key, steps: target - p.zoom) else {
             // 按键没发出去：记录改回原来的级数，不然还原时会多缩
             write(p.record)
-            state.notice = await unreachable(p.window.key)
+            state.notice = await unreachable(p.window)
             Log.warn("\(p.window.label) 找不到了，字号没改")
             return false
         }
@@ -476,8 +500,13 @@ public final class PhoneDesk {
     }
 
     /// 读不到、挪不动的窗口：是关了，还是 App 没响应
-    private func unreachable(_ window: WindowKey) async -> Notice {
-        await windows.exists(window) ? .windowUnresponsive : .windowGone
+    private func unreachable(_ window: WindowInfo) async -> Notice {
+        await windows.exists(window.key) ? .windowUnresponsive(app: window.app) : .windowGone(app: window.app)
+    }
+
+    /// 日志里的原因
+    private static func reason(_ notice: Notice, gone: String) -> String {
+        if case .windowGone = notice { gone } else { "App 没响应或没有辅助功能权限" }
     }
 
     @discardableResult

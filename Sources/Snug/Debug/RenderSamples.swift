@@ -90,22 +90,25 @@ enum RenderSamples {
             phoneSample("phone-list") { _ in },
             phoneSample("phone-placed") { s in s.phone.placed = PhoneDesk.Placed(window: windows[0], zoom: 2) },
             phoneSample("phone-placed-dark", dark: true) { s in s.phone.placed = PhoneDesk.Placed(window: windows[0], zoom: 2) },
+            phoneSample("phone-placing") { s in s.phone.work = .placing(windows[1]) },
             phoneSample("phone-notice") { s in
                 s.phone.placed = PhoneDesk.Placed(window: windows[3], zoom: 0)
-                s.phone.notice = .windowGone
+                s.phone.notice = .windowUnresponsive(app: windows[3].app)
             },
+            phoneSample("phone-notice-dark", dark: true) { s in s.phone.notice = .windowGone(app: windows[2].app) },
             phoneSample("phone-empty", windows: []) { _ in },
+            phoneSample("phone-loading", windows: [], loaded: false) { _ in },
         ]
     }
 
-    private static func phoneSample(_ name: String, dark: Bool = false, windows list: [WindowInfo] = windows,
+    private static func phoneSample(_ name: String, dark: Bool = false, windows list: [WindowInfo] = windows, loaded: Bool = true,
                                     _ configure: @escaping @MainActor (AppState) -> Void) -> RenderSample {
         let size = CGSize(width: PhoneScreenSpec.width, height: PhoneScreenSpec.height)
         return RenderSample(name: name, dark: dark, size: size) {
             let s = AppState()
             s.phone.screen = .ready(14)
             configure(s)
-            return AnyView(PhoneHomeView(state: s, catalog: WindowCatalog(sample: list), intents: stub)
+            return AnyView(PhoneHomeView(state: s, catalog: WindowCatalog(sample: list, loaded: loaded), intents: stub)
                 .frame(width: size.width, height: size.height))
         }
     }

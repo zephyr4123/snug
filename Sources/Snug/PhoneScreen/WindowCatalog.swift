@@ -24,10 +24,10 @@ final class WindowCatalog {
     }
 
     /// 渲染样例用：固定的窗口，不刷新
-    init(sample: [WindowInfo]) {
+    init(sample: [WindowInfo], loaded: Bool = true) {
         service = nil
         windows = sample
-        loaded = true
+        self.loaded = loaded
     }
 
     func startRefreshing() {

@@ -1,9 +1,14 @@
-// 状态文案：把 AppState 翻成一个标题 + 一个短说明，菜单栏和设置窗口共用。只用短词，书面、克制
+// 状态文案：一个标题 + 一个短说明。把 AppState 翻成菜单栏和设置窗口共用的状态，也给手机屏上的提示用。只用短词，书面、克制
 import SnugCore
 
 struct StatusText: Equatable {
     var headline: String
     var detail: String?
+
+    init(headline: String, detail: String?) {
+        self.headline = headline
+        self.detail = detail
+    }
 
     @MainActor
     init(_ s: AppState) {
@@ -42,13 +47,13 @@ struct StatusText: Equatable {
 }
 
 extension PhoneDesk.Notice {
-    /// 手机屏列表顶部的提示
-    var text: String {
+    /// 手机屏列表顶部的提示：出了什么事，和接下来怎么办。不出现技术词
+    var text: StatusText {
         switch self {
-        case .windowGone: "窗口已关闭"
-        case .windowUnresponsive: "窗口无响应"
-        case .recordUnwritable: "无法写入还原记录"
-        case .screenNotReady: "手机屏未就绪"
+        case .windowGone(let app): StatusText(headline: "\(app) 窗口已关闭", detail: "请另选一个窗口")
+        case .windowUnresponsive(let app): StatusText(headline: "\(app) 无响应", detail: "可能正忙，请稍后再试")
+        case .recordUnwritable: StatusText(headline: "无法保存原位置", detail: "为确保能放回原处，窗口未移动")
+        case .screenNotReady: StatusText(headline: "手机屏未就绪", detail: "屏幕正在调整，请稍后再试")
         }
     }
 }

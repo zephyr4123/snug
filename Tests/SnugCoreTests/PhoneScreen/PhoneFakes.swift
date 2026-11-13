@@ -69,6 +69,7 @@ final class FakeWindows: WindowControl {
     let journal: Journal
     private let state = Locked<[WindowKey: Window]>([:])
     private let blocked = Locked(false)
+    private let movesBlocked = Locked(false)
     private let grows = Locked(false)
     private let minWidths = Locked<[WindowKey: CGFloat]>([:])
     private let moveHook = Locked<(@Sendable (WindowKey) -> Void)?>(nil)
@@ -82,6 +83,8 @@ final class FakeWindows: WindowControl {
 
     /// App 没响应（或辅助功能权限被收回）：窗口还在，但读不到、挪不动、发不了按键
     func block() { blocked.withLock { $0 = true } }
+    /// 只是挪不动（App 卡在改窗口大小上），别的照常；传 false 恢复
+    func blockMoves(_ on: Bool = true) { movesBlocked.withLock { $0 = on } }
     /// 像终端那样：调字号时保持行列数，窗口跟着变大
     func growOnZoom() { grows.withLock { $0 = true } }
     /// 像系统设置、Safari 那样：App 限定了最小宽度，再窄也压不下去
@@ -112,7 +115,7 @@ final class FakeWindows: WindowControl {
     }
 
     func move(_ window: WindowKey, to frame: CGRect) async -> CGRect? {
-        guard reachable, self.window(window) != nil else { return nil }
+        guard reachable, !movesBlocked.withLock({ $0 }), self.window(window) != nil else { return nil }
         moveHook.withLock { $0 }?(window)
         journal.add("move \(window.id) \(frame.short)\(mark)")
         var got = frame

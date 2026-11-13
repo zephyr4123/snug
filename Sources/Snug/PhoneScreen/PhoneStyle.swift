@@ -22,6 +22,8 @@ enum PhoneStyle {
     static let card = Color(nsColor: dynamic(light: .white,
                                              dark: NSColor(srgbRed: 0.110, green: 0.110, blue: 0.118, alpha: 1)))
     static var backgroundNSColor: NSColor { NSColor(background) }
+    /// iOS 的默认强调色（systemBlue）；不跟 Mac 的强调色走，手机上的 App 都是这个蓝
+    static let tint = Color(nsColor: .systemBlue)
 
     private static func dynamic(light: NSColor, dark: NSColor) -> NSColor {
         NSColor(name: nil) { appearance in
@@ -30,11 +32,13 @@ enum PhoneStyle {
     }
 }
 
-/// 按下时轻微变暗，松手恢复（手机上点下去要有反馈）
+/// 按下时轻微变暗，松手恢复（手机上点下去要有反馈）；正在忙、点不了时变淡，看得出来点不了
 struct PressableStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .opacity(configuration.isPressed ? 0.6 : 1)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.6 : 1) : 0.4)
             .contentShape(Rectangle())
     }
 }

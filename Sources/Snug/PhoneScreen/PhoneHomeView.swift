@@ -1,5 +1,9 @@
-// 手机屏空着时显示的「App 界面」：盖住整块手机屏（连这块屏上的菜单栏一起），看起来像手机上的原生 App。
-// 上面是手机屏上当前的窗口和它的操作（字号、还原），下面是 Mac 上其它窗口，点一下就放上来。
+// 手机屏上的「App 界面」：盖住整块手机屏（连这块屏上的菜单栏一起），看起来像手机上的原生 App。
+// 每个状态都讲清楚：
+// - 没放窗口：所有窗口，点一下放上来
+// - 放着窗口：左上角返回键回到它；下面是它的字号、还原，再下面是其它窗口
+// - 正在放：整屏讲明正在打开哪个窗口（换窗口时列表会先变一下，盖住不让它跳）
+// - 出了问题：顶部写明出了什么事、怎么办
 // 文字只用短词，图标全用 SF Symbols
 import AppKit
 import SnugCore
@@ -13,29 +17,55 @@ struct PhoneHomeView: View {
     private var phone: PhoneDesk.State { state.phone }
     private var others: [WindowInfo] { catalog.windows.filter { $0.key != phone.placed?.window.key } }
 
+    private var placing: WindowInfo? {
+        if case .placing(let window) = phone.work { window } else { nil }
+    }
+
     var body: some View {
+        ZStack {
+            list
+            if let placing {
+                PlacingView(window: placing, icon: catalog.icon(for: placing))
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: placing)
+        .background(PhoneStyle.background)
+    }
+
+    private var list: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header
                 if let notice = phone.notice { NoticeBanner(text: notice.text) }
                 if let placed = phone.placed {
                     section("当前窗口") {
-                        CurrentWindowCard(placed: placed, catalog: catalog, busy: phone.work != nil,
-                                          compact: !placed.zoomable, intents: intents)
+                        CurrentWindowCard(placed: placed, icon: catalog.icon(for: placed.window), work: phone.work, intents: intents)
                     }
                 }
                 section(phone.placed == nil ? "全部窗口" : "其他窗口") { windowList }
             }
             .padding(.horizontal, 20)
-            .padding(.top, 32)
+            .padding(.top, 12)
             .padding(.bottom, 24)
         }
         .scrollIndicators(.never)
-        .background(PhoneStyle.background)
+        .disabled(phone.work != nil)
     }
 
+    /// 返回键那一行一直留着：有没有返回键，标题都不跳
     private var header: some View {
-        Text("窗口").font(PhoneStyle.largeTitle)
+        VStack(alignment: .leading, spacing: 4) {
+            Group {
+                if let placed = phone.placed {
+                    BackButton(app: placed.window.app) { intents.returnToPlaced() }
+                } else {
+                    Color.clear
+                }
+            }
+            .frame(height: PhoneStyle.touchTarget, alignment: .leading)
+            Text("窗口").font(PhoneStyle.largeTitle)
+        }
     }
 
     @ViewBuilder private var windowList: some View {
@@ -45,11 +75,9 @@ struct PhoneHomeView: View {
             LazyVStack(spacing: 12) {
                 ForEach(others) { window in
                     Button { intents.pull(window) } label: {
-                        WindowRow(window: window, icon: catalog.icon(for: window), placing: phone.work == .placing(window.key))
-                            .card()
+                        WindowRow(window: window, icon: catalog.icon(for: window)).card()
                     }
                     .buttonStyle(PressableStyle())
-                    .disabled(phone.work != nil)
                 }
             }
         }
@@ -66,12 +94,32 @@ struct PhoneHomeView: View {
     }
 }
 
+/// 回到手机屏上的窗口：和 iPhone 左上角「‹ App 名」回到上一个 App 一样
+private struct BackButton: View {
+    let app: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.left").font(PhoneStyle.headline)
+                Text(app).font(PhoneStyle.body.weight(.medium)).lineLimit(1)
+            }
+            .foregroundStyle(PhoneStyle.tint)
+            .padding(.leading, 16)
+            .padding(.trailing, 20)
+            .frame(height: PhoneStyle.touchTarget)
+            .background(PhoneStyle.tint.opacity(0.12), in: Capsule())
+        }
+        .buttonStyle(PressableStyle())
+        .accessibilityLabel("返回 \(app)")
+    }
+}
+
 /// 一个窗口：App 图标、App 名、窗口标题
 private struct WindowRow: View {
     let window: WindowInfo
     let icon: NSImage
-    var placing = false
-    var trailing: String?
 
     var body: some View {
         HStack(spacing: 16) {
@@ -86,49 +134,36 @@ private struct WindowRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
-            if placing {
-                ProgressView().controlSize(.small)
-            } else if let trailing {
-                Image(systemName: trailing).font(PhoneStyle.body).foregroundStyle(.tertiary)
-            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-/// 手机屏上当前的窗口：点它回到这个窗口；旁边是字号和还原。
+/// 手机屏上当前的窗口和它的字号、还原。
 /// 分两行（操作在下面一行）；这个 App 不能调字号、只剩一个按钮时排成一行
 private struct CurrentWindowCard: View {
     let placed: PhoneDesk.Placed
-    let catalog: WindowCatalog
-    let busy: Bool
-    let compact: Bool
+    let icon: NSImage
+    let work: PhoneDesk.Work?
     let intents: any PhoneIntents
 
     var body: some View {
         Group {
-            if compact {
-                HStack(spacing: 0) {
-                    window
-                    controls.fixedSize()
-                }
-            } else {
+            if placed.zoomable {
                 VStack(spacing: 0) {
-                    window
+                    WindowRow(window: placed.window, icon: icon)
                     Divider().padding(.leading, 16)
                     controls
+                }
+            } else {
+                HStack(spacing: 0) {
+                    WindowRow(window: placed.window, icon: icon)
+                    controls.fixedSize()
                 }
             }
         }
         .card()
-    }
-
-    private var window: some View {
-        Button { intents.returnToPlaced() } label: {
-            WindowRow(window: placed.window, icon: catalog.icon(for: placed.window), trailing: "chevron.right")
-        }
-        .buttonStyle(PressableStyle())
     }
 
     private var controls: some View {
@@ -144,16 +179,22 @@ private struct CurrentWindowCard: View {
             }
             Spacer(minLength: 8)
             Button { intents.putBack() } label: {
-                Label("还原", systemImage: "arrow.uturn.backward")
-                    .font(PhoneStyle.body.weight(.medium))
-                    .padding(.horizontal, 20)
-                    .frame(height: PhoneStyle.touchTarget)
-                    .background(PhoneStyle.background, in: Capsule())
+                HStack(spacing: 8) {
+                    if work == .puttingBack {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "arrow.uturn.backward")
+                    }
+                    Text("还原")
+                }
+                .font(PhoneStyle.body.weight(.medium))
+                .padding(.horizontal, 20)
+                .frame(height: PhoneStyle.touchTarget)
+                .background(PhoneStyle.background, in: Capsule())
             }
             .buttonStyle(PressableStyle())
         }
         .padding(12)
-        .disabled(busy)
     }
 
     private var zoomText: String {
@@ -178,15 +219,48 @@ private struct RoundButton: View {
     }
 }
 
-private struct NoticeBanner: View {
-    let text: String
+/// 正在把窗口放上来：哪个窗口、在打开。窗口挪好列表就收起，失败了回到列表、顶部写明原因
+private struct PlacingView: View {
+    let window: WindowInfo
+    let icon: NSImage
 
     var body: some View {
-        Label {
-            Text(text).font(PhoneStyle.body)
-        } icon: {
-            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
+        VStack(spacing: 16) {
+            Image(nsImage: icon)
+                .resizable()
+                .frame(width: PhoneStyle.iconSize * 2, height: PhoneStyle.iconSize * 2)
+            VStack(spacing: 4) {
+                Text(window.app).font(PhoneStyle.headline).lineLimit(1)
+                if !window.title.isEmpty {
+                    Text(window.title).font(PhoneStyle.body).foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
+            VStack(spacing: 8) {
+                ProgressView()
+                Text("正在打开").font(PhoneStyle.label).foregroundStyle(.secondary)
+            }
+            .padding(.top, 16)
         }
+        .padding(.horizontal, 32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(PhoneStyle.background)
+    }
+}
+
+private struct NoticeBanner: View {
+    let text: StatusText
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(text.headline).font(PhoneStyle.body.weight(.semibold))
+                if let detail = text.detail {
+                    Text(detail).font(PhoneStyle.body).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .font(PhoneStyle.body)
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .card()
@@ -200,6 +274,7 @@ private struct EmptyWindows: View {
         VStack(spacing: 12) {
             if loading {
                 ProgressView()
+                Text("正在读取窗口").font(PhoneStyle.body).foregroundStyle(.secondary)
             } else {
                 Image(systemName: "macwindow").font(PhoneStyle.largeTitle).foregroundStyle(.tertiary)
                 Text("暂无窗口").font(PhoneStyle.body).foregroundStyle(.secondary)
