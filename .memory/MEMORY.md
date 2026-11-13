@@ -10,6 +10,7 @@
 - [手机屏产品逻辑](project-phone-screen-product.md) — 最终拍板：可选增强；连上后同原版 UU，多一块竖屏；屏上窗口列表吸窗口、随时切换；Mac 零操作
 - [手机屏技术事实](project-phone-screen.md) — 2 倍门槛短边 ≥540、竖 540x950 / 横 976x540、帮手进程切模式、窗口搬运、字号、单指滚动与长按右键等实测结论
 - [产品思维](feedback-product-thinking.md) — 背后复杂用户无感；可选不强制、不替用户做决定；隔离要干净；验证用的繁琐步骤不进产品
+- [界面规范](feedback-ui-style.md) — 图标只用 SF Symbols 不自己画；文字用短词、书面、克制，不用完整句和口语
 - [重构空间](project-refactor-latitude.md) — 尚无线上用户：该删就删、不留兼容；已批准全面重构（refactor/snug）
 - [直接修不建 issue](feedback-direct-fix-no-issues.md) — bug 直接修、重构直接做，追溯靠 commit 信息；需要真机测就开口
 - [Workflow 规模](feedback-workflow-scale.md) — agent 控制在 5 个左右、两段链路，不搞反驳者扇出
