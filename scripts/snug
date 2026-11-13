@@ -245,6 +245,7 @@ cmd_install() {
     # SIGTERM 走 Snug 自己的退出收尾：窗口放回原处、撤掉手机屏，再退出
     step "退出正在跑的 Snug（pid ${pids[*]}）"
     kill -TERM "${pids[@]}"
+    # 最多等 20 秒：要长过 Snug 的退出收尾上限（QuitFlow.userQuitTimeout，15 秒），不然它还在放回窗口就被判成没退出
     local waited=0
     while kill -0 "${pids[@]}" 2>/dev/null; do
       (( waited < 40 )) || die "Snug 20 秒内没退出，没有替换"

@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import SnugCore
 
-private func at(_ s: Double) -> Date { t0.addingTimeInterval(s) }
 
 @Suite("会话 SessionEpisode")
 struct SessionEpisodeTests {
@@ -83,7 +82,6 @@ struct RemoteSessionTests {
 
 @Suite("要不要手机屏 RemoteSession.wantsPhoneScreen")
 struct PhoneDemandTests {
-    private func table(_ names: String...) -> UUSignals { UUSignals(overlayVisible: false, controllers: names, captureActive: nil) }
     private let overlayOnly = UUSignals(overlayVisible: true, controllers: [], captureActive: nil)
     private let absent = UUSignals(overlayVisible: false, controllers: [], captureActive: nil)
 

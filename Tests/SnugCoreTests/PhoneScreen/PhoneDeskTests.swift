@@ -18,7 +18,7 @@ private let phoneArea = CGRect(x: 2000, y: 25, width: 540, height: 897)
 /// 一套假系统 + 一个 PhoneDesk。每个用例一个临时数据目录
 @MainActor
 private final class Rig {
-    let dir: URL
+    private let tmp: TempDir
     let paths: SnugPaths
     let journal = Journal()
     let displays: FakeDisplays
@@ -27,8 +27,9 @@ private final class Rig {
     let desk: PhoneDesk
 
     init(dataDirectory: URL? = nil) throws {
-        dir = FileManager.default.temporaryDirectory.appendingPathComponent("snug-desk-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let tmp = try TempDir()
+        let dir = tmp.url
+        self.tmp = tmp
         paths = SnugPaths(dataDirectory: dataDirectory ?? dir, logFile: dir.appendingPathComponent("Snug.log"))
         displays = FakeDisplays(journal: journal)
         windows = FakeWindows(journal: journal, ledger: paths.phoneRecord)
@@ -40,8 +41,6 @@ private final class Rig {
         let timeline = timeline
         displays.clock = { timeline.now }
     }
-
-    deinit { try? FileManager.default.removeItem(at: dir) }
 
     var record: PhoneRecord? { RestoreRecord<PhoneRecord>(url: paths.phoneRecord).pending() }
 

@@ -8,7 +8,7 @@ public struct RestoreRecord<Value: Codable>: Sendable {
     public init(url: URL) { file = JSONFile(url: url) }
 
     /// 有待还原的记录就返回；损坏的记录隔离并记 error，按「没有记录」处理
-    public func pending(now: Date = Date()) -> Value? { file.loadOrQuarantine(now: now) }
+    public func pending() -> Value? { file.loadOrQuarantine() }
 
     /// 先记账：写盘失败就抛错，调用方必须放弃这次改动
     public func record(_ value: Value) throws { try file.save(value) }

@@ -8,6 +8,7 @@ import SnugCore
 
 @MainActor
 final class QuitFlow {
+    /// scripts/snug install 用 SIGTERM 退出 Snug 后最多等 20 秒，改这个数要一起看那边
     static let userQuitTimeout: TimeInterval = 15
     static let systemQuitTimeout: TimeInterval = 4
 

@@ -58,7 +58,7 @@ public struct JSONFile<Value: Codable>: Sendable {
 
     /// 调用方最常用的读法：不存在返回 nil；损坏时隔离原文件、记 error，再返回 nil 让调用方用默认值。
     /// 隔离失败也记 error（原文件留在原处，下次还会再试），绝不用默认值覆盖原内容
-    public func loadOrQuarantine(now: Date = Date()) -> Value? {
+    public func loadOrQuarantine() -> Value? {
         switch load() {
         case .missing:
             return nil
@@ -66,7 +66,7 @@ public struct JSONFile<Value: Codable>: Sendable {
             return value
         case .corrupt(let error):
             do {
-                let moved = try quarantine(now: now)
+                let moved = try quarantine()
                 Log.error("\(url.lastPathComponent) 已损坏（\(error)），原文件改名为 \(moved.lastPathComponent)，改用默认值")
             } catch let moveError {
                 Log.error("\(url.lastPathComponent) 已损坏（\(error)），改名隔离也失败（\(moveError)），本次改用默认值")

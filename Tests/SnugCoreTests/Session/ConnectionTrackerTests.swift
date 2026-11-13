@@ -3,11 +3,9 @@ import Testing
 @testable import SnugCore
 
 /// 时间都写成「距 t0 的秒数」，断言里的数字能直接对上 1.5s 防抖、5s 静默期、60s 上限
-private func at(_ s: Double) -> Date { t0.addingTimeInterval(s) }
 
 private let none = UUSignals(overlayVisible: false, controllers: [], captureActive: false)
 private let overlay = UUSignals(overlayVisible: true, controllers: nil, captureActive: nil)
-private func table(_ names: String...) -> UUSignals { UUSignals(overlayVisible: false, controllers: names, captureActive: nil) }
 private func capture(_ on: Bool?) -> UUSignals { UUSignals(overlayVisible: false, controllers: nil, captureActive: on) }
 /// 推流还在，表格读得到、明确没人
 private func captureButNobody(_ on: Bool?) -> UUSignals { UUSignals(overlayVisible: false, controllers: [], captureActive: on) }
