@@ -14,6 +14,9 @@ cd "${0:A:h}/.."
 readonly BUNDLE_ID="com.zephyr4123.snug"
 readonly APP="build/Snug.app"
 readonly REPO_URL="https://github.com/zephyr4123/snug"
+# gh 的 release 命令都发到这个仓库。不写明时 gh 自己从 git 远端里挑，有 upstream 就挑 upstream：
+# 2.0.0 发版时它挑中了原作者的 aoyamashou/UUyc-companion，靠 --verify-tag 才没发过去
+export GH_REPO="${REPO_URL#https://github.com/}"
 # 通用二进制：Apple 芯片和 Intel 一个包。install 也打同样的，自己测的就是要发的
 readonly ARCHS=(--arch arm64 --arch x86_64)
 
