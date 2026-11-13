@@ -22,14 +22,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ note: Notification) {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "开发版"
-        Log.info("启动 Snug \(version)，辅助功能权限：\(controller.state.accessibilityTrusted ? "已授权" : "未授权")")
+        Log.info("启动 Snug \(AboutView.version)，辅助功能权限：\(controller.state.accessibilityTrusted ? "已授权" : "未授权")")
         statusBar = StatusBarController(state: controller.state, intents: controller, navigation: router)
         phoneScreen = PhoneScreenWindows(state: controller.state, catalog: WindowCatalog(service: controller.windows),
                                          intents: controller)
         handleSIGTERM()
         legacyObservers = LegacyApp.observe { [weak self] running in
             self?.controller.state.legacyAppRunning = running
+            if !running { self?.router.legacyAppGone() }
         }
         controller.state.legacyAppRunning = LegacyApp.isRunning
         if controller.state.legacyAppRunning {

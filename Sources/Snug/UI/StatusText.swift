@@ -19,7 +19,7 @@ struct StatusText: Equatable {
     @MainActor
     private static func headline(_ s: AppState) -> String {
         if s.quitting { return "正在退出" }
-        if !s.accessibilityTrusted { return "需要辅助功能权限" }
+        if !s.accessibilityTrusted { return "需要\(PermissionName.accessibility)权限" }
         switch s.connection {
         case .idle: return "等待连接"
         case .reconnecting: return "连接中断"
@@ -42,6 +42,17 @@ struct StatusText: Equatable {
             return s.phone.placed.map { "手机屏 · \($0.window.app)" } ?? "手机屏使用中"
         case .off:
             return ControllerKind(name: s.controller) == .computer ? "电脑控制端，不提供手机屏" : nil
+        }
+    }
+}
+
+extension LoginItemIssue {
+    /// 设置页底部的提示：写明去哪里处理
+    var text: String {
+        switch self {
+        case .needsApproval: "开机启动待允许 · 系统设置 › 通用 › 登录项"
+        case .notInApplications: "开机启动未生效 · 需位于「应用程序」"
+        case .failed: "开机启动未生效 · 请稍后重试"
         }
     }
 }

@@ -17,20 +17,33 @@ extension AppController: AppIntents {
         desk.setDefaultZoom(steps)
     }
 
+    /// 打开没成时写明原因：在「登录项」里被关过（系统要用户去那里允许）、不在「应用程序」里，还是别的
     func setLaunchAtLogin(_ on: Bool) {
+        var failed = false
         do {
             if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
-            state.update(\.loginItemFailed, false)
             Log.info("设置：开机启动 → \(on ? "开" : "关")")
         } catch {
-            state.update(\.loginItemFailed, true)
+            failed = true
             Log.error("开机启动设置失败（\(Bundle.main.bundlePath)）：\(error)")
         }
+        let status = SMAppService.mainApp.status
+        let issue: LoginItemIssue? = if on, status == .requiresApproval {
+            .needsApproval
+        } else if failed {
+            Bundle.main.bundlePath.hasPrefix("/Applications/") ? .failed : .notInApplications
+        } else {
+            nil
+        }
+        if issue == .needsApproval { Log.warn("开机启动待用户在「登录项」里允许") }
+        state.update(\.loginItemIssue, issue)
         refreshLaunchAtLogin()
     }
 
     func refreshLaunchAtLogin() {
-        state.update(\.launchAtLogin, SMAppService.mainApp.status == .enabled)
+        let enabled = SMAppService.mainApp.status == .enabled
+        state.update(\.launchAtLogin, enabled)
+        if enabled { state.update(\.loginItemIssue, nil) }
     }
 
     func markWelcomed() { changeConfig("看过欢迎页") { $0.welcomed = true } }

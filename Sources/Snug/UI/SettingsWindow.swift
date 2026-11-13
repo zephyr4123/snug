@@ -44,7 +44,7 @@ struct SettingsView: View {
                         Button("授权…") { navigation.openWelcome() }
                     }
                 } label: {
-                    SettingLabel("辅助功能", detail: "用于移动窗口与转换手势", symbol: "hand.raised.fill", tint: .indigo)
+                    SettingLabel(PermissionName.accessibility, detail: "用于移动窗口与转换手势", symbol: "hand.raised.fill", tint: .indigo)
                 }
             }
             Section {
@@ -126,8 +126,8 @@ private struct StatusHeader: View {
             if state.configSaveFailed {
                 Label("设置未保存", systemImage: "exclamationmark.circle.fill").foregroundStyle(.orange)
             }
-            if state.loginItemFailed {
-                Label("开机启动未生效 · 需位于「应用程序」", systemImage: "exclamationmark.circle.fill").foregroundStyle(.orange)
+            if let issue = state.loginItemIssue {
+                Label(issue.text, systemImage: "exclamationmark.circle.fill").foregroundStyle(.orange)
             }
         }
         .padding(.vertical, 4)

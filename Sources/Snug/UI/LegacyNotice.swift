@@ -33,21 +33,23 @@ struct LegacyNoticeView: View {
 @MainActor
 final class LegacyNoticeWindowController {
     private var window: NSWindow?
+    /// 提示挂着、还没定下来时才有；定下来（点了按钮，或旧版自己退了）只走一次
+    private var decide: (@MainActor (Bool) -> Void)?
 
     func show(quitLegacy: @escaping @MainActor () -> Void, proceed: @escaping @MainActor () -> Void) {
         guard window == nil else { return }
-        var decided = false
-        let decide: @MainActor (Bool) -> Void = { [weak self] quit in
-            guard !decided else { return }
-            decided = true
-            self?.window?.close()
-            self?.window = nil
+        decide = { [weak self] quit in
+            guard let self, decide != nil else { return }
+            decide = nil
+            window?.close()
+            window = nil
             guard quit else { return proceed() }
             quitLegacy()
             // 旧版退出前要先还原它改过的屏幕（最多约 8 秒），等它真走了再开始监控，免得两边同时改屏幕
             LegacyApp.waitUntilGone(timeout: 12, then: proceed)
         }
-        let view = LegacyNoticeView(quitLegacy: { decide(true) }, keepBoth: { decide(false) })
+        let view = LegacyNoticeView(quitLegacy: { [weak self] in self?.decide?(true) },
+                                    keepBoth: { [weak self] in self?.decide?(false) })
         let w = NSWindow(contentViewController: NSHostingController(rootView: view))
         w.title = "Snug"
         w.styleMask = [.titled]
@@ -56,5 +58,11 @@ final class LegacyNoticeWindowController {
         window = w
         NSApp.activate()
         w.makeKeyAndOrderFront(nil)
+    }
+
+    /// 旧版已经退出（从菜单、设置或旧版自己的菜单退的）：提示还挂着就收起，照常开始监控。
+    /// 不然提示被别的窗口盖住时，监控一直不开始，菜单上却显示「等待连接」
+    func legacyGone() {
+        decide?(false)
     }
 }

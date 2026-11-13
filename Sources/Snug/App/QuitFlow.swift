@@ -54,6 +54,7 @@ final class QuitFlow {
     private func finished() {
         phase = .done
         Log.info("退出 Snug")
+        Log.flush()
         if replyPending {
             replyPending = false
             NSApp.reply(toApplicationShouldTerminate: true)

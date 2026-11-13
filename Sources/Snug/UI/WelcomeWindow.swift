@@ -37,8 +37,7 @@ struct WelcomeView: View {
 
     private var permission: some View {
         let granted = state.accessibilityTrusted
-        // macOS 27 起叫「设备控制和数据访问」，更早叫「辅助功能」；固定取简体中文
-        let name = PermissionFlowResources.localizedString(for: PermissionFlowResources.accessibilityName(), localeIdentifier: "zh-Hans")
+        let name = PermissionName.accessibility
         return HStack(spacing: 16) {
             Image(systemName: "hand.raised.fill")
                 .font(.title2)

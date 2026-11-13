@@ -2,6 +2,7 @@
 // 每个状态都讲清楚：
 // - 没放窗口：所有窗口，点一下放上来
 // - 放着窗口：左上角返回键回到它；下面是它的字号、还原，再下面是其它窗口
+// 返回键和提示固定在顶部，不跟着列表滚走；每次回到列表都从最上面看起
 // - 正在放：整屏讲明正在打开哪个窗口（换窗口时列表会先变一下，盖住不让它跳）
 // - 出了问题：顶部写明出了什么事、怎么办
 // 文字只用短词，图标全用 SF Symbols
@@ -34,23 +35,44 @@ struct PhoneHomeView: View {
     }
 
     private var list: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 16) {
                 header
                 if let notice = phone.notice { NoticeBanner(text: notice.text) }
-                if let placed = phone.placed {
-                    section("当前窗口") {
-                        CurrentWindowCard(placed: placed, icon: catalog.icon(for: placed.window), work: phone.work, intents: intents)
-                    }
-                }
-                section(phone.placed == nil ? "全部窗口" : "其他窗口") { windowList }
             }
             .padding(.horizontal, 20)
             .padding(.top, 12)
-            .padding(.bottom, 24)
+            .padding(.bottom, 16)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        if let placed = phone.placed {
+                            section("当前窗口") {
+                                CurrentWindowCard(placed: placed, window: live(placed.window), icon: catalog.icon(for: placed.window),
+                                                  work: phone.work, intents: intents)
+                            }
+                        }
+                        section(phone.placed == nil ? "全部窗口" : "其他窗口") { windowList }
+                    }
+                    .id(Self.top)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 24)
+                }
+                .scrollIndicators(.never)
+                .onChange(of: phone.listVisible) { _, visible in
+                    if visible { proxy.scrollTo(Self.top, anchor: .top) }
+                }
+            }
         }
-        .scrollIndicators(.never)
         .disabled(phone.work != nil)
+    }
+
+    private static let top = "top"
+
+    /// 列表刷新拿到的最新标题（终端的标题跟着命令变），没有就用放上来时的
+    private func live(_ window: WindowInfo) -> WindowInfo {
+        catalog.windows.first { $0.key == window.key } ?? window
     }
 
     /// 返回键那一行一直留着：有没有返回键，标题都不跳
@@ -144,6 +166,8 @@ private struct WindowRow: View {
 /// 分两行（操作在下面一行）；这个 App 不能调字号、只剩一个按钮时排成一行
 private struct CurrentWindowCard: View {
     let placed: PhoneDesk.Placed
+    /// 显示用的窗口（标题是最新的）
+    let window: WindowInfo
     let icon: NSImage
     let work: PhoneDesk.Work?
     let intents: any PhoneIntents
@@ -152,13 +176,13 @@ private struct CurrentWindowCard: View {
         Group {
             if placed.zoomable {
                 VStack(spacing: 0) {
-                    WindowRow(window: placed.window, icon: icon)
+                    WindowRow(window: window, icon: icon)
                     Divider().padding(.leading, 16)
                     controls
                 }
             } else {
                 HStack(spacing: 0) {
-                    WindowRow(window: placed.window, icon: icon)
+                    WindowRow(window: window, icon: icon)
                     controls.fixedSize()
                 }
             }
@@ -170,12 +194,14 @@ private struct CurrentWindowCard: View {
         HStack(spacing: 12) {
             if placed.zoomable {
                 RoundButton(symbol: "textformat.size.smaller", label: "缩小字号") { intents.zoom(by: -1) }
+                    .disabled(placed.zoom <= ZoomBook.range.lowerBound)
                 Text(zoomText)
                     .font(PhoneStyle.body.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .frame(minWidth: 72)
                     .contentTransition(.numericText())
                 RoundButton(symbol: "textformat.size.larger", label: "放大字号") { intents.zoom(by: 1) }
+                    .disabled(placed.zoom >= ZoomBook.range.upperBound)
             }
             Spacer(minLength: 8)
             Button { intents.putBack() } label: {

@@ -19,11 +19,10 @@ case .render(let target, let output):
 case .dumpUU:
     exit(MainActor.assumeIsolated { UUDump.run() })
 case .setMode(let display, let width, let height):
-    let sink = FileLogSink(url: SnugPaths.standard.logFile, processTag: "帮手")
-    Log.setSink(sink)
+    Log.setSink(FileLogSink(url: SnugPaths.standard.logFile, processTag: "帮手"))
     let outcome = DisplayMode.switchToHiDPI(display, width: width, height: height)
     Log.info("切屏幕 #\(display) 到 2 倍 \(width)x\(height)：\(outcome)")
-    sink.flush()
+    Log.flush()
     exit(outcome == .switched ? 0 : 1)
 case .app, .previewPhone:
     let paths = SnugPaths.standard

@@ -1,6 +1,5 @@
 // 各窗口的开关。窗口都读同一份 AppState，意图交给 AppController
 import AppKit
-import SnugCore
 
 @MainActor
 final class WindowRouter: Navigation {
@@ -29,4 +28,7 @@ final class WindowRouter: Navigation {
     func showLegacyNotice(then proceed: @escaping @MainActor () -> Void) {
         legacy.show(quitLegacy: { [weak self] in self?.controller.quitLegacyApp() }, proceed: proceed)
     }
+
+    /// 旧版退出了：提示还挂着就收起并继续
+    func legacyAppGone() { legacy.legacyGone() }
 }

@@ -61,6 +61,7 @@ final class PhoneScreenWindows {
         } else {
             catalog.stopRefreshing()
         }
+        catalog.setPaused(phone.work != nil)
         if phone.placed != nil, !showList { homeBar.orderFrontRegardless() } else { homeBar.orderOut(nil) }
     }
 
@@ -73,7 +74,7 @@ final class PhoneScreenWindows {
     }
 
     private func tearDown() {
-        catalog.stopRefreshing()
+        catalog.reset()
         list?.orderOut(nil)
         homeBar?.orderOut(nil)
         list = nil

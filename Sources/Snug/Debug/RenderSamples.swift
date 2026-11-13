@@ -42,6 +42,7 @@ enum RenderSamples {
                 s.accessibilityTrusted = false
                 s.legacyAppRunning = true
                 s.configSaveFailed = true
+                s.loginItemIssue = .needsApproval
             },
         ]
     }

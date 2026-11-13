@@ -8,6 +8,12 @@ public enum LogLevel: String, Sendable {
 
 public protocol LogSink: Sendable {
     func write(_ level: LogLevel, _ message: String, at date: Date)
+    /// 等写完再返回（进程退出前用：exit 不会等后台队列）
+    func flush()
+}
+
+extension LogSink {
+    public func flush() {}
 }
 
 public enum Log {
@@ -25,6 +31,9 @@ public enum Log {
     public static func info(_ message: String) { emit(.info, message) }
     public static func warn(_ message: String) { emit(.warn, message) }
     public static func error(_ message: String) { emit(.error, message) }
+
+    /// 等镜像写完：进程退出前调用，不然最后几行（往往是收尾有没有做完）可能没写进日志文件
+    public static func flush() { sink.withLock { $0 }?.flush() }
 
     private static func emit(_ level: LogLevel, _ message: String) {
         switch level {

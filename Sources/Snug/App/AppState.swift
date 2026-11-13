@@ -23,8 +23,8 @@ final class AppState {
     var gesturesFailed = false
     var accessibilityTrusted = false
     var launchAtLogin = false
-    /// 上一次改开机启动没成（多半是 Snug 不在「应用程序」里）
-    var loginItemFailed = false
+    /// 上一次打开开机启动没成
+    var loginItemIssue: LoginItemIssue?
     /// 上一次改设置没能写进 config.json
     var configSaveFailed = false
     /// 旧版「UU远程伴侣」正在运行
@@ -44,6 +44,14 @@ final class AppState {
     func update<T: Equatable>(_ keyPath: ReferenceWritableKeyPath<AppState, T>, _ value: T) {
         if self[keyPath: keyPath] != value { self[keyPath: keyPath] = value }
     }
+}
+
+enum LoginItemIssue: Equatable {
+    /// 用户在「登录项」里关过 Snug，要在那里允许
+    case needsApproval
+    /// Snug 不在「应用程序」里
+    case notInApplications
+    case failed
 }
 
 /// 设置窗口、菜单栏能发起的意图。AppController 是唯一实现（渲染 PNG 时用一个什么都不做的替身）
