@@ -1,5 +1,5 @@
 // 会话层的组合：连接判定 + 会话生命周期，把每拍观测变成功能模块要处理的会话变化。
-// 各功能模块（虚拟屏等）只消费 SessionTransition，会话层不知道有哪些功能
+// 功能模块（手机屏）只消费会话状态，会话层不知道有哪些功能
 import Foundation
 
 public enum SessionTransition: Equatable, Sendable {
@@ -23,7 +23,6 @@ public struct RemoteSession: Sendable {
     public var isConnected: Bool { tracker.isConnected }
     public var controller: String? { tracker.controller }
     public var inEpisode: Bool { episode.isActive }
-    public var suspendedByUser: Bool { episode.suspendedByUser }
 
     public mutating func update(_ signals: UUSignals, now: Date) -> [SessionTransition] {
         var out: [SessionTransition] = []
@@ -44,7 +43,4 @@ public struct RemoteSession: Sendable {
     public mutating func noteSelfInducedChange(at date: Date) {
         tracker.noteSelfInducedChange(at: date)
     }
-
-    @discardableResult
-    public mutating func suspendByUser() -> Bool { episode.suspendByUser() }
 }

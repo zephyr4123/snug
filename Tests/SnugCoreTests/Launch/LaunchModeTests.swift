@@ -15,62 +15,40 @@ struct LaunchModeTests {
         #expect(try LaunchMode.parse(["-AppleLanguages", "(zh-Hans)"]) == .app)
     }
 
-    @Test("--watchdog")
-    func watchdog() throws {
-        #expect(try LaunchMode.parse(["--watchdog"]) == .watchdog)
-    }
-
-    @Test("各 --render-*：带一个输出目录；--render-tour-ui 先配图目录再输出目录")
+    @Test("每种界面都有 --render-<界面> <目录>")
     func renders() throws {
         let out = URL(fileURLWithPath: "/tmp/out")
-        #expect(try LaunchMode.parse(["--render-settings", "/tmp/out"]) == .render(.settings, output: out))
-        #expect(try LaunchMode.parse(["--render-permissions", "/tmp/out"]) == .render(.permissions, output: out))
-        #expect(try LaunchMode.parse(["--render-about", "/tmp/out"]) == .render(.about, output: out))
-        #expect(try LaunchMode.parse(["--render-tour", "/tmp/out"]) == .render(.tourArtwork, output: out))
-        #expect(try LaunchMode.parse(["--render-legacy", "/tmp/out"]) == .render(.legacy, output: out))
-        #expect(try LaunchMode.parse(["--render-tour-ui", "/tmp/img", "/tmp/out"])
-                == .render(.tourSlides(images: URL(fileURLWithPath: "/tmp/img")), output: out))
+        for target in RenderTarget.allCases {
+            #expect(try LaunchMode.parse(["--render-\(target.rawValue)", "/tmp/out"]) == .render(target, output: out))
+        }
     }
 
-    @Test("缺参数值、数字写错：报错而不是悄悄用默认值启动监控")
+    @Test("--set-mode <屏幕编号> <宽> <高>")
+    func setMode() throws {
+        #expect(try LaunchMode.parse(["--set-mode", "14", "540", "950"]) == .setMode(display: 14, width: 540, height: 950))
+    }
+
+    @Test("--dump-uu、--preview-phone")
+    func flags() throws {
+        #expect(try LaunchMode.parse(["--dump-uu"]) == .dumpUU)
+        #expect(try LaunchMode.parse(["--preview-phone"]) == .previewPhone)
+    }
+
+    @Test("缺参数值、数字写错、两个模式一起：报错而不是悄悄按正常模式启动")
     func errors() {
         #expect(throws: LaunchModeError.missingValue("--render-settings")) { try LaunchMode.parse(["--render-settings"]) }
-        #expect(throws: LaunchModeError.missingValue("--render-tour-ui")) { try LaunchMode.parse(["--render-tour-ui", "/tmp/img"]) }
-        #expect(throws: LaunchModeError.missingValue("--stress")) { try LaunchMode.parse(["--stress"]) }
-        #expect(throws: LaunchModeError.invalidNumber("--stress", "abc")) { try LaunchMode.parse(["--stress", "abc"]) }
-        #expect(throws: LaunchModeError.invalidNumber("--simulate", "x")) { try LaunchMode.parse(["--simulate", "iPad", "x"]) }
-        #expect(throws: LaunchModeError.conflicting("--watchdog", "--dump-uu")) { try LaunchMode.parse(["--watchdog", "--dump-uu"]) }
-    }
-
-    @Test("已删掉的 --demo-authorize 和未知的双横线参数：报错")
-    func removedFlags() {
-        #expect(throws: LaunchModeError.unknownFlag("--demo-authorize")) { try LaunchMode.parse(["--demo-authorize"]) }
-        #expect(throws: LaunchModeError.unknownFlag("--tour")) { try LaunchMode.parse(["--tour"]) }
-    }
-
-    @Test("--dump-uu、--simulate、--stress")
-    func debugModes() throws {
-        #expect(try LaunchMode.parse(["--dump-uu"]) == .dumpUU)
-        #expect(try LaunchMode.parse(["--simulate", "iPad"]) == .simulate(names: ["iPad"], seconds: 10))
-        #expect(try LaunchMode.parse(["--simulate", "iPad>iPhone", "8"]) == .simulate(names: ["iPad", "iPhone"], seconds: 8))
-        #expect(try LaunchMode.parse(["--stress", "5"]) == .stress(rounds: 5, slow: false))
-        #expect(try LaunchMode.parse(["--stress", "5", "--slow"]) == .stress(rounds: 5, slow: true))
-    }
-
-    @Test("只渲染的模式保证不启动监控、不碰显示器；会动显示器的只有正常启动、--simulate、--stress")
-    func sideEffects() throws {
-        let out = URL(fileURLWithPath: "/tmp/out")
-        let renders: [LaunchMode] = [.render(.settings, output: out), .render(.permissions, output: out),
-                                     .render(.about, output: out), .render(.tourArtwork, output: out),
-                                     .render(.legacy, output: out),
-                                     .render(.tourSlides(images: out), output: out)]
-        for mode in renders {
-            #expect(!mode.touchesDisplays)
+        #expect(throws: LaunchModeError.missingValue("--set-mode")) { try LaunchMode.parse(["--set-mode", "14", "540"]) }
+        #expect(throws: LaunchModeError.invalidNumber("--set-mode", "abc")) { try LaunchMode.parse(["--set-mode", "abc", "540", "950"]) }
+        #expect(throws: LaunchModeError.invalidNumber("--set-mode", "0")) { try LaunchMode.parse(["--set-mode", "14", "0", "950"]) }
+        #expect(throws: LaunchModeError.conflicting("--dump-uu", "--render-about")) {
+            try LaunchMode.parse(["--dump-uu", "--render-about", "/tmp/out"])
         }
-        #expect(!LaunchMode.dumpUU.touchesDisplays)
-        #expect(LaunchMode.app.touchesDisplays)
-        #expect(LaunchMode.watchdog.touchesDisplays)
-        #expect(LaunchMode.simulate(names: ["iPad"], seconds: 10).touchesDisplays)
-        #expect(LaunchMode.stress(rounds: 1, slow: false).touchesDisplays)
+    }
+
+    @Test("已删掉的旧参数和未知的双横线参数：报错")
+    func removedFlags() {
+        for flag in ["--watchdog", "--simulate", "--stress", "--render-tour", "--render-permissions", "--tour"] {
+            #expect(throws: LaunchModeError.unknownFlag(flag)) { try LaunchMode.parse([flag, "x"]) }
+        }
     }
 }

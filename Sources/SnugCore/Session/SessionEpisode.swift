@@ -1,6 +1,6 @@
 // 一次远程会话（episode）的生命周期，与具体功能无关。
-// 连入时开始；断开后进入重连窗口，窗口内再连入算同一会话，按会话生效的标记（手动叫停等）保留；
-// 窗口过了会话结束，标记清空。这样信号抖一下不会让「本次远程别再调整」之类的决定失效
+// 连入时开始；断开后进入重连窗口，窗口内再连入算同一会话；窗口过了会话才结束。
+// 这样信号抖一下、或者手机短暂断网，手机屏和上面的窗口都还在，重连回来接着用
 import Foundation
 
 public enum EpisodeChange: Equatable, Sendable {
@@ -17,8 +17,6 @@ public struct SessionEpisode: Sendable {
     }
 
     private var phase = Phase.idle
-    /// 用户在本会话里手动叫停了 Snug 的调整（热键 / 菜单）
-    public private(set) var suspendedByUser = false
 
     public init() {}
 
@@ -48,20 +46,11 @@ public struct SessionEpisode: Sendable {
     public mutating func advance(to now: Date) -> EpisodeChange? {
         guard case .interrupted(let since) = phase, now.timeIntervalSince(since) > Self.reconnectWindow else { return nil }
         phase = .idle
-        suspendedByUser = false
         return .ended
-    }
-
-    /// 会话进行中才生效并返回 true；不在会话中按热键只是恢复一下，不影响下一次远程（修 B11）
-    public mutating func suspendByUser() -> Bool {
-        guard isActive else { return false }
-        suspendedByUser = true
-        return true
     }
 
     private mutating func began() -> EpisodeChange {
         phase = .live
-        suspendedByUser = false
         return .began
     }
 }

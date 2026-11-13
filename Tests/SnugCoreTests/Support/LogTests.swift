@@ -23,23 +23,23 @@ struct FileLogSinkTests {
         #expect(got[0].hasPrefix("[20"))
     }
 
-    @Test("看门狗进程的行带 [看门狗] 标记")
+    @Test("帮手进程的行带 [帮手] 标记")
     func processTag() throws {
         let dir = try TempDir()
         let url = dir.url.appendingPathComponent("Snug.log")
-        let sink = FileLogSink(url: url, processTag: "看门狗")
-        sink.write(.error, "主程序心跳超时", at: Date())
+        let sink = FileLogSink(url: url, processTag: "帮手")
+        sink.write(.error, "切模式失败", at: Date())
         sink.flush()
         #expect(try lines(url).count == 1)
-        #expect(try lines(url)[0].contains("[error] [看门狗] 主程序心跳超时"))
+        #expect(try lines(url)[0].contains("[error] [帮手] 切模式失败"))
     }
 
-    @Test("两个写入者同时写同一个文件（模拟主程序 + 看门狗）：400 行一行不丢、不串")
+    @Test("两个写入者同时写同一个文件（模拟主程序 + 帮手进程）：400 行一行不丢、不串")
     func concurrentWriters() async throws {
         let dir = try TempDir()
         let url = dir.url.appendingPathComponent("Snug.log")
         let a = FileLogSink(url: url)
-        let b = FileLogSink(url: url, processTag: "看门狗")
+        let b = FileLogSink(url: url, processTag: "帮手")
         await withTaskGroup(of: Void.self) { group in
             group.addTask { for i in 0..<200 { a.write(.info, "A-\(i)", at: Date()) } }
             group.addTask { for i in 0..<200 { b.write(.info, "B-\(i)", at: Date()) } }
@@ -49,7 +49,7 @@ struct FileLogSinkTests {
         let got = try lines(url)
         #expect(got.count == 400)
         #expect(got.filter { $0.contains("] A-") }.count == 200)
-        #expect(got.filter { $0.contains("[看门狗] B-") }.count == 200)
+        #expect(got.filter { $0.contains("[帮手] B-") }.count == 200)
     }
 
     @Test("超过上限滚动一份 .1，旧的 .1 被覆盖")

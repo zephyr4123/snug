@@ -20,14 +20,10 @@ public struct SnugPaths: Equatable, Sendable {
 
     /// 用户设置
     public var config: URL { file("config.json") }
-    /// 物理屏布局 + 显示模式快照（会话开始改拓扑前写，还原成功才删）
-    public var layout: URL { file("layout.json") }
-    /// 被禁用、待恢复的物理屏（先写盘再禁用）
-    public var disabledDisplays: URL { file("disabled-displays.json") }
-    /// 主程序每秒发布的状态，看门狗据此判断；mtime 即心跳
-    public var appState: URL { file("app-state.json") }
-    /// 看门狗心跳（只看 mtime）
-    public var watchdogHeartbeat: URL { file("watchdog-heartbeat") }
+    /// 手机屏上那个窗口的还原记录：放上去之前写，放回原位才删；崩溃后下次启动按它还原
+    public var phoneRecord: URL { file("phone-screen.json") }
+    /// 每个 App 在手机屏上记住的字号级数
+    public var zoomBook: URL { file("zoom.json") }
     /// 日志滚动出的上一份
     public var rotatedLogFile: URL { logFile.deletingLastPathComponent().appendingPathComponent(logFile.lastPathComponent + ".1") }
 

@@ -33,37 +33,6 @@ struct SessionEpisodeTests {
         #expect(e.advance(to: at(17)) == .ended)
         #expect(e.connected(at: at(17)) == .began)
     }
-
-    @Test("手动叫停只在会话进行中生效，作用到本会话结束（修 B11）")
-    func manualSuspend() {
-        var e = SessionEpisode()
-        // 不在会话中：只是恢复一下，不影响下一次远程
-        #expect(e.suspendByUser() == false)
-        #expect(e.suspendedByUser == false)
-        _ = e.connected(at: at(0))
-        #expect(e.suspendedByUser == false)
-
-        #expect(e.suspendByUser() == true)
-        #expect(e.suspendedByUser)
-        _ = e.disconnected(at: at(5))
-        _ = e.connected(at: at(10))          // 窗口内重连：同一会话，标记保留
-        #expect(e.suspendedByUser)
-        _ = e.disconnected(at: at(20))
-        #expect(e.advance(to: at(40)) == .ended)
-        #expect(e.suspendedByUser == false)
-        _ = e.connected(at: at(50))
-        #expect(e.suspendedByUser == false)
-    }
-
-    @Test("重连窗口里按手动叫停也算会话进行中")
-    func suspendDuringWindow() {
-        var e = SessionEpisode()
-        _ = e.connected(at: at(0))
-        _ = e.disconnected(at: at(1))
-        #expect(e.suspendByUser() == true)
-        _ = e.connected(at: at(3))
-        #expect(e.suspendedByUser)
-    }
 }
 
 @Suite("远程会话 RemoteSession")
@@ -109,17 +78,5 @@ struct RemoteSessionTests {
         s.noteSelfInducedChange(at: at(0))
         #expect(s.update(absent, now: at(4.0)) == [])
         #expect(s.update(absent, now: at(5.1)) == [.interrupted])
-    }
-
-    @Test("手动叫停：会话外无效，会话内到会话结束为止")
-    func suspend() {
-        var s = RemoteSession()
-        #expect(s.suspendByUser() == false)
-        _ = s.update(present, now: at(0))
-        #expect(s.suspendByUser() == true)
-        #expect(s.suspendedByUser)
-        _ = s.update(absent, now: at(2))
-        _ = s.update(absent, now: at(20))
-        #expect(s.suspendedByUser == false)
     }
 }

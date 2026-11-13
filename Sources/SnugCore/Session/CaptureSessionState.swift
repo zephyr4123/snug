@@ -10,7 +10,7 @@
 import Foundation
 
 public struct CaptureSessionState: Sendable {
-    /// 终止事件之后等这么久，没有重新开始才算真的停了（关物理屏等拓扑变化时 UU 会停流再重开）
+    /// 终止事件之后等这么久，没有重新开始才算真的停了（加屏、撤屏等屏幕组合变化时 UU 会停流再重开）
     public static let restartGrace: TimeInterval = 3
 
     private var active = false

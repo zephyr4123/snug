@@ -20,10 +20,8 @@ struct PersistenceTests {
     func pathNames() {
         let p = SnugPaths(dataDirectory: URL(fileURLWithPath: "/d"), logFile: URL(fileURLWithPath: "/l/Snug.log"))
         #expect(p.config.path == "/d/config.json")
-        #expect(p.layout.path == "/d/layout.json")
-        #expect(p.disabledDisplays.path == "/d/disabled-displays.json")
-        #expect(p.appState.path == "/d/app-state.json")
-        #expect(p.watchdogHeartbeat.path == "/d/watchdog-heartbeat")
+        #expect(p.phoneRecord.path == "/d/phone-screen.json")
+        #expect(p.zoomBook.path == "/d/zoom.json")
         #expect(p.rotatedLogFile.path == "/l/Snug.log.1")
         #expect(SnugPaths.standard.dataDirectory.path.hasSuffix("Library/Application Support/Snug"))
         #expect(SnugPaths.standard.logFile.path.hasSuffix("Library/Logs/Snug.log"))
@@ -105,15 +103,5 @@ struct PersistenceTests {
         #expect(record.pending() == Sample(name: "before", count: 3))
         try record.settle()
         #expect(record.pending() == nil)
-    }
-
-    @Test("AppStateRecord 编码后能读回（看门狗靠它判断主程序状态）")
-    func appStateRoundTrip() throws {
-        let dir = try TempDir()
-        let file = JSONFile<AppStateRecord>(url: dir.url.appendingPathComponent("app-state.json"))
-        let s = AppStateRecord(pid: 123, updatedAt: Date(timeIntervalSince1970: 1_000_000),
-                               connected: true, keepOnlyVirtualActive: false)
-        try file.save(s)
-        #expect(file.loadOrQuarantine() == s)
     }
 }
