@@ -174,6 +174,10 @@ scripts/snug install   # 构建、安装并打开
 
 ## 🙏 致谢
 
+首先感谢 **[UU远程](https://uuyc.163.com/)**。它提供了稳定、流畅的远程控制，画质与帧率可以自由调节，而且完全免费。正因为有这样一款免费且高质量的产品，社区才能在它之上继续完善远程体验，Snug 也由此而来。谨致敬意。
+
+同样感谢以下项目与贡献者：
+
 - [UUyc-companion](https://github.com/aoyamashou/UUyc-companion)（MIT）：AoyamaShou，Snug 的前身
 - [Better Remote](https://github.com/pincc-debug/better-remote)（MIT）：pincc-debug，为 UU远程 实现单指滚动的思路
 - [PermissionFlow](https://github.com/jaywcjlove/PermissionFlow)（MIT）：小弟调调，授权引导与拖拽授权面板
