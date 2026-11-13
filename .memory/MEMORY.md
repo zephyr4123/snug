@@ -6,6 +6,10 @@
 - [项目定位](project-positioning.md) — 彻底承接的自有项目，不是下游；保留原作者版权与致谢
 - [发版身份](project-release-identity.md) — 个人 Developer ID（29898YBGWD）签名公证；gh 硬绑定 zephyr4123
 - [接手时的已知问题](project-known-issues.md) — 外接屏闪烁循环、ColorSync 文件堆积、三个社区 PR 状态
+- [产品方向与痛点](project-product-direction.md) — 目标：手机远程体感最好（清晰/大/方便）；键盘遮挡、双指放大拖拽、虚拟屏重排三个痛点
+- [手机屏产品逻辑](project-phone-screen-product.md) — 最终拍板：可选增强；连上后同原版 UU，多一块竖屏；屏上窗口列表吸窗口、随时切换；Mac 零操作
+- [手机屏技术事实](project-phone-screen.md) — 2 倍门槛短边 ≥540、竖 540x950 / 横 976x540、帮手进程切模式、窗口搬运、字号、单指滚动与长按右键等实测结论
+- [产品思维](feedback-product-thinking.md) — 背后复杂用户无感；可选不强制、不替用户做决定；隔离要干净；验证用的繁琐步骤不进产品
 - [重构空间](project-refactor-latitude.md) — 尚无线上用户：该删就删、不留兼容；已批准全面重构（refactor/snug）
 - [直接修不建 issue](feedback-direct-fix-no-issues.md) — bug 直接修、重构直接做，追溯靠 commit 信息；需要真机测就开口
 - [Workflow 规模](feedback-workflow-scale.md) — agent 控制在 5 个左右、两段链路，不搞反驳者扇出
