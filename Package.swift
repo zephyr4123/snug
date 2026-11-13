@@ -27,6 +27,6 @@ let package = Package(
             // 旧 App 代码第二阶段整体改写；在那之前停在 Swift 5 语言模式，避免为了严格并发检查去改界面逻辑
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
-        .testTarget(name: "SnugCoreTests", dependencies: ["SnugCore"]),
+        .testTarget(name: "SnugCoreTests", dependencies: ["SnugCore"], resources: [.copy("Fixtures")]),
     ]
 )
