@@ -16,3 +16,4 @@
 - [Workflow 规模](feedback-workflow-scale.md) — agent 控制在 5 个左右、两段链路，不搞反驳者扇出
 - [出包收进 CLI](feedback-release-cli.md) — 构建到发版只走 scripts/snug 一个入口，照 SpeakMore 的 ship，不散脚本
 - [国内源](project-domestic-mirror.md) — dl.zephyrxiang.com/snug/：安装包与 README 媒体走 COS+CDN，ship/mirror/media 三个命令；README 不播外链视频
+- [对外文案](feedback-doc-writing.md) — README 等用书面语、提炼主人的意思不照抄；分点少大段；图文对应
