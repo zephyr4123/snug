@@ -2,11 +2,12 @@
 # Snug 的开发与发版命令。出包相关的事都从这一个入口走，不另外散脚本：
 #   scripts/snug help
 #
-# 版本号只从仓库根目录的 VERSION 读。本机才有的东西（签名证书、公证档案、发版用的 GitHub 账号）
-# 放在不进 git 的 .machine.env（样板见 .machine.env.example），同名环境变量优先。
+# 版本号只从仓库根目录的 VERSION 读。本机才有的东西（签名证书、公证档案、发版用的 GitHub 账号、
+# 国内源的桶和密钥从哪来）放在不进 git 的 .machine.env（样板见 .machine.env.example），同名环境变量优先。
 #
 # 发版的约定（照 SpeakMore 的 ship）：
-# - 发过的版本不改：GitHub 上这个版本已经公开、包又和本机的不一样，就拒绝，要改就升版本号
+# - 两个下载地址：GitHub Release，和国内源（腾讯云 COS + CDN，国内下载快，官网也从这里取）
+# - 发过的版本不改：GitHub 上这个版本已经公开、包又和本机的不一样，就拒绝；国内源同名的包内容不一样也拒绝。要改就升版本号
 # - 断了别重打：dist/<版本>/ 里留着打好的包和它出自哪个提交，ship 重跑时直接用，只补没做完的那一步
 set -euo pipefail
 cd "${0:A:h}/.."
@@ -17,6 +18,9 @@ readonly REPO_URL="https://github.com/zephyr4123/snug"
 # gh 的 release 命令都发到这个仓库。不写明时 gh 自己从 git 远端里挑，有 upstream 就挑 upstream：
 # 2.0.0 发版时它挑中了原作者的 aoyamashou/UUyc-companion，靠 --verify-tag 才没发过去
 export GH_REPO="${REPO_URL#https://github.com/}"
+# 国内源：桶和 SpeakMore 共用，Snug 的都在 snug/ 下，网址的路径就是桶里的对象名（摆法见「国内源」一节）
+readonly COS_PREFIX="snug"
+readonly DOWNLOAD_BASE="https://dl.zephyrxiang.com/$COS_PREFIX"
 # 通用二进制：Apple 芯片和 Intel 一个包。install 也打同样的，自己测的就是要发的
 readonly ARCHS=(--arch arm64 --arch x86_64)
 
@@ -34,7 +38,9 @@ usage() {
   app       打 build/Snug.app 并签名：有 Developer ID 证书就用它，没有就 ad-hoc
   install   打 App，装进「应用程序」并打开（先正常退出正在跑的 Snug，窗口会先放回原处）
   dist      打可分发的安装包 dist/<版本>/Snug-<版本>.dmg：Developer ID 签名，App 和 dmg 各自公证、钉票据
-  ship      发版：把关 → check → dist → GitHub Release 草稿、传包 → 从下载地址核对 → 公开
+  ship      发版：把关 → check → dist → GitHub Release 草稿、传包 → 公开 → 传国内源 → 两边都从下载地址核对
+  mirror    把 GitHub 上已经公开的版本补传到国内源：scripts/snug mirror 2.0.0
+  media     把 README 用的图片、视频传到国内源，打出地址：scripts/snug media <文件…>
   help      显示这段说明
 
 发版：改好 VERSION 并提交，打带说明的同名标签推上去，再 ship（Release 的说明取自标签说明）：
@@ -223,6 +229,148 @@ make_dmg() {
   rm -rf "$stage"
 }
 
+# MARK: 国内源（腾讯云 COS + CDN）
+#
+# 桶私有，只让 CDN 读；都在 snug/ 下：
+#   v<版本>/Snug-<版本>.dmg、.sha256    发过就不改，缓存一年
+#   latest/Snug.dmg                     固定的「最新版」地址（README、官网用）：发版时换成新包，不往旧版本换；
+#                                       缓存 5 分钟，下载下来的文件名带版本号
+#   media/<名字>.<指纹>.<后缀>           README 的图片、视频：名字带内容指纹，内容变了地址跟着变，缓存一年
+# 每个对象带 x-cos-meta-sha256：重跑时内容一样就跳过，不一样就拒绝（不会悄悄盖掉发过的东西）
+
+readonly COS_PYTHON=".venv/bin/python"
+readonly IMMUTABLE="public, max-age=31536000, immutable"
+
+# .venv 不进 git，依赖照 scripts/cos-requirements.txt 钉死的版本装；没装好就装
+ensure_cos_python() {
+  [[ -x $COS_PYTHON ]] && "$COS_PYTHON" -c 'import qcloud_cos' 2>/dev/null && return 0
+  step "准备传国内源用的 Python 环境（.venv）"
+  python3 -m venv .venv
+  .venv/bin/pip install -q --disable-pip-version-check -r scripts/cos-requirements.txt
+}
+
+# 传之前查齐：桶、地域、密钥从哪来。ship 在把关时就查，别等 GitHub 那边发完才发现传不了
+require_cos_setup() {
+  [[ -n ${COS_BUCKET:-} && -n ${COS_REGION:-} ]] \
+    || die "没配国内源的桶：照 .machine.env.example 在 .machine.env 里填 COS_BUCKET、COS_REGION"
+  [[ -n ${TENCENTCLOUD_SECRET_ID:-} && -n ${TENCENTCLOUD_SECRET_KEY:-} ]] && return 0
+  [[ -n ${COS_SECRETS_LOADER:-} && -n ${COS_CREDENTIAL:-} ]] \
+    || die "环境里没有腾讯云的密钥，.machine.env 里的 COS_SECRETS_LOADER 或 COS_CREDENTIAL 也是空的"
+  [[ -f $COS_SECRETS_LOADER ]] || die "找不到密钥加载器 $COS_SECRETS_LOADER"
+}
+
+# 跑一次 COS 小工具（cos_tool_source）。密钥只进这一个子进程：环境里已经有 TENCENTCLOUD_SECRET_ID / KEY 就直接用，
+# 否则用 .machine.env 里的加载器和凭据名（withkey 只把密钥喂给它启动的那条命令）
+cos() {
+  require_cos_setup
+  ensure_cos_python
+  local code; code="$(cos_tool_source)"
+  if [[ -n ${TENCENTCLOUD_SECRET_ID:-} && -n ${TENCENTCLOUD_SECRET_KEY:-} ]]; then
+    "$COS_PYTHON" -c "$code" "$@"
+  else
+    ( source "$COS_SECRETS_LOADER"
+      (( $+functions[withkey] )) || die "加载器 $COS_SECRETS_LOADER 里没有 withkey"
+      withkey "$COS_CREDENTIAL" "$COS_PYTHON" -c "$code" "$@" )
+  fi
+}
+
+cos_tool_source() {
+  cat <<'PY'
+# 用法（只由 scripts/snug 调，桶、地域、密钥都在环境变量里）：
+#   put   <本地文件> <对象名> <缓存头>                       发过就不改的对象
+#   alias <本地文件> <对象名> <缓存头> <版本> <下载文件名>     「最新版」地址：只往新版本换
+import hashlib, os, sys
+from qcloud_cos import CosConfig, CosS3Client
+from qcloud_cos.cos_exception import CosServiceError
+
+TYPES = {".dmg": "application/x-apple-diskimage", ".sha256": "text/plain; charset=utf-8",
+         ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
+         ".gif": "image/gif", ".mp4": "video/mp4"}
+env = os.environ
+BUCKET = env["COS_BUCKET"]
+client = CosS3Client(CosConfig(Region=env["COS_REGION"], SecretId=env["TENCENTCLOUD_SECRET_ID"],
+                               SecretKey=env["TENCENTCLOUD_SECRET_KEY"]))
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+def meta(key):
+    """对象的 x-cos-meta-*（去掉前缀、键名小写）；对象不在返回 None"""
+    try:
+        headers = client.head_object(Bucket=BUCKET, Key=key)
+    except CosServiceError as error:
+        if error.get_status_code() == 404:
+            return None
+        raise
+    prefix = "x-cos-meta-"
+    return {k.lower()[len(prefix):]: v for k, v in headers.items() if k.lower().startswith(prefix)}
+
+def upload(path, key, cache, digest, extra=None, disposition=None):
+    fields = {"sha256": digest, **(extra or {})}
+    options = {"ContentType": TYPES[os.path.splitext(key)[1].lower()], "CacheControl": cache,
+               "Metadata": {f"x-cos-meta-{k}": v for k, v in fields.items()}}
+    if disposition:
+        options["ContentDisposition"] = disposition
+    client.upload_file(Bucket=BUCKET, Key=key, LocalFilePath=path, **options)
+    if (meta(key) or {}).get("sha256") != digest:
+        sys.exit(f"传完回读核对不上：{key}")
+
+def put(path, key, cache):
+    digest = sha256(path)
+    current = meta(key)
+    if current is not None:
+        if current.get("sha256") == digest:
+            print(f"已在上面，跳过：{key}")
+            return
+        sys.exit(f"{key} 已经在国内源上，内容不一样：发过的不改，要改就换名字（安装包就升版本号）")
+    upload(path, key, cache, digest)
+    print(f"已传：{key}")
+
+def alias(path, key, cache, version, filename):
+    digest = sha256(path)
+    current = meta(key)
+    if current is not None:
+        now = current.get("version", "0.0.0")
+        if tuple(map(int, now.split("."))) > tuple(map(int, version.split("."))):
+            print(f"最新版地址已经是更新的 {now}，不往回换")
+            return
+        if now == version and current.get("sha256") == digest:
+            print(f"最新版地址已经是 {version}，跳过")
+            return
+    upload(path, key, cache, digest, {"version": version}, f'attachment; filename="{filename}"')
+    print(f"最新版地址换成了 {version}：{key}")
+
+command, *args = sys.argv[1:]
+{"put": put, "alias": alias}[command](*args)
+PY
+}
+
+# 从下载地址拉下来比校验值：GitHub 和国内源都这样核对
+verify_download() {
+  local url=$1 want=$2 got
+  got="$(curl -fsSL "$url" | shasum -a 256 | cut -d ' ' -f 1)" || die "下载不了 $url"
+  [[ $got == "$want" ]] || die "$url 上的和本机的不一样（$got ≠ $want）"
+  print -- "下载地址核对过：$url"
+}
+
+# <目录> 里的 Snug-<版本>.dmg 和 .sha256 传到国内源、从下载地址核对，再把「最新版」地址换成它
+publish_cos() {
+  local version=$1 dir=$2 name="Snug-$1.dmg"
+  local sum; sum="$(cut -d ' ' -f 1 < "$dir/$name.sha256")"
+  step "传到国内源 $DOWNLOAD_BASE/v$version/"
+  cos put "$dir/$name" "$COS_PREFIX/v$version/$name" "$IMMUTABLE"
+  cos put "$dir/$name.sha256" "$COS_PREFIX/v$version/$name.sha256" "$IMMUTABLE"
+  verify_download "$DOWNLOAD_BASE/v$version/$name" "$sum"
+  step "国内源的最新版地址"
+  cos alias "$dir/$name" "$COS_PREFIX/latest/Snug.dmg" "public, max-age=300" "$version" "$name"
+  # 这个地址会换内容，CDN 节点上可能还留着 5 分钟以内的旧包：上面已经回读源站核对过，这里不从 CDN 核对
+  print -- "最新版地址：$DOWNLOAD_BASE/latest/Snug.dmg（CDN 节点最多 5 分钟后换上）"
+}
+
 # MARK: 命令
 
 cmd_check() {
@@ -329,6 +477,7 @@ cmd_ship() {
   local remote; remote="$(git ls-remote origin "refs/tags/$tag^{}" | cut -f 1)"
   [[ $remote == "$(git rev-parse HEAD)" ]] || die "标签 $tag 还没推到 GitHub，或者那边指的不是这个提交"
   check_github_account
+  require_cos_setup
 
   # 已经公开的版本不改；草稿可以接着传
   local state=""
@@ -359,11 +508,61 @@ cmd_ship() {
     gh release edit "$tag" --draft=false --latest
   fi
 
-  step "从下载地址核对"
-  local url="$REPO_URL/releases/download/$tag/$dmg_name"
-  local got; got="$(curl -fsSL "$url" | shasum -a 256 | cut -d ' ' -f 1)" || die "下载不了 $url"
-  [[ $got == "$sum" ]] || die "下载地址上的包和本机的不一样（$got ≠ $sum）"
-  print -- "✅ Snug $version 已发布：$REPO_URL/releases/tag/$tag"
+  step "从 GitHub 的下载地址核对"
+  verify_download "$REPO_URL/releases/download/$tag/$dmg_name" "$sum"
+
+  publish_cos "$version" "dist/$version"
+  print -- "✅ Snug $version 已发布：$REPO_URL/releases/tag/$tag · 国内源 $DOWNLOAD_BASE/v$version/$dmg_name"
+}
+
+# 把 GitHub 上已经公开的版本补传到国内源：包从 GitHub 下载、比过校验值再传，两边是同一个文件
+cmd_mirror() {
+  local version="${1#v}"
+  [[ $version =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || die "用法：scripts/snug mirror <版本>，比如 scripts/snug mirror 2.0.0"
+  local tag="v$version" name="Snug-$version.dmg"
+  check_github_account
+  require_cos_setup
+  [[ "$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null)" == "false" ]] \
+    || die "GitHub 上没有已经公开的 $tag：国内源只补传公开了的版本，新版本用 ship 发"
+  local dir; dir="$(mktemp -d)"
+  step "从 GitHub 下载 $tag 的安装包"
+  gh release download "$tag" --pattern "$name" --pattern "$name.sha256" --dir "$dir"
+  (cd "$dir" && shasum -a 256 -c -s "$name.sha256") || die "下载下来的 $name 和 GitHub 上的校验值对不上"
+  publish_cos "$version" "$dir"
+  rm -rf "$dir"
+  print -- "✅ Snug $version 已在国内源：$DOWNLOAD_BASE/v$version/$name"
+}
+
+# README 用的图片、视频传到国内源 media/ 下，打出地址。文件名就是地址里的名字（后面自动加内容指纹）
+cmd_media() {
+  (( $# )) || die "用法：scripts/snug media <文件…>（文件名用小写字母、数字和连字符，比如 hero-claude-code.png）"
+  local tmp; tmp="$(mktemp -d)"
+  local file stem ext src sum key urls=() tag=()
+  for file in "$@"; do
+    [[ -f $file ]] || die "没有这个文件：$file"
+    stem="${file:t:r}" ext="${file:e:l}"
+    [[ $stem =~ '^[a-z0-9-]+$' ]] || die "文件名只用小写字母、数字和连字符：${file:t}"
+    case $ext in
+      png|jpg|jpeg|webp|gif) src="$file" ;;
+      mp4|mov)
+        # 只换封装、不重新编码：moov 挪到文件头，网页不用整个下完就能播；顺手去掉录制时间、地点这些元数据。
+        # HEVC 要标成 hvc1，Safari 才肯播
+        command -v ffmpeg >/dev/null || die "传视频要用 ffmpeg 重新封装，没装：brew install ffmpeg"
+        tag=()
+        [[ "$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$file")" == hevc ]] && tag=(-tag:v hvc1)
+        ext=mp4 src="$tmp/$stem.mp4"
+        ffmpeg -v error -y -i "$file" -map 0 -c copy "${tag[@]}" -map_metadata -1 -movflags +faststart "$src" ;;
+      *) die "只传图片（png、jpg、webp、gif）和视频（mp4、mov）：${file:t}" ;;
+    esac
+    sum="$(shasum -a 256 "$src" | cut -d ' ' -f 1)"
+    key="media/$stem.${sum[1,8]}.$ext"
+    cos put "$src" "$COS_PREFIX/$key" "$IMMUTABLE"
+    verify_download "$DOWNLOAD_BASE/$key" "$sum"
+    urls+=("$DOWNLOAD_BASE/$key")
+  done
+  rm -rf "$tmp"
+  print -- "✅ 已在国内源："
+  print -l -- "${urls[@]}"
 }
 
 # MARK: 入口
@@ -375,6 +574,8 @@ case "${1:-help}" in
   install) cmd_install ;;
   dist) cmd_dist ;;
   ship) cmd_ship ;;
+  mirror) cmd_mirror "${2:-}" ;;
+  media) shift; cmd_media "$@" ;;
   help|-h|--help) usage ;;
   *) usage >&2; die "不认识的命令：$1" ;;
 esac

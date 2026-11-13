@@ -1,0 +1,11 @@
+# scripts/snug 传国内源（腾讯云 COS）用的 Python 依赖，版本钉死；装在仓库里的 .venv（scripts/snug 缺了会自己装）
+certifi==2026.10.23
+charset-normalizer==3.5.2
+cos_python_sdk_v5==1.9.44
+crcmod==1.7
+idna==3.20
+pycryptodome==4.4.0
+requests==2.34.2
+six==1.17.0
+urllib3==2.8.0
+xmltodict==1.0.4

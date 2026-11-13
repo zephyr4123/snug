@@ -10,7 +10,9 @@
 | `scripts/snug app` | 生成 `build/Snug.app`（通用二进制）并签名 |
 | `scripts/snug install` | 生成 App、安装至「应用程序」并打开；正在运行的 Snug 会先正常退出，窗口先行归位 |
 | `scripts/snug dist` | 生成可分发的 `dist/<版本>/Snug-<版本>.dmg`：Developer ID 签名，App 与 dmg 分别公证并装订票据 |
-| `scripts/snug ship` | 发布：前置检查 → check → dist → 创建 GitHub Release 草稿并上传 → 校验下载地址 → 公开 |
+| `scripts/snug ship` | 发布：前置检查 → check → dist → 创建 GitHub Release 草稿并上传 → 公开 → 上传国内源 → 两处均从下载地址核对 |
+| `scripts/snug mirror <版本>` | 将 GitHub 上已公开的版本补传至国内源：安装包从 GitHub 下载，校验一致后上传 |
+| `scripts/snug media <文件…>` | 将 README 使用的图片与视频上传至国内源并输出地址；视频仅重新封装（不重新编码），并去除录制时间、地点等元数据 |
 
 **环境要求**：Xcode 与 Swift 6。
 
@@ -23,7 +25,7 @@
 3. 执行 `scripts/snug ship`
 
 - 已发布的版本不再更改：GitHub 上已公开、而本机的安装包与之不同时，发布会被拒绝，需提升版本号
-- `ship` 中断后可直接重新执行，`dist/<版本>/` 中出自同一提交的安装包会被复用
+- `ship` 中断后可直接重新执行，`dist/<版本>/` 中出自同一提交的安装包会被复用；国内源上已有且内容一致的文件会跳过
 
 **本机配置**存放在不纳入版本控制的 `.machine.env`（模板为 `.machine.env.example`），只记录名称，不存放密钥：
 
@@ -32,6 +34,22 @@
 | `MAC_SIGNING_IDENTITY` | 签名证书；`-` 表示 ad-hoc |
 | `MAC_NOTARY_PROFILE` | `xcrun notarytool store-credentials` 存储的公证档案名 |
 | `GH_CONFIG_DIR` / `GITHUB_ACCOUNT` | 发布所用的 GitHub 账号 |
+| `COS_BUCKET` / `COS_REGION` | 国内源所在的 COS 桶与地域 |
+| `COS_CREDENTIAL` / `COS_SECRETS_LOADER` | 腾讯云密钥的凭据名与按需加载器（提供 `withkey`）；环境中已有 `TENCENTCLOUD_SECRET_ID` / `TENCENTCLOUD_SECRET_KEY` 时可留空 |
+
+## 国内源
+
+安装包与 README 媒体同时发布到腾讯云 COS，经 CDN 分发，地址前缀为 `https://dl.zephyrxiang.com/snug/`。桶为私有，仅允许 CDN 读取。
+
+| 路径 | 内容 | 缓存 |
+| :--- | :--- | :--- |
+| `v<版本>/Snug-<版本>.dmg`、`.sha256` | 各版本安装包，发布后不再更改 | 一年 |
+| `latest/Snug.dmg` | 固定的最新版下载地址（README 与官网使用），只向更新的版本切换，下载文件名带版本号 | 5 分钟 |
+| `media/<名称>.<指纹>.<后缀>` | README 的图片与视频，内容变化时地址随之变化 | 一年 |
+
+- 每个对象记录 sha256：重复上传时内容一致即跳过，不一致即拒绝
+- 上传使用的 Python 环境位于仓库内的 `.venv`（不纳入版本控制），依赖版本锁定在 `scripts/cos-requirements.txt`，缺失时自动安装
+- GitHub 的 README 不播放外链视频：README 中的动态演示使用动图，完整视频以链接形式提供
 
 ## 代码结构
 

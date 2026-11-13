@@ -74,7 +74,7 @@ UU远程 手机端沿用触控板的手势逻辑；Snug 在手机屏上按手机
 
 **下载安装（推荐）**
 
-1. 下载 [最新版 Snug](https://github.com/zephyr4123/snug/releases/latest)（`.dmg`，Apple 芯片与 Intel 通用，已通过 Apple 公证）
+1. 下载最新版 Snug：[国内下载](https://dl.zephyrxiang.com/snug/latest/Snug.dmg) · [GitHub](https://github.com/zephyr4123/snug/releases/latest)（`.dmg`，Apple 芯片与 Intel 通用，已通过 Apple 公证）
 2. 将 Snug 拖入「应用程序」并打开
 3. 按欢迎页提示授予辅助功能权限（macOS 27 起名为「设备控制和数据访问」）
 

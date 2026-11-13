@@ -13,3 +13,6 @@ dist/
 
 # Playwright MCP 的截图与页面快照（浏览器预览时生成）
 .playwright-mcp/
+
+# scripts/snug 传国内源用的 Python 环境（依赖见 scripts/cos-requirements.txt）
+.venv/
