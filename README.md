@@ -16,8 +16,8 @@
 
 <br>
 
-<img src="https://dl.zephyrxiang.com/snug/media/phone-window-list.7edc548b.png" width="30%" alt="窗口列表"> <img src="https://dl.zephyrxiang.com/snug/media/phone-demo.06d6f8d8.webp" width="30%" alt="实机演示：打开窗口、单指滚动、回到列表"> <img src="https://dl.zephyrxiang.com/snug/media/phone-context-menu.997dd70f.png" width="30%" alt="长按调出右键菜单">
-<p><sub>窗口列表 · 实机演示 · 长按调出右键菜单</sub><br><sub>▶ <a href="https://dl.zephyrxiang.com/snug/media/phone-demo.f35c99a1.mp4">观看高清演示视频</a></sub></p>
+<img src="https://dl.zephyrxiang.com/snug/media/phone-window-list.7edc548b.png" width="30%" alt="窗口列表"> <img src="https://dl.zephyrxiang.com/snug/media/phone-demo.2cee4e81.webp" width="30%" alt="实机演示：打开窗口、弹出键盘输入命令、恢复会话、单指滚动、回到列表"> <img src="https://dl.zephyrxiang.com/snug/media/phone-context-menu.997dd70f.png" width="30%" alt="长按调出右键菜单">
+<p><sub>窗口列表 · 实机演示 · 长按调出右键菜单</sub><br><sub>▶ <a href="https://dl.zephyrxiang.com/snug/media/phone-demo.a97e46d1.mp4">观看高清演示视频</a></sub></p>
 
 </div>
 
