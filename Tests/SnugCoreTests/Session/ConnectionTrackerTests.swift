@@ -3,7 +3,6 @@ import Testing
 @testable import SnugCore
 
 /// 时间都写成「距 t0 的秒数」，断言里的数字能直接对上 1.5s 防抖、5s 静默期、60s 上限
-private let t0 = Date(timeIntervalSinceReferenceDate: 800_000_000)
 private func at(_ s: Double) -> Date { t0.addingTimeInterval(s) }
 
 private let none = UUSignals(overlayVisible: false, controllers: [], captureActive: false)

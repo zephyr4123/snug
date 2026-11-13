@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import SnugCore
 
-private let t0 = Date(timeIntervalSinceReferenceDate: 800_000_000)
 private func at(_ s: Double) -> Date { t0.addingTimeInterval(s) }
 
 @Suite("会话 SessionEpisode")
