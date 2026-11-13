@@ -10,7 +10,7 @@
 
 [![最新版本](https://img.shields.io/github/v/release/zephyr4123/snug?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=blue)](https://github.com/zephyr4123/snug/releases/latest) ![Apple Silicon · Intel](https://img.shields.io/badge/Apple%20Silicon%20%C2%B7%20Intel-%E9%80%9A%E7%94%A8-success) ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue) ![已公证](https://img.shields.io/badge/Apple-%E5%B7%B2%E5%85%AC%E8%AF%81-black?logo=apple) [![许可证 MIT](https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT-green)](LICENSE)
 
-[下载](https://github.com/zephyr4123/snug/releases/latest) · [核心体验](#-核心体验) · [交互](#-与-iphone-一致的交互) · [对比](#-与其他方案的对比) · [安装](#-安装) · [使用](#-使用方式) · [限制](#-已知限制) · [开发](#-开发)
+[下载](#-下载) · [核心体验](#-核心体验) · [交互](#-与-iphone-一致的交互) · [对比](#-与其他方案的对比) · [安装](#-安装) · [使用](#-使用方式) · [限制](#-已知限制) · [开发](#-开发)
 
 <br>
 
@@ -20,6 +20,21 @@
 </div>
 
 > 承接自 [aoyamashou/UUyc-companion](https://github.com/aoyamashou/UUyc-companion)（UU远程伴侣，作者 AoyamaShou，MIT 许可），完整保留原作者的版权声明与提交历史。2.0 起围绕「手机屏」重新设计。
+
+## 📥 下载
+
+<img src="Assets/AppIcon/AppIcon-1024.png" width="88" align="left" alt="Snug 图标">
+
+**Snug for macOS** [![最新版本](https://img.shields.io/github/v/release/zephyr4123/snug?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=blue)](https://github.com/zephyr4123/snug/releases/latest)<br>一个安装包同时支持 Apple 芯片与 Intel，适用于 macOS 14 及更新版本<br>已签名并通过 Apple 公证，下载后拖入「应用程序」即可
+
+<br clear="left">
+
+| 渠道 | 说明 | 下载 |
+| :--- | :--- | :--- |
+| **国内源** | 腾讯云 CDN 加速，中国大陆推荐 | [Snug.dmg](https://dl.zephyrxiang.com/snug/latest/Snug.dmg) |
+| **GitHub Releases** | 附更新说明、校验文件与历史版本 | [前往下载](https://github.com/zephyr4123/snug/releases/latest) |
+
+两个渠道提供的是同一个安装包。
 
 ## ✨ 核心体验
 
@@ -80,7 +95,7 @@ UU远程 手机端沿用触控板的手势逻辑；Snug 在手机屏上按手机
 
 **下载安装（推荐）**
 
-1. 下载最新版 Snug：[国内下载](https://dl.zephyrxiang.com/snug/latest/Snug.dmg) · [GitHub](https://github.com/zephyr4123/snug/releases/latest)（`.dmg`，Apple 芯片与 Intel 通用，已通过 Apple 公证）
+1. 从「[下载](#-下载)」一节获取安装包（中国大陆推荐国内源）
 2. 将 Snug 拖入「应用程序」并打开
 3. 按欢迎页提示授予辅助功能权限（macOS 27 起名为「设备控制和数据访问」）
 
