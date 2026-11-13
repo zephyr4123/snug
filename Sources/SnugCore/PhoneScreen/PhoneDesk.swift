@@ -24,7 +24,7 @@ public final class PhoneDesk {
         public var listVisible = true
         /// 正在做的事，做完回到 nil
         public var work: Work?
-        /// 要让用户知道的一句话（窗口已经关了……），下一个动作开始时清掉
+        /// 要让用户知道的短提示（窗口已关闭……），下一个动作开始时清掉
         public var notice: String?
 
         public init() {}
@@ -291,7 +291,7 @@ public final class PhoneDesk {
         if wasFullScreen { await windows.setFullScreen(window.key, false) }
         guard let original = await windows.frame(of: window.key) else {
             Log.warn("读不到 \(window.label) 的位置（多半已经关了），不放")
-            state.notice = "这个窗口已经关了"
+            state.notice = "窗口已关闭"
             return
         }
         let next = Placement(window: window, original: original, wasFullScreen: wasFullScreen, zoom: 0)
@@ -300,7 +300,7 @@ public final class PhoneDesk {
         } catch {
             Log.error("还原记录写不进去，不放 \(window.label)：\(error)")
             if wasFullScreen { await windows.setFullScreen(window.key, true) }
-            state.notice = "没能放上来：磁盘写不进还原记录"
+            state.notice = "无法写入还原记录"
             return
         }
         placement = next
@@ -348,7 +348,7 @@ public final class PhoneDesk {
             try ledger.record(record)
         } catch {
             Log.error("还原记录写不进去，不改字号：\(error)")
-            state.notice = "没能改字号：磁盘写不进还原记录"
+            state.notice = "无法写入还原记录"
             return false
         }
         guard await windows.zoom(p.window.key, steps: target - p.zoom) else {

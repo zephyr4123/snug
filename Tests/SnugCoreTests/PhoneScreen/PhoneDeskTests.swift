@@ -285,7 +285,7 @@ struct PhoneDeskTests {
         await rig.ready()
         rig.windows.close(finder.key)
         await rig.pull(finder)
-        #expect(rig.desk.state.notice == "这个窗口已经关了")
+        #expect(rig.desk.state.notice == "窗口已关闭")
         #expect(rig.record == nil)
         #expect(rig.desk.state.placed == nil)
     }
