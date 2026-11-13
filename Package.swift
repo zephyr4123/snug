@@ -16,9 +16,13 @@ let package = Package(
         .target(name: "SnugCore"),
         // 私有 API（CGVirtualDisplay）头文件
         .target(name: "CGVirtualDisplayBridge"),
+        // CoreGraphics 与私有 API 的副作用：实现 SnugCore 定义的 DisplayDriver，物理屏记账，布局快照与还原
+        .target(name: "SnugDisplays", dependencies: ["SnugCore", "CGVirtualDisplayBridge"]),
         .executableTarget(
             name: "Snug",
             dependencies: [
+                "SnugCore",
+                "SnugDisplays",
                 "CGVirtualDisplayBridge",
                 .product(name: "PermissionFlow", package: "PermissionFlow"),
                 .product(name: "SystemSettingsKit", package: "PermissionFlow"),
@@ -27,6 +31,8 @@ let package = Package(
             // 旧 App 代码第二阶段整体改写；在那之前停在 Swift 5 语言模式，避免为了严格并发检查去改界面逻辑
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        // 救急命令行：按记录恢复物理屏、还原布局（取代 dispoff）
+        .executableTarget(name: "snug-rescue", dependencies: ["SnugCore", "SnugDisplays"]),
         .testTarget(name: "SnugCoreTests", dependencies: ["SnugCore"], resources: [.copy("Fixtures")]),
     ]
 )
