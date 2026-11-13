@@ -15,6 +15,12 @@ public enum DeviceKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .phone: "手机"
         }
     }
+
+    /// 首次导入时的类型预填：UU「电脑」组 → 电脑；名字含 pad → 平板；其余 → 手机
+    public static func guess(name: String, isComputerGroup: Bool) -> DeviceKind {
+        if isComputerGroup { return .computer }
+        return name.lowercased().contains("pad") ? .tablet : .phone
+    }
 }
 
 public struct DeviceProfile: Codable, Hashable, Identifiable, Sendable {
