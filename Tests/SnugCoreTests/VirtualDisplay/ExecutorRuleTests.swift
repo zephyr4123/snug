@@ -163,6 +163,18 @@ struct ExecutorRuleTests {
         #expect(rig.driver.ledger.isEmpty)
     }
 
+    @Test("空闲时外接屏插进来：执行器自己不会发现，App 层收到显示器变化后 refresh() 才按目标熄灭它")
+    func refreshAfterHotplug() {
+        let rig = rigWithPhysicalOff()
+        rig.driver.physical.append(7)
+        rig.run(until: 20)
+        #expect(rig.calls("disable").map(\.ids) == [[1, 5]])
+        rig.at(20) { rig.executor.refresh() }
+        rig.run(until: 25)
+        #expect(rig.calls("disable").map(\.ids) == [[1, 5], [7]])
+        #expect(near(rig.times("disable").last, 20))
+    }
+
     @Test("shutdown：恢复物理屏、跳过宽限释放虚拟屏、还原布局，然后回调")
     func shutdown() {
         let rig = rigWithPhysicalOff()

@@ -55,6 +55,11 @@ public final class DisplayExecutor {
         kick()
     }
 
+    /// 显示器热插拔等外部变化后重新评估一次。执行器空闲时不轮询，外接屏插进来不会自己发现
+    public func refresh() {
+        kick()
+    }
+
     /// 退出前收尾：恢复物理屏、跳过宽限释放虚拟屏、还原布局，然后回调
     public func shutdown(completion: @escaping @MainActor @Sendable () -> Void) {
         shutdownCompletion = completion

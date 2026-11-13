@@ -5,7 +5,8 @@
 // 19:01:23.822 结束、23.831 新建，推流一直持续到 43.417；17:56:34.133 结束、.136 新建，持续到 18:00:52。
 // 只认推流开始的话，这两段会在会话进行中误判为已停流。
 // 探测性的编码会话（没有 encoded 摘要）不算终止；单独出现的新建编码会话也不会让状态变成推流中
-// （UU 进程启动时会成批试探编码参数）
+// （UU 进程启动时会成批试探编码参数）。
+// 顺带记下「UU 在推哪块屏」：推流开始前最后一次被描述的那块屏（UU 先枚举全部屏幕，再为要推的那块建过滤器、开推）
 import Foundation
 
 public struct CaptureSessionState: Sendable {
@@ -14,15 +15,20 @@ public struct CaptureSessionState: Sendable {
 
     private var active = false
     private var pendingEndAt: Date?
+    private var lastDescribed: DisplayID?
+    private var captured: DisplayID?
 
     public init() {}
 
     public mutating func apply(_ record: CaptureLogRecord) {
         settle(before: record.date)
         switch record.event {
+        case .displayDescribed(let id):
+            lastDescribed = id
         case .captureStarted:
             active = true
             pendingEndAt = nil
+            captured = lastDescribed
         case .encoderCreated:
             pendingEndAt = nil
         case .captureStopped, .encoderEnded:
@@ -38,11 +44,17 @@ public struct CaptureSessionState: Sendable {
         return now.timeIntervalSince(end) <= Self.restartGrace
     }
 
+    /// 此刻 UU 在推的屏；没在推流、或推流开始前没看到屏的描述时为 nil
+    public func streamingDisplay(at now: Date) -> DisplayID? {
+        isActive(at: now) ? captured : nil
+    }
+
     /// 宽限已过的终止先落定，免得之后来的事件把一段早已结束的推流续上
     private mutating func settle(before date: Date) {
         if active, !isActive(at: date) {
             active = false
             pendingEndAt = nil
+            captured = nil
         }
     }
 }

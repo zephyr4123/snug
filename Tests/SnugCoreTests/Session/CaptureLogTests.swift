@@ -37,10 +37,18 @@ private func activity(_ name: String, at probes: [String]) throws -> [String: Bo
     return result
 }
 
-private func message(_ text: String, process: String = "/Applications/UURemote.app/Contents/Helpers/UURemoteServer") -> String {
-    let obj: [String: String] = ["timestamp": "2026-11-12 19:01:43.417100-0800", "processImagePath": process, "eventMessage": text]
+private func message(_ text: String, process: String = "/Applications/UURemote.app/Contents/Helpers/UURemoteServer",
+                     at time: String = "19:01:43.417100") -> String {
+    let obj: [String: String] = ["timestamp": "2026-11-12 \(time)-0800", "processImagePath": process, "eventMessage": text]
     return String(decoding: try! JSONSerialization.data(withJSONObject: obj), as: UTF8.self)
 }
+
+private func scDisplay(_ id: Int) -> String {
+    " [INFO] -[SCDisplay initWithDict:]:196 (0x1) displayID=\(id) frame=(0.000000,0.000000,1320.000000,2868.000000) width=1320 height=2868"
+}
+
+private let startCapture = " [INFO] -[SCStream startCaptureWithCompletionHandler:]:939 0x1 streamID=<private>"
+private let stopCapture = " [INFO] -[SCStream stopCaptureWithCompletionHandler:]:983 0x1 streamID=<private>"
 
 @Suite("推流日志 CaptureLogParser / CaptureSessionState")
 struct CaptureLogTests {
@@ -108,6 +116,48 @@ struct CaptureLogTests {
         #expect(a["20:01:40.000"] == true)
         #expect(a["20:01:59.100"] == true)    // 56.206 + 3 = 59.206
         #expect(a["20:01:59.300"] == false)
+    }
+
+    @Test("SCDisplay initWithDict 的 displayID 解析成「描述了哪块屏」")
+    func describesDisplay() {
+        let p = CaptureLogParser()
+        #expect(p.parse(line: message(scDisplay(14)))?.event == .displayDescribed(14))
+        #expect(p.parse(line: message(" [INFO] -[SCDisplay initWithDict:]:196 (0x1) frame=(0,0,1,1)")) == nil)
+    }
+
+    @Test("UU 在推哪块屏：推流开始前最后描述的那块；中途枚举别的屏不改；停流过了宽限就清空")
+    func streamingDisplay() {
+        // 形态取自 2026-11-12 20:00:41–44 与 20:01:03 的真实日志：先枚举 1、14，再为 1 建过滤器并开推；
+        // 关屏后停流，枚举 14、为 14 建过滤器并开推；20:01:03.772 停流
+        let lines = [
+            ("20:00:41.830000", scDisplay(1)), ("20:00:41.830100", scDisplay(14)), ("20:00:41.831000", scDisplay(1)),
+            ("20:00:41.831500", startCapture),
+            ("20:00:43.940000", stopCapture),
+            ("20:00:44.046000", scDisplay(14)), ("20:00:44.075000", scDisplay(14)),
+            ("20:00:44.075500", startCapture),
+            ("20:00:50.000000", scDisplay(1)),
+            ("20:01:03.772000", stopCapture),
+        ]
+        let p = CaptureLogParser()
+        var s = CaptureSessionState()
+        var seen: [String: DisplayID?] = [:]
+        func probe(_ t: String) { seen[t] = s.streamingDisplay(at: ts(t)) }
+        probe("20:00:41.000")
+        for (time, text) in lines {
+            if time == "20:00:43.940000" { probe("20:00:43.000") }
+            if time == "20:00:50.000000" { probe("20:00:49.000") }
+            guard let r = p.parse(line: message(text, at: time)) else { continue }
+            s.apply(r)
+        }
+        probe("20:01:00.000")
+        probe("20:01:06.700")
+        probe("20:01:06.800")
+        #expect(seen["20:00:41.000"] == .some(nil))
+        #expect(seen["20:00:43.000"] == .some(1))
+        #expect(seen["20:00:49.000"] == .some(14))
+        #expect(seen["20:01:00.000"] == .some(14))   // 50.000 枚举了 1，不算换屏
+        #expect(seen["20:01:06.700"] == .some(14))   // 03.772 + 3 = 06.772 之前仍在宽限里
+        #expect(seen["20:01:06.800"] == .some(nil))
     }
 
     @Test("只有探测性编码会话（没有推流开始）不会让状态变成推流中")
