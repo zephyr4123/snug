@@ -8,17 +8,51 @@ import Foundation
 import os
 import SnugCore
 
-public final class TouchTap: @unchecked Sendable {
+/// 主线程用的开关。每次开启是一个独立的监听会话：关掉马上再开，新旧两个线程互不共用状态
+@MainActor
+public final class TouchTap {
+    /// 手机屏的范围（CGEvent 坐标）。主线程写，监听线程读
+    private let region = OSAllocatedUnfairLock<CGRect?>(initialState: nil)
+    private var session: TapSession?
+
+    public init() {}
+
+    public var isRunning: Bool { session != nil }
+
+    public func setRegion(_ rect: CGRect?) { region.withLock { $0 = rect } }
+
+    /// 起监听线程，等它报告监听建没建成（没有辅助功能权限时建不成）
+    @discardableResult
+    public func start() -> Bool {
+        guard session == nil else { return true }
+        let next = TapSession(region: region)
+        guard next.start() else {
+            Log.error("手势翻译开不起来：建事件监听失败（多半是没有辅助功能权限）")
+            return false
+        }
+        session = next
+        Log.info("手势翻译已开启（只接管 \(TapSession.sourceProcess) 发来、在手机屏里的操作）")
+        return true
+    }
+
+    public func stop() {
+        guard let session else { return }
+        session.stop()
+        self.session = nil
+        Log.info("手势翻译已关闭")
+    }
+}
+
+/// 一次监听：自己的线程、自己的 run loop、自己的状态机。除了 start / stop，其余都只在这个线程上跑
+private final class TapSession: @unchecked Sendable {
     /// UU 在 Mac 上注入事件的进程
     static let sourceProcess = "UURemoteServer"
     /// eventSourceUserData 里的记号（'SNUG'）
     static let marker: Int64 = 0x534E_5547
 
-    /// 手机屏的范围（CGEvent 坐标）。主线程写，监听线程读
-    private let region = OSAllocatedUnfairLock<CGRect?>(initialState: nil)
-    /// 监听线程的 run loop，停的时候要往里投递。CFRunLoop 不是 Sendable，用普通锁护着
-    private let loopLock = NSLock()
-    private var loop: CFRunLoop?
+    private let region: OSAllocatedUnfairLock<CGRect?>
+    /// 监听线程的 run loop：start 等它建好才返回，之后只读
+    private var runLoop: CFRunLoop?
 
     // 以下只在监听线程上访问
     private var tap: CFMachPort?
@@ -27,43 +61,26 @@ public final class TouchTap: @unchecked Sendable {
     private var coastTimer: CFRunLoopTimer?
     private var isUU: [pid_t: Bool] = [:]
 
-    public init() {}
+    init(region: OSAllocatedUnfairLock<CGRect?>) { self.region = region }
 
-    public var isRunning: Bool { runLoop != nil }
-
-    private var runLoop: CFRunLoop? {
-        get { loopLock.withLock { loop } }
-        set { loopLock.withLock { loop = newValue } }
-    }
-
-    public func setRegion(_ rect: CGRect?) { region.withLock { $0 = rect } }
-
-    /// 起监听线程，等它报告监听建没建成（没有辅助功能权限时建不成）
-    @discardableResult
-    public func start() -> Bool {
-        guard !isRunning else { return true }
+    func start() -> Bool {
         let ready = DispatchSemaphore(value: 0)
-        let started = OSAllocatedUnfairLock(initialState: false)
         let thread = Thread { [self] in
             let ok = installTap()
-            started.withLock { $0 = ok }
+            if ok { runLoop = CFRunLoopGetCurrent() }
             ready.signal()
             if ok { CFRunLoopRun() }
         }
         thread.name = "com.zephyr4123.snug.touch"
         thread.qualityOfService = .userInteractive
         thread.start()
-        _ = ready.wait(timeout: .now() + 2)
-        let ok = started.withLock { $0 }
-        if ok {
-            Log.info("手势翻译已开启（只接管 \(Self.sourceProcess) 发来、在手机屏里的操作）")
-        } else {
-            Log.error("手势翻译开不起来：建事件监听失败（多半是没有辅助功能权限）")
-        }
-        return ok
+        // 建监听是同步的、很快，不设超时：设了超时反而会在超时后留下一个关不掉的监听。
+        // signal / wait 也保证监听线程对 runLoop 的写入在这里可见
+        ready.wait()
+        return runLoop != nil
     }
 
-    public func stop() {
+    func stop() {
         guard let runLoop else { return }
         CFRunLoopPerformBlock(runLoop, CFRunLoopMode.commonModes.rawValue) { [self] in
             if let tap {
@@ -73,16 +90,10 @@ public final class TouchTap: @unchecked Sendable {
             tap = nil
             stopCoasting()
             heldPress = nil
-            translator = TouchTranslator()
-            isUU = [:]
-            self.runLoop = nil
             CFRunLoopStop(CFRunLoopGetCurrent())
         }
         CFRunLoopWakeUp(runLoop)
-        Log.info("手势翻译已关闭")
     }
-
-    // MARK: 监听线程
 
     private func installTap() -> Bool {
         let mask = [CGEventType.leftMouseDown, .leftMouseDragged, .leftMouseUp].reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) }
@@ -92,13 +103,12 @@ public final class TouchTap: @unchecked Sendable {
         self.tap = tap
         CFRunLoopAddSource(CFRunLoopGetCurrent(), CFMachPortCreateRunLoopSource(nil, tap, 0), .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        runLoop = CFRunLoopGetCurrent()
         return true
     }
 
     private static let callback: CGEventTapCallBack = { _, type, event, info in
         guard let info else { return Unmanaged.passUnretained(event) }
-        return Unmanaged<TouchTap>.fromOpaque(info).takeUnretainedValue().handle(type, event)
+        return Unmanaged<TapSession>.fromOpaque(info).takeUnretainedValue().handle(type, event)
     }
 
     private func handle(_ type: CGEventType, _ event: CGEvent) -> Unmanaged<CGEvent>? {
