@@ -126,7 +126,7 @@ struct PhoneDeskTests {
         rig.journal.clear()
         rig.desk.putBack()
         await rig.desk.idle()
-        #expect(rig.journal.all == ["zoom 9 -2 ✎", "move 9 \(safariHome.short) ✎", "fullscreen 9 on"])
+        #expect(rig.journal.all == ["move 9 \(safariHome.short) ✎", "fullscreen 9 on"])
         #expect(rig.windows.window(safari.key)?.fullScreen == true)
         #expect(rig.record == nil)
         #expect(rig.desk.state.placed == nil)

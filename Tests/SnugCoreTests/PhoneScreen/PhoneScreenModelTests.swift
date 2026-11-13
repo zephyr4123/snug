@@ -102,13 +102,16 @@ struct ZoomBookTests {
         #expect(book.steps(for: "com.mitchellh.ghostty", default: 2) == 3)
         #expect(book.steps(for: "com.apple.finder", default: 2) == 0)
         #expect(book.steps(for: nil, default: 2) == 0)
+        // 浏览器按网站记缩放、改了收不回来：不调
+        #expect(book.steps(for: "com.apple.Safari", default: 2) == 0)
+        #expect(book.steps(for: "com.google.Chrome", default: 2) == 0)
     }
 
     @Test("级数夹在 -4...8")
     func clamped() {
         var book = ZoomBook()
-        book.remember(20, for: "com.apple.Safari")
-        #expect(book.steps(for: "com.apple.Safari", default: 0) == 8)
+        book.remember(20, for: "com.googlecode.iterm2")
+        #expect(book.steps(for: "com.googlecode.iterm2", default: 0) == 8)
         #expect(book.steps(for: "com.apple.Terminal", default: -9) == -4)
     }
 
