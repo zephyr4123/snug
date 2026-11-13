@@ -128,11 +128,12 @@ rm ~/Library/LaunchAgents/com.corndog.uudisplay.watchdog-agent.plist
 ## 🧭 使用方式
 
 1. **切换屏幕**：手机或平板连接后，在 UU远程 的屏幕列表中选择「Snug 手机屏」
+
+   <img src="https://dl.zephyrxiang.com/snug/media/uu-screen-picker.212fdbe9.png" width="50%" alt="UU远程 的屏幕列表：显示屏 3（Snug 手机屏）">
+
 2. **选择窗口**：轻点列表中的窗口，窗口即铺满整屏
 3. **切换窗口**：轻点底部指示条返回列表；另选窗口时，原窗口自动归位
 4. **结束远程**：窗口回到原位、字号复原，手机屏随之移除
-
-<p align="center"><img src="https://dl.zephyrxiang.com/snug/media/uu-screen-picker.212fdbe9.png" width="60%" alt="UU远程 的屏幕列表：显示屏 3（Snug 手机屏）"><br><sub>第 1 步：在 UU远程 的屏幕列表中选择「Snug 手机屏」</sub></p>
 
 ## 🔒 隔离与还原
 
