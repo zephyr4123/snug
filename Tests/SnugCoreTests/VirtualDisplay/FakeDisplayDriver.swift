@@ -31,6 +31,8 @@ final class FakeDisplayDriver: DisplayDriver {
     var applySettingsFails = false
     /// 释放后系统还要这么久才把屏从在线列表里拿掉
     var lingerAfterRelease: TimeInterval = 0
+    /// 强制从在线列表里消失的虚拟屏（模拟上线后又短暂离线）
+    var forcedOffline: Set<DisplayID> = []
     /// 这些物理屏启用一直失败
     var enableFails: Set<DisplayID> = []
     var setMainError: DisplayFailure?
@@ -54,7 +56,7 @@ final class FakeDisplayDriver: DisplayDriver {
     func onlineDisplays() -> [OnlineDisplay] {
         let now = scheduler.now
         let phys = physical.filter { !ledgerDisabled.contains($0) }.map { OnlineDisplay(id: $0, isSnugVirtual: false) }
-        let virt = virtuals.filter { $0.value.onlineAt.map { $0 <= now } ?? false }.keys.sorted()
+        let virt = virtuals.filter { ($0.value.onlineAt.map { $0 <= now } ?? false) && !forcedOffline.contains($0.key) }.keys.sorted()
             .map { OnlineDisplay(id: $0, isSnugVirtual: true) }
         let linger = lingering.filter { $0.value.until > now }.keys.sorted().map { OnlineDisplay(id: $0, isSnugVirtual: true) }
         return phys + virt + linger

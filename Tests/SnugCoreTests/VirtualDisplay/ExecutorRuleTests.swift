@@ -138,6 +138,21 @@ struct ExecutorRuleTests {
         if case .layoutSnapshotFailed = rig.executor.lastError {} else { Issue.record("应暴露快照失败") }
     }
 
+    @Test("上线过的虚拟屏短暂离线：不按建屏失败处理；离线期间没有可用虚拟屏，物理屏恢复；回来后按目标再熄灭")
+    func onlineThenOffline() {
+        let rig = rigWithPhysicalOff()
+        rig.driver.forcedOffline = [13]
+        rig.at(5) { rig.executor.restoreLayoutNow() }   // 执行器空闲时不轮询，借一次公开调用让它看一眼
+        rig.run(until: 20)
+        #expect(rig.driver.count("release") == 0)
+        #expect(rig.executor.lastError == nil)
+        #expect(near(rig.first("enable"), 5))
+        rig.driver.forcedOffline = []
+        rig.run(until: 30)
+        #expect(rig.driver.count("disable") == 2)
+        #expect(rig.driver.count("create") == 1)
+    }
+
     @Test("关物理屏失败：本目标内不再反复尝试")
     func disableFailureNotRetried() {
         let rig = ExecutorRig()

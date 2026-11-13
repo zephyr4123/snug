@@ -39,6 +39,27 @@ public enum DisplayAction: Equatable, Sendable {
     case finishShutdown
 }
 
+extension DisplayAction: CustomStringConvertible {
+    /// 写进日志用：动作名 + 关键参数
+    public var description: String {
+        switch self {
+        case .restorePhysical(let ids): "恢复物理屏 \(ids)"
+        case .dropPhysical(let ids): "丢弃物理屏记录 \(ids)"
+        case .releaseBroken(let ids): "释放坏屏 \(ids)"
+        case .abandonVirtual(let id): "放弃未上线的虚拟屏 #\(id)"
+        case .reviveRetiring(let id): "复用旧屏 #\(id)"
+        case .captureLayout(let p): "记录布局（为 \(p.name) 建屏前）"
+        case .createVirtual(let r): "建虚拟屏 \(r.name) \(r.profile.sizeLabel)"
+        case .setMain(let id): "设主屏 #\(id)"
+        case .releaseVirtual(let ids): "释放虚拟屏 \(ids)"
+        case .disablePhysical(let ids): "熄灭物理屏 \(ids)"
+        case .restoreModes: "还原显示模式"
+        case .restoreOrigins: "还原屏幕位置"
+        case .finishShutdown: "收尾完成"
+        }
+    }
+}
+
 public enum DisplayStep: Equatable, Sendable {
     case act(DisplayAction)
     /// 过这么久再来问（期间没有动作，外部 setTarget 可以随时插进来）
@@ -146,7 +167,11 @@ public enum DisplayPlanner {
             return prepareStep(want, s, o, &wake)
         }
         if !o.isOnline(cur.id) {
-            if o.now.timeIntervalSince(cur.bornAt) > DisplayTiming.onlineTimeout { return .act(.abandonVirtual(cur.id)) }
+            // 从没上线过（还没设成主屏）才按建屏失败处理；上线过又离线的只是等它回来，
+            // 期间没有可用虚拟屏，物理屏已由最前面那条规则恢复
+            if !cur.isMain, o.now.timeIntervalSince(cur.bornAt) > DisplayTiming.onlineTimeout {
+                return .act(.abandonVirtual(cur.id))
+            }
             wake.at(o.now.addingTimeInterval(DisplayTiming.pollInterval))
             return wake.step
         }
