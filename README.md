@@ -254,6 +254,7 @@ cd UUyc-companion && SIGN_IDENTITY=- scripts/build-app.sh
 - `SIGN_IDENTITY=-` 表示用 ad-hoc 签名。缺点是每次重新构建后，系统授权都会失效，需要重新授权。如果你有自己的代码签名证书，把 `-` 换成证书名称，升级后授权就能保留
 - 只装了命令行工具（没有完整 Xcode）也能构建：内置的 PermissionFlow 和 TourKit 已经把需要 Xcode 宏插件的写法改掉了，详见各自目录下的 `VENDORED.md`
 - 「关于」窗口已改为自带的简单实现，不再依赖已下线的 AboutKit，干净检出即可完整构建
+- 改完代码先跑 `scripts/check.sh`：构建全部产物并跑全部测试（Swift Testing），任何一步失败都会以非零码退出
 
 <details>
 <summary><b>工作原理</b></summary>
