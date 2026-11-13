@@ -14,8 +14,8 @@
 
 <br>
 
-<img src="docs/images/phone-list.png" width="30%" alt="窗口列表"> <img src="docs/images/phone-placing.png" width="30%" alt="正在打开"> <img src="docs/images/phone-placed.png" width="30%" alt="当前窗口">
-<p><sub>窗口列表 · 正在打开 · 当前窗口</sub></p>
+<img src="https://dl.zephyrxiang.com/snug/media/phone-window-list.7edc548b.png" width="30%" alt="窗口列表"> <img src="https://dl.zephyrxiang.com/snug/media/phone-demo.06d6f8d8.webp" width="30%" alt="实机演示：打开窗口、单指滚动、回到列表"> <img src="https://dl.zephyrxiang.com/snug/media/phone-context-menu.997dd70f.png" width="30%" alt="长按调出右键菜单">
+<p><sub>窗口列表 · 实机演示 · 长按调出右键菜单</sub><br><sub>▶ <a href="https://dl.zephyrxiang.com/snug/media/phone-demo.f35c99a1.mp4">观看高清演示视频</a></sub></p>
 
 </div>
 
@@ -24,6 +24,8 @@
 ## ✨ 核心体验
 
 UU远程 将整块桌面等比压缩进手机屏幕；Snug 为手机增加一块专属竖屏，让 Mac 的窗口以手机的尺度呈现。
+
+<p align="center"><img src="https://dl.zephyrxiang.com/snug/media/compare-uu-original.cf4158d1.png" width="36%" alt="UU远程 原版：整块桌面缩在手机屏幕里"> <img src="https://dl.zephyrxiang.com/snug/media/phone-claude-code.93e21d9d.png" width="36%" alt="搭配 Snug：窗口铺满整屏，字号放大"><br><sub>同一段内容 · 左：UU远程 原版 · 右：搭配 Snug</sub></p>
 
 | | UU远程 原版 | 搭配 Snug |
 | :--- | :--- | :--- |
@@ -81,7 +83,7 @@ UU远程 手机端沿用触控板的手势逻辑；Snug 在手机屏上按手机
 完成后 Snug 常驻菜单栏，此后无需任何操作。
 
 <div align="center">
-<img src="docs/images/welcome.png" width="45%" alt="欢迎页"> <img src="docs/images/settings-ready.png" width="45%" alt="设置">
+<img src="https://dl.zephyrxiang.com/snug/media/welcome.57ad51da.png" width="45%" alt="欢迎页"> <img src="https://dl.zephyrxiang.com/snug/media/settings-ready.482119c9.png" width="45%" alt="设置">
 <p><sub>欢迎页 · 设置</sub></p>
 </div>
 
@@ -110,6 +112,8 @@ rm ~/Library/LaunchAgents/com.corndog.uudisplay.watchdog-agent.plist
 2. **选择窗口**：轻点列表中的窗口，窗口即铺满整屏
 3. **切换窗口**：轻点底部指示条返回列表；另选窗口时，原窗口自动归位
 4. **结束远程**：窗口回到原位、字号复原，手机屏随之移除
+
+<p align="center"><img src="https://dl.zephyrxiang.com/snug/media/uu-screen-picker.212fdbe9.png" width="60%" alt="UU远程 的屏幕列表：显示屏 3（Snug 手机屏）"><br><sub>第 1 步：在 UU远程 的屏幕列表中选择「Snug 手机屏」</sub></p>
 
 ## 🔒 隔离与还原
 
