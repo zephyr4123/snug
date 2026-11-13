@@ -1,8 +1,7 @@
-// 退出流程（修 B5、B6）。
-// - 用户点「退出」：先在正常的 run loop 里收尾，收尾完成才停看门狗，最后才 terminate，不依赖 terminateLater
-// - 系统注销、重启、关机：绝不取消（旧版一律 terminateCancel，会打断注销流程）。返回 terminateLater，
-//   尽力收尾，最多等 systemQuitTimeout 就放行。会话结束时系统会丢掉本会话的显示配置，物理屏不会一直黑着；
-//   超时用加进 .common 的 Timer，不靠主队列延时任务（旧版注释：terminateLater 期间它们不执行）
+// 退出流程：先把手机屏上的窗口放回去、撤掉手机屏，再退出。
+// - 用户点「退出」、kill 发的 SIGTERM：在正常的 run loop 里收尾，收完才 terminate，不依赖 terminateLater
+// - 系统注销、重启、关机：绝不取消（会打断注销流程）。返回 terminateLater，尽力收尾，最多等 systemQuitTimeout 就放行；
+//   没收完的交给下次启动按还原记录处理
 // - 其他来源的退出请求（AppleScript 等）：取消这一次，走用户退出的流程，收完再退
 import AppKit
 import SnugCore
@@ -35,7 +34,7 @@ final class QuitFlow {
         guard phase == .running else { return }
         phase = .finishing
         Log.info("用户退出 Snug")
-        controller.finishForQuit(stopWatchdog: true, timeout: Self.userQuitTimeout) { [weak self] in self?.finished() }
+        controller.finishForQuit(timeout: Self.userQuitTimeout) { [weak self] in self?.finished() }
     }
 
     func shouldTerminate(_ app: NSApplication) -> NSApplication.TerminateReply {
@@ -47,7 +46,7 @@ final class QuitFlow {
         replyPending = true
         if phase == .running {
             phase = .finishing
-            controller.finishForQuit(stopWatchdog: false, timeout: Self.systemQuitTimeout) { [weak self] in self?.finished() }
+            controller.finishForQuit(timeout: Self.systemQuitTimeout) { [weak self] in self?.finished() }
         }
         return .terminateLater
     }

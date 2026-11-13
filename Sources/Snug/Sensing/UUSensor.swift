@@ -1,5 +1,4 @@
-// 每拍合成一份对 UU远程 的观测：覆盖窗口（同步查）、控制端表格（后台读）、推流（日志子进程）。
-// AppController 只认 SignalSource；--simulate / --stress 换成脚本化的信号源
+// 每拍合成一份对 UU远程 的观测：覆盖窗口（同步查）、控制端表格（后台读）、推流（日志子进程）
 import Foundation
 import SnugCore
 
@@ -11,16 +10,7 @@ struct UUSample: Equatable {
 }
 
 @MainActor
-protocol SignalSource: AnyObject {
-    func start()
-    func stop()
-    func sample(now: Date) -> UUSample
-    /// 控制端名称迟迟读不到时调用一次
-    func requestMainWindow()
-}
-
-@MainActor
-final class UUSensor: SignalSource {
+final class UUSensor {
     private let controllers = ControllerReader()
     private let captureLog = CaptureLogWatcher()
 
@@ -34,6 +24,4 @@ final class UUSensor: SignalSource {
                                     captureActive: captureLog.captureActive(at: now)),
                  streamingDisplay: captureLog.streamingDisplay(at: now))
     }
-
-    func requestMainWindow() { controllers.requestMainWindow() }
 }

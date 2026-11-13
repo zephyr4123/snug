@@ -1,5 +1,5 @@
 #!/bin/zsh
-# 构建 build/Snug.app：主程序 Snug、看门狗 SnugWatchdog（同一个二进制，带 --watchdog 运行）、救急命令行 snug-rescue。
+# 构建 build/Snug.app。切模式的帮手进程就是 Snug 自己（带 --set-mode 运行），不另外打包。
 # 只构建，不安装、不启动。版本号只从仓库根目录的 VERSION 读。
 #
 # 签名（按顺序）：
@@ -43,22 +43,16 @@ fi
 
 # —— 编译 ——
 swift build -c release --product Snug
-swift build -c release --product snug-rescue
 BIN_DIR="$(swift build -c release --show-bin-path)"
 
 # —— 组装 ——
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/Snug" "$APP/Contents/MacOS/Snug"
-# 看门狗用独立文件名：pkill Snug 时不会连带结束它，「登录项与扩展」里也认得出来
-cp "$BIN_DIR/Snug" "$APP/Contents/MacOS/SnugWatchdog"
-cp "$BIN_DIR/snug-rescue" "$APP/Contents/MacOS/snug-rescue"
 # PermissionFlow 资源包（本地化文案等），PermissionFlowResources 在 Contents/Resources 里找
 cp -R "$BIN_DIR/PermissionFlow_PermissionFlow.bundle" "$APP/Contents/Resources/"
-# 导览配图（TourKit 按文件名从 Bundle.main 的 Resources 根目录取）
-cp Assets/Tour/*.png "$APP/Contents/Resources/"
-# App 图标与菜单栏模板图（见 Assets/AppIcon/README.md）
-cp Assets/AppIcon/AppIcon.icns Assets/AppIcon/MenuBarIconTemplate.png Assets/AppIcon/MenuBarIconTemplate@2x.png "$APP/Contents/Resources/"
+# App 图标（界面里的其它图标都是 SF Symbols，见 Assets/AppIcon/README.md）
+cp Assets/AppIcon/AppIcon.icns "$APP/Contents/Resources/"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -81,9 +75,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# —— 签名：先签内嵌的可执行文件，再签整个 App ——
-codesign "${SIGN_FLAGS[@]}" --identifier "${BUNDLE_ID}.watchdog" "$APP/Contents/MacOS/SnugWatchdog"
-codesign "${SIGN_FLAGS[@]}" --identifier "${BUNDLE_ID}.rescue" "$APP/Contents/MacOS/snug-rescue"
+# —— 签名 ——
 codesign "${SIGN_FLAGS[@]}" --identifier "${BUNDLE_ID}" "$APP"
 codesign --verify --strict --deep "$APP"
 echo "✅ 已生成 $APP（版本 ${VERSION}，签名：$([[ "$IDENTITY" == "-" ]] && echo ad-hoc || echo "${IDENTITY[1,8]}…")）"

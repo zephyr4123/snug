@@ -1,4 +1,4 @@
-// 旧版「UU远程伴侣」（com.corndog.uudisplay）和 Snug 同时运行会一起改屏幕、互相干扰
+// 旧版「UU远程伴侣」（com.corndog.uudisplay）会在远程时建虚拟屏、关物理屏，和 Snug 同时运行会互相干扰
 import AppKit
 import SnugCore
 

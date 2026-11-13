@@ -1,4 +1,4 @@
-// 旧版共存提示：启动时发现旧版「UU远程伴侣」在运行，两者会一起改屏幕、互相干扰。
+// 旧版共存提示：启动时发现旧版「UU远程伴侣」在运行。它远程时会建虚拟屏、关物理屏，和 Snug 一起跑会互相干扰。
 // 问清楚再开始监控：退出旧版，或者都留着（之后设置窗口和菜单里还能一键退出旧版）
 import AppKit
 import SwiftUI
@@ -12,16 +12,16 @@ struct LegacyNoticeView: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "exclamationmark.triangle.fill").font(.title).foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("旧版「UU远程伴侣」正在运行").font(.title3.bold())
-                    Text("Snug 由它发展而来。两个同时运行，远程时会一起建虚拟屏、开关屏幕，互相干扰。")
+                    Text("旧版「UU远程伴侣」运行中").font(.title3.bold())
+                    Text("两者同时运行会相互干扰")
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("退出旧版时，它会先把自己改过的屏幕还原。以后不想再用旧版，把它从「应用程序」里删掉即可。")
+                    Text("退出时旧版会自动还原其改动；不再使用可从「应用程序」中删除")
                         .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }
             HStack {
                 Spacer()
-                Button("都留着", action: keepBoth)
+                Button("保留两者", action: keepBoth)
                 Button("退出旧版", action: quitLegacy).keyboardShortcut(.defaultAction)
             }
         }
@@ -54,7 +54,7 @@ final class LegacyNoticeWindowController {
         w.isReleasedWhenClosed = false
         w.center()
         window = w
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
         w.makeKeyAndOrderFront(nil)
     }
 }

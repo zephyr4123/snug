@@ -38,16 +38,6 @@ final class ControllerReader {
         return current
     }
 
-    /// 名称迟迟读不到（多半是 UU 主窗口没开）时点一次「显示主界面」。和读取排在同一个串行队列上
-    func requestMainWindow() {
-        guard let pid = UURemoteApp.pid() else { return }
-        Log.info("UU 主窗口读不到控制端，后台点一次「显示主界面」")
-        queue.async {
-            let ok = UUAccessibility.showMainWindow(pid: pid)
-            if !ok { Log.warn("点「显示主界面」没有成功（找不到 UU 菜单栏里的入口）") }
-        }
-    }
-
     private func read(pid: pid_t, generation: Int) {
         let box = box
         queue.async {

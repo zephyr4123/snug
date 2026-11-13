@@ -10,11 +10,11 @@ struct AboutView: View {
 
     private let credits = [
         Credit(name: "UUyc-companion", url: "https://github.com/aoyamashou/UUyc-companion",
-               author: "AoyamaShou", usage: "Snug 承接自这个项目"),
+               author: "AoyamaShou", usage: "项目前身"),
         Credit(name: "PermissionFlow", url: "https://github.com/jaywcjlove/PermissionFlow",
                author: "小弟调调（jaywcjlove）", usage: "授权引导"),
-        Credit(name: "TourKit", url: "https://github.com/rampatra/TourKit",
-               author: "Ram Patra（rampatra）", usage: "功能导览"),
+        Credit(name: "Better Remote", url: "https://github.com/pincc-debug/better-remote",
+               author: "pincc-debug", usage: "单指滚动思路"),
         Credit(name: "FreeDisplay", url: "https://github.com/huberdf/FreeDisplay",
                author: "huberdf", usage: "虚拟屏接口声明"),
     ]
@@ -30,19 +30,19 @@ struct AboutView: View {
                 Text("Snug").font(.title.bold())
                 Text(Self.version).foregroundStyle(.secondary)
             }
-            Text("让用手机通过 UU远程 使用 Mac 更清晰、更方便。")
+            Text("手机远程 Mac 的显示与触控增强")
             Link("github.com/zephyr4123/snug", destination: URL(string: "https://github.com/zephyr4123/snug")!)
             Divider()
-            Text("致谢（均为 MIT 许可）").font(.headline)
+            Text("致谢（MIT 许可）").font(.headline)
             ForEach(credits) { c in
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Link(c.name, destination: URL(string: c.url)!)
                     Text("· \(c.author) · \(c.usage)").foregroundStyle(.secondary)
                 }
             }
-            Text("以及社区 PR 的作者：bubble、gencheng liu、Rongzheng Liu。").foregroundStyle(.secondary)
+            Text("社区 PR 作者：bubble、gencheng liu、Rongzheng Liu").foregroundStyle(.secondary)
             Divider()
-            Text("本应用与 UU远程 及其开发商没有任何直接、间接或连带关系。")
+            Text("本应用与 UU远程 及其开发商无任何关联")
                 .font(.footnote).foregroundStyle(.secondary)
         }
         .padding(24)
@@ -63,7 +63,7 @@ final class AboutWindowController {
             window = w
         }
         window?.center()
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
     }
 }

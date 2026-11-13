@@ -1,12 +1,14 @@
-// --dump-uu：打印从 UU远程 读到的设备、控制端和覆盖窗口状态。只读 UU 的界面，不碰显示器
-// （主窗口没开时会点一次 UU 的「显示主界面」）
+// --dump-uu：打印从 UU远程 读到的东西和此刻的屏幕。只读，不点 UU、不碰屏幕
+import CoreGraphics
 import Foundation
 import SnugCore
+import SnugSystem
 
 @MainActor
 enum UUDump {
     static func run() -> Int32 {
         print("覆盖窗口：\(UURemoteApp.overlayVisible() ? "在屏" : "没有")")
+        printDisplays()
         guard UUAccessibility.isTrusted else {
             print("没有辅助功能权限，读不到 UU远程 的界面")
             return 1
@@ -15,20 +17,24 @@ enum UUDump {
             print("UU远程 没有在运行")
             return 1
         }
-        if !UUAccessibility.hasMainWindow(pid: pid) {
-            UUAccessibility.showMainWindow(pid: pid)
-            Thread.sleep(forTimeInterval: 1)
+        guard let names = UUAccessibility.readControllers(pid: pid) else {
+            print("控制端：读不到（UU远程 主窗口没开）→ 按手机处理")
+            return 0
         }
-        guard let devices = UUAccessibility.readDevices(pid: pid) else {
-            print("读不到 UU远程 的主窗口")
-            return 1
-        }
-        for d in devices {
-            let kind = DeviceKind.guess(name: d.name, isComputerGroup: d.isComputerGroup)
-            print("\(d.isSelf ? "（本机，排除）" : "")\(d.name)\t\(d.platform)\t→ \(kind.label)")
-        }
-        let controllers = UUAccessibility.readControllers(pid: pid)
-        print("控制端：\(controllers.map { $0.isEmpty ? "无" : $0.joined(separator: "、") } ?? "读不到")")
+        print("控制端：\(names.isEmpty ? "无" : "")")
+        for name in names { print("  \(name) → \(ControllerKind(name: name).wantsPhoneScreen ? "加手机屏" : "电脑，不加")") }
         return 0
+    }
+
+    private static func printDisplays() {
+        var count: UInt32 = 0
+        CGGetOnlineDisplayList(0, nil, &count)
+        var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
+        CGGetOnlineDisplayList(count, &ids, &count)
+        print("屏幕：")
+        for id in ids.prefix(Int(count)) {
+            let mine = CGDisplayVendorNumber(id) == PhoneScreenSpec.vendorID ? "（Snug 手机屏）" : ""
+            print("  #\(id) \(Screens.name(of: id))\(mine) \(DisplayMode.describe(id))")
+        }
     }
 }

@@ -1,7 +1,8 @@
-// Snug：让用手机通过 UU远程 使用 Mac 更清晰、更方便。
+// Snug：用手机通过 UU远程 用 Mac 时，窗口铺满手机、字够大、手势顺手。
 // 这里只负责按启动模式组装；各模式见 LaunchMode（SnugCore）
 import AppKit
 import SnugCore
+import SnugSystem
 
 let mode: LaunchMode
 do {
@@ -11,23 +12,24 @@ do {
     exit(2)
 }
 
-LaunchContext.mode = mode
-
 switch mode {
-case .watchdog:
-    WatchdogProcess.run()
 case .render(let target, let output):
-    // 只渲染 PNG：不建 AppController、不起感知器、不碰显示器
+    // 只渲染 PNG：不建 AppController、不起感知器、不碰屏幕和窗口
     exit(MainActor.assumeIsolated { Renderer.run(target, output: output) } ? 0 : 1)
 case .dumpUU:
     exit(MainActor.assumeIsolated { UUDump.run() })
-case .simulate, .stress:
-    MainActor.assumeIsolated { SimulationRunner.run(mode) }
-case .app:
+case .setMode(let display, let width, let height):
+    let sink = FileLogSink(url: SnugPaths.standard.logFile, processTag: "帮手")
+    Log.setSink(sink)
+    let outcome = DisplayMode.switchToHiDPI(display, width: width, height: height)
+    Log.info("切屏幕 #\(display) 到 2 倍 \(width)x\(height)：\(outcome)")
+    sink.flush()
+    exit(outcome == .switched ? 0 : 1)
+case .app, .previewPhone:
     let paths = SnugPaths.standard
     Log.setSink(FileLogSink(url: paths.logFile))
     let app = NSApplication.shared
-    let delegate = MainActor.assumeIsolated { AppDelegate(paths: paths) }
+    let delegate = MainActor.assumeIsolated { AppDelegate(paths: paths, previewPhone: mode == .previewPhone) }
     app.delegate = delegate
     app.setActivationPolicy(.accessory)
     app.run()

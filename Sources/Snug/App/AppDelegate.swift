@@ -1,8 +1,7 @@
-// 正常启动：组装 AppController、菜单栏、热键、窗口与退出流程。
-// 首次启动顺序：导览 →（缺权限时）授权引导 → 设置
+// 正常启动：组装 AppController、菜单栏、手机屏上的面板、窗口与退出流程。
+// 第一次打开：自动设成开机启动，弹欢迎页（讲用法、请用户允许辅助功能）。之后就不用管了
 import AppKit
 import SnugCore
-import SnugDisplays
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -10,13 +9,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let router: WindowRouter
     private let quitFlow: QuitFlow
     private var statusBar: StatusBarController?
-    private var hotkey: Hotkey?
+    private var phoneScreen: PhoneScreenWindows?
     private var legacyObservers: [any NSObjectProtocol] = []
     private var termSource: (any DispatchSourceSignal)?
 
-    init(paths: SnugPaths) {
-        controller = AppController(paths: paths, store: ConfigStore(url: paths.config), sensor: UUSensor(),
-                                   watchdog: WatchdogAgent(bundle: .main, paths: paths))
+    init(paths: SnugPaths, previewPhone: Bool) {
+        controller = AppController(paths: paths, previewPhone: previewPhone)
         router = WindowRouter(controller: controller)
         quitFlow = QuitFlow(controller: controller)
         super.init()
@@ -25,19 +23,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ note: Notification) {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "开发版"
-        Log.info("启动 Snug \(version)，辅助功能权限：\(UUAccessibility.isTrusted ? "已授权" : "未授权")")
+        Log.info("启动 Snug \(version)，辅助功能权限：\(controller.state.accessibilityTrusted ? "已授权" : "未授权")")
         statusBar = StatusBarController(state: controller.state, intents: controller, navigation: router)
-        let hotkey = Hotkey { [weak self] in self?.controller.restoreScreensNow() }
-        hotkey.register()
-        self.hotkey = hotkey
-        controller.refreshLaunchAtLogin()
+        phoneScreen = PhoneScreenWindows(state: controller.state, catalog: WindowCatalog(service: controller.windows),
+                                         intents: controller)
         handleSIGTERM()
         legacyObservers = LegacyApp.observe { [weak self] running in
             self?.controller.state.legacyAppRunning = running
         }
         controller.state.legacyAppRunning = LegacyApp.isRunning
         if controller.state.legacyAppRunning {
-            // 两个一起跑会互相改屏幕：先问清楚再开始监控
             Log.warn("检测到旧版 UU远程伴侣 正在运行")
             router.showLegacyNotice { [weak self] in self?.startMonitoring() }
         } else {
@@ -49,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         quitFlow.shouldTerminate(sender)
     }
 
-    /// kill / 活动监视器「退出」发的 SIGTERM：照用户退出走一遍收尾，不直接死掉留下熄灭的屏幕
+    /// kill / 活动监视器「退出」发的 SIGTERM：照用户退出走一遍收尾，把窗口放回原处
     private func handleSIGTERM() {
         signal(SIGTERM, SIG_IGN)
         let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
@@ -65,19 +60,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startMonitoring() {
         controller.start()
-        let state = controller.state
-        let setup = { [weak self] in
-            guard let self else { return }
-            if state.accessibilityTrusted {
-                router.openSettings(page: nil)
-            } else {
-                router.showPermissions(autoClose: true) { [weak self] in self?.router.openSettings(page: nil) }
-            }
-        }
-        if state.config.tourShown {
-            if !state.accessibilityTrusted { router.showPermissions(autoClose: true, onDone: nil) }
-        } else {
-            router.showTour(onDone: setup)
+        controller.refreshLaunchAtLogin()
+        if !controller.state.config.welcomed {
+            if !controller.state.launchAtLogin { controller.setLaunchAtLogin(true) }
+            router.showFirstWelcome()
+        } else if !controller.state.accessibilityTrusted {
+            router.openWelcome()
         }
     }
 }
