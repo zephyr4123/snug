@@ -19,6 +19,8 @@ public final class WindowService: WindowControl {
 
     // MARK: WindowControl
 
+    public var canControl: Bool { AXIsProcessTrusted() }
+
     public func exists(_ window: WindowKey) async -> Bool {
         await run { AX.element(for: window) != nil }
     }

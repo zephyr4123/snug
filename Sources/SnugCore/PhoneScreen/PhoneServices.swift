@@ -17,6 +17,8 @@ public protocol PhoneDisplays: AnyObject {
 
 /// 搬窗口、调字号。辅助功能的调用会阻塞（App 卡住时每次最多等一会儿），实现放在自己的后台队列上
 public protocol WindowControl: Sendable {
+    /// 有没有辅助功能权限。没有时什么窗口都看不到：「找不到窗口」不能当成「窗口已关」，还原记录要留着
+    var canControl: Bool { get }
     func exists(_ window: WindowKey) async -> Bool
     func frame(of window: WindowKey) async -> CGRect?
     /// 挪到 frame 并核对，对不上就重试；返回最后的位置，窗口不在了返回 nil

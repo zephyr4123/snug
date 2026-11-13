@@ -303,6 +303,25 @@ struct PhoneDeskTests {
         #expect(rig.record == nil)
     }
 
+    @Test("辅助功能权限中途被收回：放不回去的窗口不当成已关，记录留着；核对、恢复都先等权限")
+    func trustRevoked() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        await rig.pull(ghostty)
+        rig.windows.revokeTrust()
+        rig.desk.verifyPlacement()
+        await rig.desk.idle()
+        #expect(rig.desk.state.placed != nil)   // 看不到窗口不等于窗口关了
+        rig.timeline.advance(10)
+        rig.desk.setWanted(false)
+        await rig.desk.idle()
+        #expect(rig.record?.window == ghostty.key)
+        #expect(rig.record?.original == ghosttyHome)
+        rig.desk.recover()
+        await rig.desk.idle()
+        #expect(rig.record != nil)               // 没权限时不动记录
+    }
+
     @Test("加屏失败：显示失败；不要了就回到关闭")
     func createFails() async throws {
         let rig = try Rig()

@@ -172,7 +172,7 @@ public final class PhoneDesk {
 
     /// 定期调用：手机屏上的窗口被关掉了，就回到窗口列表
     public func verifyPlacement() {
-        guard placement != nil, state.work == nil, !verifying else { return }
+        guard placement != nil, state.work == nil, !verifying, windows.canControl else { return }
         verifying = true
         lane.run {
             defer { self.verifying = false }
@@ -186,7 +186,7 @@ public final class PhoneDesk {
 
     /// 有辅助功能权限后调用：上次 Snug 没来得及放回去的窗口，按记录放回去
     public func recover() {
-        guard placement == nil, let record = ledger.pending() else { return }
+        guard placement == nil, windows.canControl, let record = ledger.pending() else { return }
         lane.run { await self.recover(record) }
     }
 
@@ -327,6 +327,11 @@ public final class PhoneDesk {
         }
         placement = nil
         state.listVisible = true
+        if got == nil, !windows.canControl {
+            // 没有权限时看不到窗口，不是窗口关了：记录留着，有权限后 recover() 再放回
+            Log.warn("没有辅助功能权限，\(p.window.label) 没能放回，留待有权限后放回")
+            return
+        }
         settleRecord()
         switch got {
         case nil: Log.info("\(p.window.label) 已经关了，不用放回")

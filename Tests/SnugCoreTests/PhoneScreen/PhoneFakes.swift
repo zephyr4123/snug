@@ -51,6 +51,7 @@ final class FakeWindows: WindowControl {
 
     let journal: Journal
     private let state = Locked<[WindowKey: Window]>([:])
+    private let trusted = Locked(true)
     /// 设了就在每次挪窗口、发按键时记一下此刻还原记录在不在（检查「先记账再动手」）
     let ledger: URL?
 
@@ -58,6 +59,11 @@ final class FakeWindows: WindowControl {
         self.journal = journal
         self.ledger = ledger
     }
+
+    /// 收回辅助功能权限：之后什么窗口都看不到
+    func revokeTrust() { trusted.withLock { $0 = false } }
+
+    var canControl: Bool { trusted.withLock { $0 } }
 
     func add(_ key: WindowKey, frame: CGRect, fullScreen: Bool = false) {
         state.withLock { $0[key] = Window(frame: frame, fullScreen: fullScreen) }
@@ -72,11 +78,11 @@ final class FakeWindows: WindowControl {
         return FileManager.default.fileExists(atPath: ledger.path) ? " ✎" : " ∅"
     }
 
-    func exists(_ window: WindowKey) async -> Bool { self.window(window) != nil }
-    func frame(of window: WindowKey) async -> CGRect? { self.window(window)?.frame }
+    func exists(_ window: WindowKey) async -> Bool { canControl && self.window(window) != nil }
+    func frame(of window: WindowKey) async -> CGRect? { canControl ? self.window(window)?.frame : nil }
 
     func move(_ window: WindowKey, to frame: CGRect) async -> CGRect? {
-        guard self.window(window) != nil else { return nil }
+        guard canControl, self.window(window) != nil else { return nil }
         journal.add("move \(window.id) \(frame.short)\(mark)")
         setFrame(window, frame)
         return frame
@@ -92,7 +98,7 @@ final class FakeWindows: WindowControl {
     func focus(_ window: WindowKey) async { journal.add("focus \(window.id)") }
 
     func zoom(_ window: WindowKey, steps: Int) async -> Bool {
-        guard self.window(window) != nil else { return false }
+        guard canControl, self.window(window) != nil else { return false }
         journal.add("zoom \(window.id) \(steps > 0 ? "+" : "")\(steps)\(mark)")
         state.withLock { $0[window]?.zoom += steps }
         return true
