@@ -1,95 +1,17 @@
-// 首次启动功能导览（TourKit）：5 页说明 + 配图；首次启动先看导览，再进权限引导与设备配置
-// 配图由 `UUDisplay --render-tour <目录>` 用下方 SwiftUI 插画渲染为 16:10 PNG（Assets/Tour），打包时拷进 Contents/Resources
-import AppKit
+// 导览配图（800×500 pt，顶部亮、底部渐暗，衔接 TourKit 的深色文字区）。
+// 由 `Snug --render-tour <目录>` 渲染成 1600×1000 PNG 放进 Assets/Tour，打包时拷进 Contents/Resources
 import SwiftUI
-import TourKit
 
-enum Tour {
-    static let pages: [(image: String, title: LocalizedStringKey, description: LocalizedStringKey)] = [
-        ("tour-welcome", "欢迎使用 UU远程伴侣",
-         "使用 UU远程 时，自动为您的平板或手机准备一块对应大小的虚拟屏幕。"),
-        ("tour-match", "一连上，画面就刚好铺满",
-         "认出远程的设备，生成合适的虚拟屏，获得没有黑边、文字清晰的远程体验；远程结束后恢复原样。"),
-        ("tour-physical", "远程时只保留虚拟屏",
-         "避免远程时在屏幕间切换，避免窗口跑不见。"),
-        ("tour-safety", "万一崩溃出问题，也有兜底",
-         "按 ⌃ control + ⌥ option + ⌘ command + 9，即可恢复所有屏幕；并提供守护助手自动监控。"),
-        ("tour-setup", "还差两步就能用了",
-         "请允许 UU远程伴侣 读取您用于远程的设备列表，再为平板和手机填写分辨率。点菜单栏图标可修改设置。"),
-    ]
-
-    static let artworks: [String: AnyView] = [
+@MainActor
+enum TourArt {
+    static let all: [String: AnyView] = [
         "tour-welcome": AnyView(WelcomeArt()),
         "tour-match": AnyView(MatchArt()),
         "tour-physical": AnyView(PhysicalArt()),
         "tour-safety": AnyView(SafetyArt()),
         "tour-setup": AnyView(SetupArt()),
     ]
-
-    /// 调试：把 TourKit 导览界面逐页渲染为 PNG（配图取自 imagesDir，即 Assets/Tour）
-    @MainActor
-    static func renderUI(imagesDir: URL, to dir: URL) {
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let bundle = Bundle(url: imagesDir)
-        let tourPages = pages.map { TourPage(imageName: $0.image, imageBundle: bundle, title: $0.title, description: $0.description) }
-        for i in tourPages.indices {
-            let view = TourSlideshowView(pages: tourPages, width: 660, initialPageIndex: i,
-                                         continueButtonTitle: "继续", finishButtonTitle: "开始设置")
-                .environment(\.colorScheme, .dark)
-            let renderer = ImageRenderer(content: view)
-            renderer.scale = 2
-            guard let cg = renderer.cgImage,
-                  let png = NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]) else { continue }
-            let url = dir.appendingPathComponent("page-\(i + 1).png")
-            try? png.write(to: url)
-            print("✅ \(url.path)")
-        }
-    }
-
-    /// 调试：把配图渲染为 1600×1000 PNG（800×500 pt @2x）
-    @MainActor
-    static func render(to dir: URL) {
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        for (name, view) in artworks {
-            let renderer = ImageRenderer(content: view.frame(width: 800, height: 500))
-            renderer.scale = 2
-            guard let cg = renderer.cgImage,
-                  let png = NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]) else {
-                print("❌ 渲染失败 \(name)")
-                continue
-            }
-            let url = dir.appendingPathComponent("\(name).png")
-            try? png.write(to: url)
-            print("✅ \(url.path)")
-        }
-    }
 }
-
-@MainActor
-final class TourController {
-    private let window = TourKitWindowController()
-
-    /// 展示导览；关闭或完成后调用 onDone（仅一次）
-    func show(onDone: (() -> Void)? = nil) {
-        var called = false
-        let done = {
-            guard !called else { return }
-            called = true
-            ConfigStore.shared.config.tourShown = true
-            onDone?()
-        }
-        window.present(
-            pages: Tour.pages.map { TourPage(imageName: $0.image, imageBundle: .main, title: $0.title, description: $0.description) },
-            width: 660,
-            continueButtonTitle: "继续",
-            finishButtonTitle: "开始设置",
-            onFinish: done,
-            onClose: done
-        )
-    }
-}
-
-// MARK: - 配图（800×500 pt，顶部亮、底部渐暗以衔接 TourKit 的深色文字区）
 
 private let accent = LinearGradient(colors: [Color(red: 0.36, green: 0.62, blue: 1.0), Color(red: 0.55, green: 0.40, blue: 1.0)],
                                     startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -201,16 +123,16 @@ private struct MatchArt: View {
     var body: some View {
         ArtBackground(tint: .purple) {
             HStack(spacing: 40) {
-                VStack(spacing: 14) {
-                    Screen(width: 216, height: 150, radius: 16, bezel: 9) {}
-                    Chip(text: "iPad Air 11″")
+                VStack(spacing: 16) {
+                    Screen(width: 216, height: 100, radius: 20, bezel: 8) {}
+                    Chip(text: "iPhone 横屏")
                 }
                 Image(systemName: "arrow.right").font(.system(size: 36, weight: .bold)).foregroundStyle(.white.opacity(0.8))
-                VStack(spacing: 14) {
-                    Screen(width: 300, height: 208) {
-                        VStack(spacing: 6) {
-                            Text("2360 × 1640").font(.system(size: 30, weight: .bold, design: .rounded))
-                            Text("高清（HiDPI ON）").font(.system(size: 15, weight: .semibold, design: .rounded)).opacity(0.85)
+                VStack(spacing: 16) {
+                    Screen(width: 320, height: 148) {
+                        VStack(spacing: 4) {
+                            Text("2868 × 1320").font(.system(size: 30, weight: .bold, design: .rounded))
+                            Text("高清（HiDPI）").font(.system(size: 15, weight: .semibold, design: .rounded)).opacity(0.85)
                         }
                         .foregroundStyle(.white)
                     }
@@ -301,8 +223,8 @@ private struct SetupArt: View {
     var body: some View {
         ArtBackground(tint: .blue) {
             VStack(spacing: 18) {
-                Row(symbol: "hand.raised.fill", title: "允许读取设备列表")
-                Row(symbol: "rectangle.on.rectangle", title: "填写设备分辨率")
+                Row(symbol: "hand.raised.fill", title: "允许读取设备名称")
+                Row(symbol: "rectangle.on.rectangle", title: "需要时打开虚拟屏")
             }
         }
     }
