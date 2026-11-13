@@ -42,7 +42,7 @@ struct AboutView: View {
             }
             Text("社区 PR 作者：bubble、gencheng liu、Rongzheng Liu").foregroundStyle(.secondary)
             Divider()
-            Text("本应用与 UU远程 及其开发商无任何关联")
+            Text("非 UU远程 官方软件")
                 .font(.footnote).foregroundStyle(.secondary)
         }
         .padding(24)

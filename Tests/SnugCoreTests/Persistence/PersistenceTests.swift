@@ -22,7 +22,6 @@ struct PersistenceTests {
         #expect(p.config.path == "/d/config.json")
         #expect(p.phoneRecord.path == "/d/phone-screen.json")
         #expect(p.zoomBook.path == "/d/zoom.json")
-        #expect(p.rotatedLogFile.path == "/l/Snug.log.1")
         #expect(SnugPaths.standard.dataDirectory.path.hasSuffix("Library/Application Support/Snug"))
         #expect(SnugPaths.standard.logFile.path.hasSuffix("Library/Logs/Snug.log"))
     }

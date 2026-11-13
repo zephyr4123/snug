@@ -1,9 +1,10 @@
 // 后台读 UU 的「本机被控中」表格：串行，同一时刻只有一次读取在跑（不堆积），读得太慢的结果丢弃。
-// 结果放在加锁的盒子里，主线程每拍直接取，不经主队列转发。旧版把结果投回主线程再按「到达时间」判新鲜，
-// 主线程一卡 2 秒，后台早就读好的结果也被当成过期丢掉，没有覆盖窗口的会话就被误判断开（B4）
+// 结果放在加锁的盒子里，主线程每拍直接取，不经主队列转发：结果要是投回主线程、按到达时间判新鲜，
+// 主线程一卡，后台早就读好的结果也会被当成过期，没有覆盖窗口的会话就会被误判断开
 import Foundation
 import os
 import SnugCore
+import SnugSystem
 
 @MainActor
 final class ControllerReader {
@@ -21,7 +22,7 @@ final class ControllerReader {
 
     /// 每拍调用：返回此刻可信的控制端（nil = 读不到），没有读取在跑就发起下一次
     func poll() -> [String]? {
-        guard UUAccessibility.isTrusted, let pid = UURemoteApp.pid() else {
+        guard AX.isTrusted, let pid = UURemoteApp.pid() else {
             reset()
             return nil
         }

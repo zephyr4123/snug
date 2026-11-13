@@ -1,2 +1,2 @@
-// CoreGraphics 的显示器编号（CGDirectDisplayID 的同义类型）。SnugCore 不 import CoreGraphics，用这个名字说清楚它是什么
+// 显示器编号，就是 CGDirectDisplayID。起这个名字是让签名一眼看出参数是哪块屏，而不是随便一个 UInt32
 public typealias DisplayID = UInt32

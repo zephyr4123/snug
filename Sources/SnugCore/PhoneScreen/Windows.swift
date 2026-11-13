@@ -37,7 +37,7 @@ public struct WindowInfo: Equatable, Identifiable, Sendable {
 
 public enum WindowList {
     /// 不出现在列表里的 App：UU远程 自己（把遥控器放到手机屏上没有意义）
-    public static let excludedBundles: Set<String> = ["com.netease.uuremote"]
+    public static let excludedBundles: Set<String> = [UURemote.bundleID]
 
     /// 按前后层次排：最近用过的在前，和 iPhone 的多任务界面一样。
     /// frontToBack 是屏上窗口从前到后的编号；不在里面的（别的桌面上的）排最后，彼此保持原顺序

@@ -41,7 +41,8 @@ struct PhoneHomeView: View {
         HStack(alignment: .center, spacing: 16) {
             Text("窗口").font(PhoneStyle.largeTitle)
             Spacer(minLength: 8)
-            RotateButton(orientation: phone.orientation, busy: phone.work != nil) { intents.rotate() }
+            RotateButton(orientation: phone.orientation, rotating: phone.work == .rotating) { intents.rotate() }
+                .disabled(phone.work != nil)
         }
     }
 
@@ -187,13 +188,13 @@ private struct RoundButton: View {
 
 private struct RotateButton: View {
     let orientation: Orientation
-    let busy: Bool
+    let rotating: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                if busy {
+                if rotating {
                     ProgressView().controlSize(.small)
                 } else {
                     Image(systemName: orientation == .portrait ? "rectangle.landscape.rotate" : "rectangle.portrait.rotate")
@@ -206,7 +207,6 @@ private struct RotateButton: View {
             .background(PhoneStyle.card, in: Capsule())
         }
         .buttonStyle(PressableStyle())
-        .disabled(busy)
     }
 }
 

@@ -17,7 +17,6 @@ public struct UUSignals: Equatable, Sendable, CustomStringConvertible {
 
     /// 覆盖窗口或控制端表格（推流之外的「其余信号」）
     public var uiPresent: Bool { overlayVisible || !(controllers ?? []).isEmpty }
-    public var isPresent: Bool { uiPresent || captureActive == true }
 
     public var description: String {
         let names = controllers.map { $0.isEmpty ? "无" : $0.joined(separator: ",") } ?? "读不到"

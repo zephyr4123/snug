@@ -9,7 +9,7 @@ enum UUDump {
     static func run() -> Int32 {
         print("覆盖窗口：\(UURemoteApp.overlayVisible() ? "在屏" : "没有")")
         printDisplays()
-        guard UUAccessibility.isTrusted else {
+        guard AX.isTrusted else {
             print("没有辅助功能权限，读不到 UU远程 的界面")
             return 1
         }

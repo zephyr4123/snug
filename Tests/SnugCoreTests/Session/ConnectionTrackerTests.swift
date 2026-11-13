@@ -19,15 +19,6 @@ struct ConnectionTrackerTests {
         #expect(ConnectionTracker.maxCaptureVeto == 60)
     }
 
-    @Test("在场 = 覆盖窗口 || 控制端非空 || 推流为 true；nil 与 [] 都不算在场")
-    func presence() {
-        #expect(overlay.isPresent)
-        #expect(table("iPhone").isPresent)
-        #expect(capture(true).isPresent)
-        #expect(!none.isPresent)
-        #expect(!UUSignals(overlayVisible: false, controllers: nil, captureActive: nil).isPresent)
-    }
-
     @Test("首连不做确认延迟：第一次看到在场就连入，名字取 controllers.first")
     func immediateConnect() {
         var t = ConnectionTracker()

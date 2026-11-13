@@ -13,9 +13,9 @@ struct LegacyNoticeView: View {
                 Image(systemName: "exclamationmark.triangle.fill").font(.title).foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("旧版「UU远程伴侣」运行中").font(.title3.bold())
-                    Text("两者同时运行会相互干扰")
+                    Text("与 Snug 同时运行将相互干扰")
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("退出时旧版会自动还原其改动；不再使用可从「应用程序」中删除")
+                    Text("退出后自动还原 · 可从「应用程序」移除")
                         .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }

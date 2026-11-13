@@ -8,7 +8,7 @@ import SnugCore
 final class CaptureLogWatcher {
     static let restartDelays: [TimeInterval] = [1, 2, 5, 10, 30, 60]
     static let stableAfter: TimeInterval = 60
-    static let arguments = ["stream", "--style", "ndjson", "--predicate", #"process == "UURemoteServer""#]
+    static let arguments = ["stream", "--style", "ndjson", "--predicate", "process == \"\(UURemote.serverProcess)\""]
 
     private var process: Process?
     private var generation = 0

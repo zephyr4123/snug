@@ -14,7 +14,7 @@ struct SettingsView: View {
             Section { StatusHeader(state: state, intents: intents) }
             Section {
                 Toggle(isOn: binding(state.config.phoneScreen, intents.setPhoneScreen)) {
-                    SettingLabel("手机屏", detail: "远程时在 UU远程 中增加一块竖屏", symbol: "iphone", tint: .blue)
+                    SettingLabel("手机屏", detail: "UU远程 中增加竖屏", symbol: "iphone", tint: .blue)
                 }
                 Toggle(isOn: binding(state.config.gestures, intents.setGestures)) {
                     SettingLabel("触控手势", detail: "单指滚动 · 长按选择 · 长按松开右键", symbol: "hand.draw.fill", tint: .orange)
@@ -29,7 +29,7 @@ struct SettingsView: View {
                             .labelsHidden()
                     }
                 } label: {
-                    SettingLabel("字号放大", detail: "终端、浏览器、编辑器", symbol: "textformat.size", tint: .green)
+                    SettingLabel("字号放大", detail: "终端、编辑器", symbol: "textformat.size", tint: .green)
                 }
                 .disabled(!state.config.phoneScreen)
             }
@@ -123,8 +123,11 @@ private struct StatusHeader: View {
                     Button("退出旧版") { intents.quitLegacyApp() }
                 }
             }
-            if let notice = state.notice {
-                Label(notice, systemImage: "exclamationmark.circle.fill").foregroundStyle(.orange)
+            if state.configSaveFailed {
+                Label("设置未保存", systemImage: "exclamationmark.circle.fill").foregroundStyle(.orange)
+            }
+            if state.loginItemFailed {
+                Label("开机启动未生效 · 需位于「应用程序」", systemImage: "exclamationmark.circle.fill").foregroundStyle(.orange)
             }
         }
         .padding(.vertical, 4)

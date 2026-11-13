@@ -24,8 +24,6 @@ public struct SnugPaths: Equatable, Sendable {
     public var phoneRecord: URL { file("phone-screen.json") }
     /// 每个 App 在手机屏上记住的字号级数
     public var zoomBook: URL { file("zoom.json") }
-    /// 日志滚动出的上一份
-    public var rotatedLogFile: URL { logFile.deletingLastPathComponent().appendingPathComponent(logFile.lastPathComponent + ".1") }
 
     private func file(_ name: String) -> URL { dataDirectory.appendingPathComponent(name) }
 }

@@ -46,7 +46,7 @@ public struct CaptureLogParser {
               let message = object["eventMessage"] as? String,
               let stamp = object["timestamp"] as? String,
               let date = formatter.date(from: stamp) else { return nil }
-        if let process = object["processImagePath"] as? String, !process.hasSuffix("/UURemoteServer") { return nil }
+        if let process = object["processImagePath"] as? String, !process.hasSuffix("/" + UURemote.serverProcess) { return nil }
         return Self.classify(message).map { CaptureLogRecord(date: date, event: $0) }
     }
 

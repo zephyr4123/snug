@@ -23,8 +23,10 @@ final class AppState {
     var gesturesFailed = false
     var accessibilityTrusted = false
     var launchAtLogin = false
-    /// 需要告诉用户、但不影响运行的问题：设置未能保存、开机启动设置失败……
-    var notice: String?
+    /// 上一次改开机启动没成（多半是 Snug 不在「应用程序」里）
+    var loginItemFailed = false
+    /// 上一次改设置没能写进 config.json
+    var configSaveFailed = false
     /// 旧版「UU远程伴侣」正在运行
     var legacyAppRunning = false
     /// 正在退出收尾

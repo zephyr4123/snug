@@ -20,11 +20,11 @@ extension AppController: AppIntents {
     func setLaunchAtLogin(_ on: Bool) {
         do {
             if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
-            state.notice = nil
+            state.update(\.loginItemFailed, false)
             Log.info("设置：开机启动 → \(on ? "开" : "关")")
         } catch {
-            state.notice = "开机启动设置失败：请将 Snug 移至「应用程序」后重试"
-            Log.error("开机启动设置失败：\(error)")
+            state.update(\.loginItemFailed, true)
+            Log.error("开机启动设置失败（\(Bundle.main.bundlePath)）：\(error)")
         }
         refreshLaunchAtLogin()
     }
@@ -72,11 +72,12 @@ extension AppController: AppIntents {
         do {
             try store.update(change)
         } catch {
-            state.notice = "设置未能保存：\(error.localizedDescription)"
+            state.update(\.configSaveFailed, true)
             Log.error("设置（\(what)）写盘失败：\(error)")
             return false
         }
         Log.info("设置：\(what)")
+        state.update(\.configSaveFailed, false)
         state.update(\.config, store.config)
         return true
     }

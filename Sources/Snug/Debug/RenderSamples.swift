@@ -41,7 +41,7 @@ enum RenderSamples {
             setting("settings-trouble") { s in
                 s.accessibilityTrusted = false
                 s.legacyAppRunning = true
-                s.notice = "设置没能保存：磁盘已满"
+                s.configSaveFailed = true
             },
         ]
     }

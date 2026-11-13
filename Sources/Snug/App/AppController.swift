@@ -37,7 +37,7 @@ final class AppController {
         desk = PhoneDesk(displays: PhoneDisplayService(helper: helper), windows: windows, paths: paths,
                          defaultZoom: store.config.zoomSteps)
         state.config = store.config
-        state.accessibilityTrusted = UUAccessibility.isTrusted
+        state.accessibilityTrusted = AX.isTrusted
     }
 
     var now: Date { anchor.date.addingTimeInterval(ProcessInfo.processInfo.systemUptime - anchor.uptime) }
@@ -105,7 +105,7 @@ final class AppController {
 
     /// 权限是用户在系统设置里给的，随时会变：刚给上时把上次没放回去的窗口放回去
     private func refreshTrust() {
-        let trusted = UUAccessibility.isTrusted
+        let trusted = AX.isTrusted
         guard trusted != state.accessibilityTrusted else { return }
         state.accessibilityTrusted = trusted
         Log.info("辅助功能权限：\(trusted ? "已授权" : "被收回")")

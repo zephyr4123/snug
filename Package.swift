@@ -22,7 +22,6 @@ let package = Package(
                 "SnugCore",
                 "SnugSystem",
                 .product(name: "PermissionFlow", package: "PermissionFlow"),
-                .product(name: "SystemSettingsKit", package: "PermissionFlow"),
             ]
         ),
         .testTarget(name: "SnugCoreTests", dependencies: ["SnugCore"], resources: [.copy("Fixtures")]),

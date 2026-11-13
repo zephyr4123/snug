@@ -31,7 +31,7 @@ public final class TouchTap {
             return false
         }
         session = next
-        Log.info("手势翻译已开启（只接管 \(TapSession.sourceProcess) 发来、在手机屏里的操作）")
+        Log.info("手势翻译已开启（只接管 \(UURemote.serverProcess) 发来、在手机屏里的操作）")
         return true
     }
 
@@ -45,8 +45,6 @@ public final class TouchTap {
 
 /// 一次监听：自己的线程、自己的 run loop、自己的状态机。除了 start / stop，其余都只在这个线程上跑
 private final class TapSession: @unchecked Sendable {
-    /// UU 在 Mac 上注入事件的进程
-    static let sourceProcess = "UURemoteServer"
     /// eventSourceUserData 里的记号（'SNUG'）
     static let marker: Int64 = 0x534E_5547
 
@@ -199,7 +197,7 @@ private final class TapSession: @unchecked Sendable {
         var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
         let length = Int(proc_pidpath(pid, &buffer, UInt32(buffer.count)))
         let path = length > 0 ? String(decoding: buffer.prefix(length).map { UInt8(bitPattern: $0) }, as: UTF8.self) : ""
-        let match = (path as NSString).lastPathComponent == Self.sourceProcess
+        let match = (path as NSString).lastPathComponent == UURemote.serverProcess
         isUU[pid] = match
         return match
     }

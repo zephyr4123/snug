@@ -30,6 +30,7 @@ final class PhoneScreenWindows {
     private func follow() {
         withObservationTracking {
             _ = state.phone
+            _ = state.streamedDisplay
         } onChange: { [weak self] in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -52,11 +53,12 @@ final class PhoneScreenWindows {
         homeBar.setFrame(homeBarFrame(on: screen), display: true)
 
         let showList = phone.listVisible || phone.placed == nil
-        if showList {
-            list.orderFrontRegardless()
+        if showList { list.orderFrontRegardless() } else { list.orderOut(nil) }
+        // 列表每轮要把所有 App 的窗口读一遍，还和搬窗口共用一条队：手机没在看手机屏就不刷。
+        // 不知道 UU 在推哪块屏（推流日志没读到）时照旧刷
+        if showList, state.streamedDisplay == nil || state.phoneInUse {
             catalog.startRefreshing()
         } else {
-            list.orderOut(nil)
             catalog.stopRefreshing()
         }
         if phone.placed != nil, !showList { homeBar.orderFrontRegardless() } else { homeBar.orderOut(nil) }
