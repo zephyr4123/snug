@@ -138,11 +138,14 @@ public final class PhoneDesk {
         lane.run { await self.matchWidth() }
     }
 
-    /// 列表左上角的返回键：回到手机屏上的窗口
+    /// 列表左上角的返回键：回到手机屏上的窗口。换档要一会儿，期间和放窗口一样显示「正在打开」、列表点不了
     public func returnToPlaced() {
-        guard placement != nil else { return }
-        state.notice = nil
-        lane.run { await self.reveal() }
+        guard let p = placement else { return }
+        begin(.placing(p.window))
+        lane.run {
+            await self.reveal()
+            self.state.work = nil
+        }
     }
 
     /// 把手机屏上的窗口放回原位。放不回去（App 卡住）就留在手机屏上，提示一下，可以再点
@@ -360,7 +363,9 @@ public final class PhoneDesk {
         await switchWidth(id, to: p.width)
         guard let area = displays.windowArea(id), let got = await windows.move(p.window.key, to: area) else { return nil }
         p.settled = got
-        guard let current = displays.width(id) else { return got }
+        // 窗口落到了区域原点、只是尺寸被夹住，才是 App 限定了最小尺寸；没挪过去（App 不认挪动）就不按它的大小换档
+        let placed = abs(got.minX - area.minX) < 2 && abs(got.minY - area.minY) < 2
+        guard placed, let current = displays.width(id) else { return got }
         let width = ScreenFit.width(toFit: got.size, in: area.size, at: current)
         guard width > current, width != p.width else { return got }
         Log.info("\(p.window.label) 在 \(current) 宽的手机屏上铺不满（App 限定了最小尺寸，实际 \(got.short)），换到 \(width) 宽")
@@ -371,7 +376,9 @@ public final class PhoneDesk {
     /// 收起列表、露出手机屏上的窗口：先换到它那一档、重新铺满，再收列表、激活它。
     /// 换档时列表还盖着，手机上看不到窗口被挪来挪去
     private func reveal() async {
-        guard let p = placement else { return }
+        guard let id = display?.id, let p = placement else { return }
+        // 先换档：App 一时读不到时 refill 什么都不做，档位也得对；换档触发的复查会在 App 恢复后补铺
+        await switchWidth(id, to: p.width)
         await refill(because: "回到窗口")
         state.listVisible = false
         await windows.focus(p.window.key)
@@ -542,7 +549,8 @@ public final class PhoneDesk {
         placement = p
         Log.info("\(p.window.label) 字号比原来 \(target > 0 ? "+" : "")\(target) 级")
         await timeline.sleep(Self.settleDelay)
-        await refill(because: "字号改了")
+        // 在列表里调的字号：窗口被盖着，返回时 reveal 再补铺；这时铺会把屏换到窗口那一档
+        if !state.listVisible { await refill(because: "字号改了") }
         return true
     }
 

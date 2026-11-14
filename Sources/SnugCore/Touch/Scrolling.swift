@@ -47,27 +47,29 @@ public struct Momentum: Sendable {
     public static let frameRate = 60.0
     /// 每帧衰减（60fps 下约 0.8 秒停下）
     static let decay = 0.95
-    /// 甩出去的速度低于这个（点/秒）就不带惯性
+    /// 基准宽度下甩出去的速度低于这个（点/秒）就不带惯性
     static let minimumSpeed = 200.0
-    /// 速度降到这个以下就停
+    /// 基准宽度下速度降到这个以下就停
     static let stopSpeed = 40.0
 
     private var vx: Double
     private var vy: Double
+    private let stopSpeed: Double
     private var started = false
 
-    /// 太慢的不算甩，返回 nil
-    init?(velocity: (x: Double, y: Double)) {
-        guard hypot(velocity.x, velocity.y) > Self.minimumSpeed else { return nil }
+    /// 太慢的不算甩，返回 nil。scale：手机屏这一档比基准宽几倍，速度门槛跟着放大
+    init?(velocity: (x: Double, y: Double), scale: Double) {
+        guard hypot(velocity.x, velocity.y) > Self.minimumSpeed * scale else { return nil }
         vx = velocity.x
         vy = velocity.y
+        stopSpeed = Self.stopSpeed * scale
     }
 
     /// 下一帧的位移；停下时返回 nil
     mutating func next() -> (dx: Double, dy: Double, phase: MomentumPhase)? {
         vx *= Self.decay
         vy *= Self.decay
-        guard hypot(vx, vy) >= Self.stopSpeed else { return nil }
+        guard hypot(vx, vy) >= stopSpeed else { return nil }
         defer { started = true }
         return (vx / Self.frameRate, vy / Self.frameRate, started ? .continue : .begin)
     }

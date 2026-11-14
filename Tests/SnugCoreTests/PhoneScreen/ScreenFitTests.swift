@@ -33,6 +33,9 @@ struct ScreenFitTests {
         #expect(ScreenFit.width(toFit: CGSize(width: 740, height: 897), in: baseArea, at: 540) == 740)
         #expect(ScreenFit.width(toFit: CGSize(width: 574, height: 897), in: baseArea, at: 540) == 580)
         #expect(ScreenFit.width(toFit: CGSize(width: 988, height: 897), in: baseArea, at: 540) == 990)
+        // 正好是整档的最小宽度：浮点误差不能让它多进一档
+        #expect(ScreenFit.width(toFit: CGSize(width: 580, height: 897), in: baseArea, at: 540) == 580)
+        #expect(ScreenFit.width(toFit: CGSize(width: 850, height: 897), in: baseArea, at: 540) == 850)
     }
 
     @Test("高度超了：按高度等比换档，宽高比不变（不会又高又窄）")

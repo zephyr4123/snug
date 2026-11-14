@@ -753,6 +753,87 @@ struct PhoneDeskTests {
         #expect(rig.windows.window(finder.key)?.frame == wide)
     }
 
+    @Test("App 不认挪动（窗口没挪到手机屏上）：不按它原来的大小换档")
+    func unmovableWindowKeepsWidth() async throws {
+        let rig = try Rig()
+        rig.windows.ignoreMoves()
+        await rig.ready()
+        await rig.pull(finder)
+        #expect(!rig.journal.all.contains { $0.hasPrefix("width") })
+        #expect(rig.displays.widths[101] == 540)
+    }
+
+    @Test("在列表里调字号：列表露着时不换档、不补铺；返回窗口时再换过去")
+    func zoomFromList() async throws {
+        let rig = try Rig()
+        rig.windows.setMinSize(ghostty.key, width: 740)
+        await rig.ready()
+        await rig.pull(ghostty)
+        rig.desk.showList()
+        await rig.desk.idle()
+        rig.journal.clear()
+        rig.desk.zoom(by: 1)
+        await rig.desk.idle()
+        #expect(rig.journal.all == ["zoom 7 +1 ✎"])
+        #expect(rig.displays.widths[101] == 540)
+        rig.desk.returnToPlaced()
+        await rig.desk.idle()
+        #expect(rig.displays.widths[101] == 740)
+    }
+
+    @Test("点返回回到宽窗口：换档期间和放窗口一样是「正在打开」（列表点不了），做完回到空闲")
+    func returnShowsWork() async throws {
+        let rig = try Rig()
+        rig.windows.setMinSize(finder.key, width: 740)
+        await rig.ready()
+        await rig.pull(finder)
+        rig.desk.showList()
+        await rig.desk.idle()
+        var works: [PhoneDesk.Work?] = []
+        rig.desk.onChange = { state in
+            if works.last != .some(state.work) { works.append(state.work) }
+        }
+        rig.desk.returnToPlaced()
+        await rig.desk.idle()
+        #expect(works == [.placing(finder), nil])
+    }
+
+    @Test("点返回时 App 一时读不到：照样换回窗口那一档、收起列表；App 恢复后，屏幕配置变化的复查把它铺好")
+    func revealWhileUnresponsive() async throws {
+        let rig = try Rig()
+        rig.windows.setMinSize(finder.key, width: 740)
+        await rig.ready()
+        await rig.pull(finder)
+        rig.desk.showList()
+        await rig.desk.idle()
+        rig.windows.setFrame(finder.key, CGRect(x: 2000, y: 25, width: 740, height: 500))   // 屏变窄时系统挪了它
+        rig.windows.block()
+        rig.desk.returnToPlaced()
+        await rig.desk.idle()
+        #expect(rig.displays.widths[101] == 740)
+        #expect(rig.desk.state.listVisible == false)
+        rig.windows.block(false)
+        rig.desk.displaysChanged()
+        await rig.desk.idle()
+        #expect(rig.windows.window(finder.key)?.frame == FakeDisplays.area(width: 740))
+    }
+
+    @Test("铺的中途换过档、随后窗口关了：放回作废、露着列表，手机屏换回 540")
+    func windowGoneMidFill() async throws {
+        let rig = try Rig()
+        rig.windows.setMinSize(finder.key, width: 740)
+        await rig.ready()
+        let windows = rig.windows
+        windows.onMove { key in windows.close(key) }     // 第一次挪完就关了，换档后的第二次挪不动
+        await rig.pull(finder)
+        #expect(rig.journal.all.contains("width 101 740"))
+        #expect(rig.desk.state.notice == .windowGone(app: "Finder"))
+        #expect(rig.desk.state.placed == nil)
+        #expect(rig.desk.state.listVisible)
+        #expect(rig.displays.widths[101] == 540)
+        #expect(rig.record == nil)
+    }
+
     @Test("上次崩溃留下的记录：窗口还在就缩回字号、放回原位、恢复全屏，然后销账")
     func recover() async throws {
         let rig = try Rig()

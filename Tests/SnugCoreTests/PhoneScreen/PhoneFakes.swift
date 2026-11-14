@@ -99,6 +99,7 @@ final class FakeWindows: WindowControl {
     private let blocked = Locked(false)
     private let movesBlocked = Locked(false)
     private let zoomBlocked = Locked(false)
+    private let movesIgnored = Locked(false)
     private let grows = Locked(false)
     private let minSizes = Locked<[WindowKey: CGSize]>([:])
     private let moveHook = Locked<(@Sendable (WindowKey) -> Void)?>(nil)
@@ -114,6 +115,8 @@ final class FakeWindows: WindowControl {
     func block(_ on: Bool = true) { blocked.withLock { $0 = on } }
     /// 只是挪不动（App 卡在改窗口大小上），别的照常；传 false 恢复
     func blockMoves(_ on: Bool = true) { movesBlocked.withLock { $0 = on } }
+    /// App 不认挪动（不退全屏、拒绝辅助功能改位置）：读得到，挪了没反应；传 false 恢复
+    func ignoreMoves(_ on: Bool = true) { movesIgnored.withLock { $0 = on } }
     /// 只是字号按键发不出去（找窗口那一下刚好超时），别的照常；传 false 恢复
     func blockZoom(_ on: Bool = true) { zoomBlocked.withLock { $0 = on } }
     /// 像终端那样：调字号时保持行列数，窗口跟着变大
@@ -159,6 +162,7 @@ final class FakeWindows: WindowControl {
         guard reachable, !movesBlocked.withLock({ $0 }), self.window(window) != nil else { return nil }
         moveHook.withLock { $0 }?(window)
         journal.add("move \(window.id) \(frame.short)\(mark)")
+        if movesIgnored.withLock({ $0 }) { return self.window(window)?.frame }
         var got = frame
         if let min = minSizes.withLock({ $0[window] }) {
             got.size = CGSize(width: max(got.width, min.width), height: max(got.height, min.height))

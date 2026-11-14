@@ -66,6 +66,10 @@ public final class PhoneDisplayService: PhoneDisplays {
     public func setWidth(_ id: DisplayID, _ width: Int) async {
         let from = DisplayMode.describe(id)
         let status = await runHelper(id, width: width)
+        guard status == 0 else {
+            Log.warn("手机屏 #\(id) 换不到 \(width) 宽（帮手退出码 \(status.map(String.init) ?? "启动失败")），现在 \(DisplayMode.describe(id))")
+            return
+        }
         let switched = { self.width(id) == width && Screens.screen(for: id)?.frame.width == CGFloat(width) }
         let deadline = ProcessInfo.processInfo.systemUptime + Self.screenUpdateTimeout
         while !switched(), ProcessInfo.processInfo.systemUptime < deadline {
@@ -74,7 +78,7 @@ public final class PhoneDisplayService: PhoneDisplays {
         if switched() {
             Log.info("手机屏 #\(id) 换到 \(width) 宽（原来 \(from)）")
         } else {
-            Log.warn("手机屏 #\(id) 换不到 \(width) 宽（帮手退出码 \(status.map(String.init) ?? "启动失败")），现在 \(DisplayMode.describe(id))")
+            Log.warn("手机屏 #\(id) 帮手说换到了 \(width) 宽，\(Int(Self.screenUpdateTimeout)) 秒内界面没认到，现在 \(DisplayMode.describe(id))")
         }
     }
 

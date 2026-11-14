@@ -40,11 +40,13 @@ public enum ScreenFit {
 
     /// 窗口该用哪一档。window 是按 area（current 这一档的可放区域）铺过之后读回的实际大小：
     /// 装得下就还是 current；App 不让缩到那么小，就按超出的比例往上找装得下的最窄一档，超过最宽一档就用最宽一档。
-    /// 按比例放大是够的：可放区域里只有菜单栏不跟着缩放，屏越宽它占的比例越小
+    /// 按比例放大是够的：可放区域里只有菜单栏不跟着缩放，屏越宽它占的比例越小。
+    /// 先乘后除：540 × (580 / 540) 在浮点下是 580.0000000000001，向上取整会多进一档
     public static func width(toFit window: CGSize, in area: CGSize, at current: Int) -> Int {
         let tolerance: CGFloat = 2
         guard window.width > area.width + tolerance || window.height > area.height + tolerance else { return current }
-        let needed = CGFloat(current) * max(window.width / area.width, window.height / area.height)
+        let base = CGFloat(current)
+        let needed = max(base * window.width / area.width, base * window.height / area.height)
         return widths.first { CGFloat($0) >= needed.rounded(.up) } ?? maxWidth
     }
 }

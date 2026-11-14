@@ -125,9 +125,8 @@ private final class TapSession: @unchecked Sendable {
         }
         guard event.getIntegerValueField(.eventSourceUserData) != Self.marker, fromUU(event) else { return pass }
 
-        let inside = region.withLock { $0 }?.contains(event.location) ?? false
         let input = TouchInput(kind, at: event.location, time: ProcessInfo.processInfo.systemUptime)
-        let response = translator.handle(input, insidePhoneScreen: inside)
+        let response = translator.handle(input, phoneScreen: region.withLock { $0 })
         if kind == .press, !response.passOriginal { heldPress = event.copy() }
         response.commands.forEach { perform($0, current: event) }
         if kind == .release { heldPress = nil }

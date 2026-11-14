@@ -5,7 +5,8 @@
 //   按住 0.5 秒松手 → 右键菜单（选区不丢，菜单里有拷贝、粘贴）
 // UU 把单指拖动当成鼠标拖动发过来（会选中文字），滚动要两根手指，这里在 Mac 这一侧翻译回来。
 // 纯状态机：吃进 UU 的按下 / 拖动 / 抬起，吐出「原事件放不放行」和要补发的事件，时间由调用方给。
-// 只有手机屏里按下的那一下会被接管；之后的拖动、抬起跟着这一下走，手指滑出手机屏也一样
+// 只有手机屏里按下的那一下会被接管；之后的拖动、抬起跟着这一下走，手指滑出手机屏也一样。
+// 阈值按基准宽度标定，手机屏换到更宽的一档时按比例放大（ScreenFit.scale），在手机上手感不变
 import CoreGraphics
 import Foundation
 
@@ -44,7 +45,7 @@ public struct TouchResponse: Equatable, Sendable {
 }
 
 public struct TouchTranslator: Sendable {
-    /// 移动不到这么多点算没动（约合手机上 8 点）
+    /// 基准宽度下移动不到这么多点算没动（约合手机上 8 点）
     public static let slop = 10.0
     /// 按住这么久算长按，和 iOS 一样
     public static let holdDuration: TimeInterval = 0.5
@@ -52,7 +53,7 @@ public struct TouchTranslator: Sendable {
     static let flingWindow: TimeInterval = 0.1
     /// 估速的样本至少跨这么久：事件经网络转发，会几个挤在几毫秒里一起到，跨度太短算出来的速度是假的
     static let minFlingSpan: TimeInterval = 0.04
-    /// 甩出去的速度上限（点/秒）：约滚一千多点就停
+    /// 基准宽度下甩出去的速度上限（点/秒）：约滚一千多点就停
     static let maxFlingSpeed = 4000.0
 
     private enum Phase: Equatable {
@@ -69,6 +70,8 @@ public struct TouchTranslator: Sendable {
     private var samples: [(time: TimeInterval, point: CGPoint)] = []
     private var wheel = ScrollWheel()
     private var momentum: Momentum?
+    /// 这次按下时手机屏那一档比基准宽几倍：阈值都乘它
+    private var scale = 1.0
     /// 这次按下停掉了惯性：很快松手就只是停住，不补发点击
     private var pressStoppedCoast = false
 
@@ -77,10 +80,10 @@ public struct TouchTranslator: Sendable {
     /// 惯性还在走：调用方按 Momentum.frameRate 定时调 momentumFrame()
     public var isCoasting: Bool { momentum != nil }
 
-    /// insidePhoneScreen：这个事件落在手机屏范围内（只看按下那一下）
-    public mutating func handle(_ input: TouchInput, insidePhoneScreen: Bool) -> TouchResponse {
+    /// phoneScreen：手机屏的范围（全局坐标，没有手机屏时为 nil）。只看按下那一下落没落在里面
+    public mutating func handle(_ input: TouchInput, phoneScreen: CGRect?) -> TouchResponse {
         switch input.kind {
-        case .press: press(input, inside: insidePhoneScreen)
+        case .press: press(input, on: phoneScreen)
         case .drag: drag(input)
         case .release: release(input)
         }
@@ -97,13 +100,14 @@ public struct TouchTranslator: Sendable {
         return wheel.step(dx: frame.dx, dy: frame.dy, phase: .none, momentum: frame.phase, at: origin)
     }
 
-    private mutating func press(_ input: TouchInput, inside: Bool) -> TouchResponse {
+    private mutating func press(_ input: TouchInput, on phoneScreen: CGRect?) -> TouchResponse {
         // 新的一按先把还在走的惯性停掉（和 iPhone 上手指按住正在滚的列表一样）
         let stop = stopMomentum()
-        guard inside else {
+        guard let phoneScreen, phoneScreen.contains(input.location) else {
             phase = .idle
             return TouchResponse(passOriginal: true, commands: stop)
         }
+        scale = ScreenFit.scale(screenWidth: phoneScreen.width)
         pressStoppedCoast = !stop.isEmpty
         phase = .pending(since: input.time)
         origin = input.location
@@ -118,7 +122,7 @@ public struct TouchTranslator: Sendable {
         case .idle, .selecting:
             return .pass
         case .pending(let since):
-            guard distance(input.location, origin) >= Self.slop else { return .swallow() }
+            guard distance(input.location, origin) >= Self.slop * scale else { return .swallow() }
             if input.time - since >= Self.holdDuration {
                 // 按住后再拖：补发按下，接下来照旧拖动，就是原来的选择
                 phase = .selecting
@@ -147,7 +151,7 @@ public struct TouchTranslator: Sendable {
         case .scrolling:
             phase = .idle
             let ended = wheel.step(dx: 0, dy: 0, phase: .ended, momentum: .none, at: origin)
-            momentum = Momentum(velocity: flingVelocity(at: input.time))
+            momentum = Momentum(velocity: flingVelocity(at: input.time), scale: scale)
             return .swallow([.scroll(ended)])
         }
     }
@@ -168,7 +172,7 @@ public struct TouchTranslator: Sendable {
     }
 
     /// 松手前 flingWindow 内的平均速度（点/秒）。松手前停住了（窗口里不到两个样本）就不甩。
-    /// 样本跨度不到 minFlingSpan 时往前多取，再封顶 maxFlingSpeed
+    /// 样本跨度不到 minFlingSpan 时往前多取，再封顶（按这一档放大的）maxFlingSpeed
     private func flingVelocity(at time: TimeInterval) -> (x: Double, y: Double) {
         let recent = samples.filter { time - $0.time <= Self.flingWindow }
         guard var a = recent.first, let b = recent.last, b.time > a.time else { return (0, 0) }
@@ -177,9 +181,9 @@ public struct TouchTranslator: Sendable {
         }
         let dt = b.time - a.time
         let v = (x: Double(b.point.x - a.point.x) / dt, y: Double(b.point.y - a.point.y) / dt)
-        let speed = hypot(v.x, v.y)
-        guard speed > Self.maxFlingSpeed else { return v }
-        return (v.x / speed * Self.maxFlingSpeed, v.y / speed * Self.maxFlingSpeed)
+        let speed = hypot(v.x, v.y), cap = Self.maxFlingSpeed * scale
+        guard speed > cap else { return v }
+        return (v.x / speed * cap, v.y / speed * cap)
     }
 
     private func distance(_ a: CGPoint, _ b: CGPoint) -> Double { hypot(Double(a.x - b.x), Double(a.y - b.y)) }
