@@ -25,11 +25,19 @@ case .setMode(let display, let width):
     Log.info("切屏幕 #\(display) 到 2 倍 \(Int(size.width))x\(Int(size.height))：\(outcome)")
     Log.flush()
     exit(outcome == .switched ? 0 : 1)
-case .app, .previewPhone:
+case .setMirrorMode(let display, let width, let height):
+    Log.setSink(FileLogSink(url: SnugPaths.standard.logFile, processTag: "帮手"))
+    let outcome = DisplayMode.switchToHiDPI(display, width: width, height: height)
+    Log.info("切内建屏镜像 #\(display) 到 2 倍 \(width)x\(height)：\(outcome)")
+    Log.flush()
+    exit(outcome == .switched ? 0 : 1)
+case .app, .previewPhone, .previewMirror:
     let paths = SnugPaths.standard
     Log.setSink(FileLogSink(url: paths.logFile))
     let app = NSApplication.shared
-    let delegate = MainActor.assumeIsolated { AppDelegate(paths: paths, previewPhone: mode == .previewPhone) }
+    let delegate = MainActor.assumeIsolated {
+        AppDelegate(paths: paths, previewPhone: mode == .previewPhone, previewMirror: mode == .previewMirror)
+    }
     app.delegate = delegate
     app.setActivationPolicy(.accessory)
     app.run()

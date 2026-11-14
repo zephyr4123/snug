@@ -92,6 +92,9 @@ public final class PhoneDesk {
 
     private var wanted = false
     private var display: (id: DisplayID, bornAt: TimeInterval)?
+    /// 要不要内建屏镜像。只在手机屏在的时候生效
+    private var wantsMirror = false
+    private var mirror: (id: DisplayID, bornAt: TimeInterval)?
     private var placement: Placement? {
         didSet { state.placed = placement.map { Placed(window: $0.window, zoom: $0.record.zoom) } }
     }
@@ -120,6 +123,13 @@ public final class PhoneDesk {
         wanted = on
         if !on { cancelRetry() }
         lane.run { await self.reconcile() }
+    }
+
+    /// 要不要内建屏镜像（设置和会话合起来的结论）。手机屏不在时先记下，等手机屏加好再一起加
+    public func setMirrorWanted(_ on: Bool) {
+        guard on != wantsMirror else { return }
+        wantsMirror = on
+        lane.run { await self.reconcileMirror() }
     }
 
     /// 把这个窗口放上手机屏（原来那个先放回原位）
@@ -225,9 +235,10 @@ public final class PhoneDesk {
         lane.run { await self.putBackLeftover() }
     }
 
-    /// 退出前：放回窗口、撤掉手机屏，做完才返回
+    /// 退出前：放回窗口、撤掉手机屏和镜像屏，做完才返回
     public func shutdown() async {
         wanted = false
+        wantsMirror = false
         cancelRetry()
         await lane.run { await self.reconcile() }.value
     }
@@ -250,6 +261,8 @@ public final class PhoneDesk {
             await addScreen()
         } else if !wanted, state.screen != .off {
             await removeScreen()
+        } else if !wanted, let m = mirror {
+            await removeMirror(m)
         }
     }
 
@@ -257,17 +270,35 @@ public final class PhoneDesk {
         state.screen = .preparing
         let before = await windows.snapshot()
         onTopologyChange?()
+        // 镜像屏先加：它会变成镜像组的主屏，随后加的窗口、手机屏都按新的主屏算
+        let madeMirror = wantsMirror ? await makeMirror() : nil
         do {
             let id = try await displays.create()
             display = (id, timeline.now)
+            if let madeMirror { mirror = (madeMirror, timeline.now) }
             failures = 0
             await windows.restore(before, except: placement?.window.key)
             state.screen = .ready(id)
             Log.info("手机屏 #\(id) 已就绪（\(displays.width(id).map { "\($0) 宽" } ?? "不是 2 倍")）")
         } catch {
+            if let madeMirror {
+                await displays.retireMirror(madeMirror)
+                // 镜像屏建了又撤，主屏来回切，窗口可能被系统挪过：按加屏前的快照放回去
+                await windows.restore(before, except: placement?.window.key)
+            }
             state.screen = .failed
             Log.error("加手机屏失败：\(error)")
             scheduleRetry()
+        }
+    }
+
+    /// 建镜像屏，失败只记日志：手机屏照常加，镜像没有就没有
+    private func makeMirror() async -> DisplayID? {
+        do {
+            return try await displays.createMirror()
+        } catch {
+            Log.error("加内建屏镜像失败：\(error)")
+            return nil
         }
     }
 
@@ -300,10 +331,45 @@ public final class PhoneDesk {
         if let p = placement { await putBack(p.record) }
         placement = nil
         await retireDisplay()
+        if let m = mirror { await removeMirror(m) }
         state.screen = .off
         state.listVisible = true
         // 这次远程的提示不带到下一次
         state.notice = nil
+    }
+
+    /// 手机屏在的时候，设置里的镜像开关变了就加减镜像屏
+    private func reconcileMirror() async {
+        guard display != nil else { return }
+        if wantsMirror, mirror == nil {
+            await addMirror()
+        } else if !wantsMirror, let m = mirror {
+            await removeMirror(m)
+        }
+    }
+
+    private func addMirror() async {
+        let before = await windows.snapshot()
+        onTopologyChange?()
+        do {
+            let id = try await displays.createMirror()
+            mirror = (id, timeline.now)
+            await windows.restore(before, except: placement?.window.key)
+            Log.info("内建屏镜像 #\(id) 已就绪")
+        } catch {
+            Log.error("加内建屏镜像失败：\(error)")
+        }
+    }
+
+    private func removeMirror(_ m: (id: DisplayID, bornAt: TimeInterval)) async {
+        let age = timeline.now - m.bornAt
+        if age < MirrorScreenSpec.minimumLifetime { await timeline.sleep(MirrorScreenSpec.minimumLifetime - age) }
+        let before = await windows.snapshot()
+        onTopologyChange?()
+        await displays.retireMirror(m.id)
+        mirror = nil
+        await windows.restore(before, except: placement?.window.key)
+        Log.info("已撤掉内建屏镜像 #\(m.id)")
     }
 
     private func retireDisplay() async {

@@ -6,6 +6,11 @@ import SnugCore
 extension AppController: AppIntents {
     func setPhoneScreen(_ on: Bool) { changeConfig("手机屏 → \(on ? "开" : "关")") { $0.phoneScreen = on } }
 
+    func setMirrorBuiltinScreen(_ on: Bool) {
+        guard changeConfig("内建屏镜像 → \(on ? "开" : "关")", { $0.mirrorBuiltinScreen = on }) else { return }
+        syncMirrorWanted()
+    }
+
     func setGestures(_ on: Bool) {
         guard changeConfig("手机手势 → \(on ? "开" : "关")", { $0.gestures = on }) else { return }
         syncGestures()

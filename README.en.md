@@ -53,6 +53,7 @@ UU Remote scales your entire desktop down to fit the phone. Snug adds a dedicate
 
 - When the session ends, windows return to their original positions and text sizes are restored
 - When you are not on the phone screen, UU Remote behaves exactly as it always has
+- **Built-in screen mirror** (optional): turn it on in Settings and UU Remote's screen list also shows a landscape "Snug 内建屏" screen mirroring your Mac's built-in display, handy on a tablet or desktop client
 
 ## 📱 iPhone-Native Interactions
 
@@ -135,13 +136,14 @@ rm ~/Library/LaunchAgents/com.corndog.uudisplay.watchdog-agent.plist
 
    <img src="https://dl.zephyrxiang.com/snug/media/uu-screen-picker.212fdbe9.png" width="50%" alt="UU Remote's screen list, showing display 3: Snug Phone Screen">
 
-2. **Pick a window**: tap any window in the list and it fills the screen
-3. **Switch windows**: tap the bottom indicator bar to return to the list; choosing another window returns the previous one to its place
-4. **End the session**: windows return to their original positions, text sizes are restored, and the phone screen is removed
+2. **See the real desktop (optional)**: turn on "内建屏镜像" in Settings and the screen list also shows "Snug 内建屏"; choose it to see your Mac's built-in display. It and the phone screen do not interfere
+3. **Pick a window**: tap any window in the list and it fills the screen
+4. **Switch windows**: tap the bottom indicator bar to return to the list; choosing another window returns the previous one to its place
+5. **End the session**: windows return to their original positions, text sizes are restored, and the phone and mirror screens are removed
 
 ## 🔒 Isolation and Restoration
 
-- **Only the phone screen is touched**: the main display, other screens, and other windows are left alone
+- **Only the phone screen and the optional mirror screen are touched**: with the mirror off, the main display is left alone; with it on, the virtual screen temporarily becomes the mirror set's master with the same content as the built-in display, and is restored when the session ends
 - **Record first, then change**: each window's original position and text size are recorded in advance, so they can be restored even if Snug quits unexpectedly
 - **Unresponsive apps are left as they are**: if an app stops responding, Snug does not force its window to move and explains why on screen
 - **No network access**: Snug connects to no servers and collects no data
@@ -154,6 +156,7 @@ rm ~/Library/LaunchAgents/com.corndog.uudisplay.watchdog-agent.plist
 | Screen proportions match the iPhone 17 Pro Max | Other models may show slight letterboxing; portrait only |
 | Smaller text in some windows | Apps such as System Settings and Safari enforce a minimum width; the phone screen switches to a resolution just wide enough, so the window still fills it and text shrinks accordingly (pinch to zoom) |
 | Text enlargement covers terminals and editors only | Ghostty, Terminal, iTerm2, VS Code, Cursor, and Zed; browsers are not adjusted |
+| Built-in screen mirror needs a built-in display | Only Macs with one (MacBooks) get this screen; Mac mini and a closed lid without an external display do not |
 | Not an official NetEase product | Unaffiliated with UU Remote or its developer; UU Remote updates may affect some features |
 | The phone screen may occasionally remain after a session ends | Occurs when the system log misses the end of the stream; the menu bar still shows the session as active (「远程中」). Turn off the phone screen in Settings to restore |
 

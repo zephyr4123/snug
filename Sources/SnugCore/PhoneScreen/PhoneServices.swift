@@ -10,6 +10,12 @@ public protocol PhoneDisplays: AnyObject {
     func create() async throws -> DisplayID
     /// 释放，等它下线
     func retire(_ id: DisplayID) async
+    /// 建一块内建屏镜像（和内建屏同尺寸的横屏），让内建屏镜像到它上面，等它上线且镜像配置生效。
+    /// 没有内建屏、内建屏已经在镜像组里、或虚拟屏不是 2 倍（会把内建屏拉成 1 倍）时抛错。
+    /// 失败时自己把建了一半的屏清掉
+    func createMirror() async throws -> DisplayID
+    /// 释放内建屏镜像，等它下线。内建屏会自动回到主屏
+    func retireMirror(_ id: DisplayID) async
     /// 此刻是哪一档（2 倍模式的宽度，点）；不是 2 倍、或屏不在了返回 nil
     func width(_ id: DisplayID) -> Int?
     /// 换到这一档的 2 倍模式，等界面认到新尺寸再返回。换不成只记日志：窗口照样能用，只是没铺满
@@ -87,6 +93,32 @@ public enum PhoneScreenError: Error, CustomStringConvertible {
         switch self {
         case .createFailed: "CGVirtualDisplay 建不出来，备用身份也都试过了"
         case .neverOnline: "手机屏建好了但一直不上线，备用身份也都试过了"
+        }
+    }
+}
+
+public enum MirrorScreenError: Error, Equatable, CustomStringConvertible {
+    /// Mac mini 之类没有内建屏，或合盖后内建屏不在线
+    case noBuiltin
+    /// 内建屏已经在别的镜像组里（用户自己接电视、投影），不去拆
+    case builtinMirrored
+    /// 每个身份都建不出来
+    case createFailed
+    /// 建出来了却一直不上线
+    case neverOnline
+    /// 虚拟屏不是 2 倍：再镜像下去会把内建屏从 2 倍拉到 1 倍，宁可不加
+    case notHiDPI
+    /// 镜像组配不上
+    case mirrorFailed(CGError)
+
+    public var description: String {
+        switch self {
+        case .noBuiltin: "没有可镜像的内建屏"
+        case .builtinMirrored: "内建屏已经在镜像组里，先解除原来的镜像"
+        case .createFailed: "CGVirtualDisplay 建不出来，备用身份也都试过了"
+        case .neverOnline: "内建屏镜像建好了但一直不上线，备用身份也都试过了"
+        case .notHiDPI: "内建屏镜像没有 2 倍模式，镜像会把内建屏拉成 1 倍"
+        case .mirrorFailed(let err): "内建屏镜像配置失败（CGError=\(err.rawValue)）"
         }
     }
 }

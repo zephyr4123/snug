@@ -17,8 +17,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 这次是开机自启（登录项拉起的），不是用户亲手打开的
     private var launchedAtLogin = false
 
-    init(paths: SnugPaths, previewPhone: Bool) {
-        controller = AppController(paths: paths, previewPhone: previewPhone)
+    init(paths: SnugPaths, previewPhone: Bool, previewMirror: Bool) {
+        controller = AppController(paths: paths, previewPhone: previewPhone, previewMirror: previewMirror)
         router = WindowRouter(controller: controller)
         quitFlow = QuitFlow(controller: controller)
         super.init()

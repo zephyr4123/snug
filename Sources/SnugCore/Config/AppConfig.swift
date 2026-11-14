@@ -4,6 +4,8 @@ import Foundation
 public struct AppConfig: Codable, Equatable, Sendable {
     /// 总开关：用手机远程时加一块手机屏
     public var phoneScreen = true
+    /// 手机屏在时再加一块「Snug 内建屏」：横屏，内容就是 Mac 的内建屏，适合平板/电脑端查看真实桌面
+    public var mirrorBuiltinScreen = false
     /// 手机屏上把 UU 发来的单指操作翻译成 iPhone 的手势
     public var gestures = true
     /// 窗口放上手机屏时，字号默认放大几级（每个 App 改过之后按它自己记住的级数）
@@ -20,7 +22,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case phoneScreen, gestures, zoomSteps, welcomed, updateSource, lastVersion
+        case phoneScreen, mirrorBuiltinScreen, gestures, zoomSteps, welcomed, updateSource, lastVersion
     }
 
     // 每一项都有默认值：以后加字段、或者手改漏了某项，都不会让整份配置被判为损坏
@@ -28,6 +30,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = AppConfig()
         phoneScreen = try c.decodeIfPresent(Bool.self, forKey: .phoneScreen) ?? d.phoneScreen
+        mirrorBuiltinScreen = try c.decodeIfPresent(Bool.self, forKey: .mirrorBuiltinScreen) ?? d.mirrorBuiltinScreen
         gestures = try c.decodeIfPresent(Bool.self, forKey: .gestures) ?? d.gestures
         zoomSteps = try c.decodeIfPresent(Int.self, forKey: .zoomSteps).map { $0.clamped(to: Self.zoomStepsRange) } ?? d.zoomSteps
         welcomed = try c.decodeIfPresent(Bool.self, forKey: .welcomed) ?? d.welcomed

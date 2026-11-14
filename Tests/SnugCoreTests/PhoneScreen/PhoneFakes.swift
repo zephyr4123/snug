@@ -21,6 +21,8 @@ final class FakeDisplays: PhoneDisplays {
     var nextID: DisplayID = 100
     /// 接下来这么多次建屏失败
     var failuresLeft = 0
+    /// 接下来这么多次建镜像屏失败
+    var mirrorFailuresLeft = 0
     /// 换档不成（帮手进程失败）：屏还是原来那一档
     var switchFails = false
     /// 读不到可放区域（屏幕组合还在变）
@@ -32,6 +34,7 @@ final class FakeDisplays: PhoneDisplays {
     var clock: (() -> TimeInterval)?
     private(set) var createdAt: [DisplayID: TimeInterval] = [:]
     private(set) var retiredAt: [DisplayID: TimeInterval] = [:]
+    private(set) var mirrorIDs: [DisplayID] = []
     /// 每块屏此刻是哪一档；建好时是基准宽度。设成别的值模拟系统自己改了模式
     var widths: [DisplayID: Int] = [:]
 
@@ -62,6 +65,21 @@ final class FakeDisplays: PhoneDisplays {
         retiredAt[id] = clock?()
         widths[id] = nil
         onRetire?()
+    }
+
+    func createMirror() async throws -> DisplayID {
+        journal.add("create-mirror")
+        if mirrorFailuresLeft > 0 {
+            mirrorFailuresLeft -= 1
+            throw MirrorScreenError.createFailed
+        }
+        nextID += 1
+        mirrorIDs.append(nextID)
+        return nextID
+    }
+
+    func retireMirror(_ id: DisplayID) async {
+        journal.add("retire-mirror \(id)")
     }
 
     func width(_ id: DisplayID) -> Int? { widths[id] }

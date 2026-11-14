@@ -16,6 +16,10 @@ struct SettingsView: View {
                 Toggle(isOn: binding(state.config.phoneScreen, intents.setPhoneScreen)) {
                     SettingLabel("手机屏", detail: "UU远程 中增加竖屏", symbol: "iphone", tint: .blue)
                 }
+                Toggle(isOn: binding(state.config.mirrorBuiltinScreen, intents.setMirrorBuiltinScreen)) {
+                    SettingLabel("内建屏镜像", detail: "UU远程 中增加横屏，显示内建屏", symbol: "display", tint: .purple)
+                }
+                .disabled(!state.config.phoneScreen)
                 Toggle(isOn: binding(state.config.gestures, intents.setGestures)) {
                     SettingLabel("触控手势", detail: "单指滚动 · 长按选择 · 长按松开右键", symbol: "hand.draw.fill", tint: .orange)
                 }

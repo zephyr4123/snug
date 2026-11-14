@@ -882,3 +882,83 @@ struct PhoneDeskTests {
         #expect(screens == [.preparing, .ready(101)])
     }
 }
+
+@Suite("内建屏镜像")
+@MainActor
+struct MirrorScreenTests {
+    @Test("要手机屏和镜像：先建镜像屏，再建手机屏，最后还原窗口")
+    func addWithMirror() async throws {
+        let rig = try Rig()
+        rig.desk.setMirrorWanted(true)
+        rig.desk.setWanted(true)
+        await rig.desk.idle()
+        #expect(rig.journal.all == ["snapshot", "create-mirror", "create", "restore"])
+        #expect(rig.desk.state.display != nil)
+        #expect(rig.displays.mirrorIDs.count == 1)
+    }
+
+    @Test("这次远程结束：手机屏和镜像屏都撤掉")
+    func removeBoth() async throws {
+        let rig = try Rig()
+        rig.desk.setMirrorWanted(true)
+        rig.desk.setWanted(true)
+        await rig.desk.idle()
+        let mirror = try #require(rig.displays.mirrorIDs.first)
+        let phone = try #require(rig.desk.state.display)
+        rig.timeline.advance(10)
+        rig.journal.clear()
+        rig.desk.setWanted(false)
+        await rig.desk.idle()
+        #expect(rig.journal.all == ["snapshot", "retire \(phone)", "restore", "snapshot", "retire-mirror \(mirror)", "restore"])
+    }
+
+    @Test("手机屏在的时候打开镜像：加一块；关掉：撤掉")
+    func toggleMidSession() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        rig.desk.setMirrorWanted(true)
+        await rig.desk.idle()
+        #expect(rig.journal.all == ["snapshot", "create-mirror", "restore"])
+        let mirror = try #require(rig.displays.mirrorIDs.first)
+        rig.journal.clear()
+        rig.desk.setMirrorWanted(false)
+        await rig.desk.idle()
+        #expect(rig.journal.all == ["snapshot", "retire-mirror \(mirror)", "restore"])
+    }
+
+    @Test("镜像建不出来：手机屏照常加")
+    func mirrorFailureDoesNotBlockPhone() async throws {
+        let rig = try Rig()
+        rig.displays.mirrorFailuresLeft = 1
+        rig.desk.setMirrorWanted(true)
+        rig.desk.setWanted(true)
+        await rig.desk.idle()
+        #expect(rig.desk.state.display != nil)
+        #expect(rig.journal.all.contains("create-mirror"))
+        #expect(rig.journal.all.filter { $0.hasPrefix("retire-mirror") }.isEmpty)
+    }
+
+    @Test("手机屏建不出来：镜像也不留，重试时再一起建")
+    func phoneFailureRetiresMirror() async throws {
+        let rig = try Rig()
+        rig.displays.failuresLeft = 1
+        rig.desk.setMirrorWanted(true)
+        rig.desk.setWanted(true)
+        await rig.desk.idle()
+        let first = try #require(rig.displays.mirrorIDs.first)
+        #expect(rig.journal.all.contains("retire-mirror \(first)"))
+        #expect(rig.desk.state.display != nil)
+        #expect(rig.displays.mirrorIDs.count == 2)
+    }
+
+    @Test("没有手机屏时打开镜像：先记下，等手机屏加好再一起加")
+    func mirrorWantedBeforePhone() async throws {
+        let rig = try Rig()
+        rig.desk.setMirrorWanted(true)
+        await rig.desk.idle()
+        #expect(rig.journal.all.isEmpty)
+        rig.desk.setWanted(true)
+        await rig.desk.idle()
+        #expect(rig.journal.all == ["snapshot", "create-mirror", "create", "restore"])
+    }
+}

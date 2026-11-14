@@ -18,6 +18,7 @@ public final class PhoneDisplayService: PhoneDisplays {
     static let screenUpdateTimeout: TimeInterval = 2
 
     private var displays: [DisplayID: CGVirtualDisplay] = [:]
+    private var mirrorDisplays: [DisplayID: CGVirtualDisplay] = [:]
     /// 帮手进程：就是 Snug 自己，带 --set-mode 运行
     private let helper: URL
 
@@ -59,13 +60,80 @@ public final class PhoneDisplayService: PhoneDisplays {
         try? await Task.sleep(for: .seconds(1))
     }
 
+    public func createMirror() async throws -> DisplayID {
+        guard let builtin = Screens.builtinDisplay() else { throw MirrorScreenError.noBuiltin }
+        // 用户自己把内建屏镜像到电视、投影时不拆，免得动到他原来的布置
+        guard CGDisplayIsInMirrorSet(builtin) == 0 else { throw MirrorScreenError.builtinMirrored }
+        let pointSize: CGSize
+        let scale: CGFloat
+        if let screen = Screens.screen(for: builtin) {
+            pointSize = screen.frame.size
+            scale = screen.backingScaleFactor
+        } else if let mode = CGDisplayCopyDisplayMode(builtin), mode.width > 0 {
+            pointSize = CGSize(width: mode.width, height: mode.height)
+            scale = CGFloat(mode.pixelWidth) / CGFloat(mode.width)
+        } else {
+            throw MirrorScreenError.noBuiltin
+        }
+        let pixels = MirrorScreenSpec.pixelSize(pointSize: pointSize, scale: scale)
+        var madeAny = false
+        var lastError = MirrorScreenError.createFailed
+        for serial in MirrorScreenSpec.serials {
+            guard let display = makeMirror(serial: serial, pointSize: pointSize, pixels: pixels, scale: scale) else {
+                Log.warn("内建屏镜像（serial=\(serial)）建不出来，换备用身份")
+                continue
+            }
+            madeAny = true
+            let id = display.displayID
+            mirrorDisplays[id] = display
+            guard await wait(id, online: true, timeout: Self.onlineTimeout) else {
+                Log.warn("内建屏镜像 #\(id)（serial=\(serial)）建好 \(Int(Self.onlineTimeout)) 秒没上线，换备用身份")
+                await retireMirror(id)
+                lastError = .neverOnline
+                continue
+            }
+            // 刚上线时模式还在变，等它定下来再切到和内建屏同尺寸的 2 倍模式
+            try? await Task.sleep(for: .seconds(0.8))
+            guard await setMirrorMode(id, pointSize: pointSize) else {
+                Log.warn("内建屏镜像 #\(id) 切不到 \(Int(pointSize.width))x\(Int(pointSize.height)) 的 2 倍模式，换备用身份")
+                await retireMirror(id)
+                lastError = .notHiDPI
+                continue
+            }
+            do {
+                try configureMirror(builtin: builtin, virtual: id)
+            } catch {
+                Log.warn("内建屏镜像 #\(id) 配不上：\(error)")
+                await retireMirror(id)
+                lastError = (error as? MirrorScreenError) ?? .mirrorFailed(.failure)
+                continue
+            }
+            Log.info("内建屏镜像 #\(id) 已就绪（\(Int(pointSize.width))x\(Int(pointSize.height)) 点 / \(Int(pixels.width))x\(Int(pixels.height)) 像素）")
+            return id
+        }
+        throw madeAny ? lastError : .createFailed
+    }
+
+    public func retireMirror(_ id: DisplayID) async {
+        guard mirrorDisplays[id] != nil else {
+            Log.warn("要撤的内建屏镜像 #\(id) 不是本进程建的")
+            return
+        }
+        autoreleasepool { mirrorDisplays[id] = nil }
+        if await !wait(id, online: false, timeout: Self.offlineTimeout) {
+            Log.warn("内建屏镜像 #\(id) 释放 \(Int(Self.offlineTimeout)) 秒后仍在线")
+        }
+        // 内建屏回到主屏、窗口归位要一点时间
+        try? await Task.sleep(for: .seconds(1))
+    }
+
     public func width(_ id: DisplayID) -> Int? {
         DisplayMode.hiDPIWidth(id)
     }
 
     public func setWidth(_ id: DisplayID, _ width: Int) async {
         let from = DisplayMode.describe(id)
-        let status = await runHelper(id, width: width)
+        let status = await runHelper(id, ["--set-mode", "\(id)", "\(width)"])
         guard status == 0 else {
             Log.warn("手机屏 #\(id) 换不到 \(width) 宽（帮手退出码 \(status.map(String.init) ?? "启动失败")），现在 \(DisplayMode.describe(id))")
             return
@@ -80,6 +148,30 @@ public final class PhoneDisplayService: PhoneDisplays {
         } else {
             Log.warn("手机屏 #\(id) 帮手说换到了 \(width) 宽，\(Int(Self.screenUpdateTimeout)) 秒内界面没认到，现在 \(DisplayMode.describe(id))")
         }
+    }
+
+    /// 把镜像屏切到和内建屏同尺寸的 2 倍模式，等界面认到。切不成返回 false。
+    /// 交帮手进程切：主程序亲自切，这块虚拟屏释放时会拖 40 秒以上（和手机屏同一个原因）
+    private func setMirrorMode(_ id: DisplayID, pointSize: CGSize) async -> Bool {
+        let width = Int(pointSize.width.rounded())
+        let height = Int(pointSize.height.rounded())
+        let from = DisplayMode.describe(id)
+        let status = await runHelper(id, ["--set-mirror-mode", "\(id)", "\(width)", "\(height)"])
+        guard status == 0 else {
+            Log.warn("内建屏镜像 #\(id) 换不到 \(width)x\(height)（帮手退出码 \(status.map(String.init) ?? "启动失败")），现在 \(DisplayMode.describe(id))")
+            return false
+        }
+        let switched = { DisplayMode.hiDPIWidth(id) == width }
+        let deadline = ProcessInfo.processInfo.systemUptime + Self.screenUpdateTimeout
+        while !switched(), ProcessInfo.processInfo.systemUptime < deadline {
+            try? await Task.sleep(for: .seconds(0.05))
+        }
+        if switched() {
+            Log.info("内建屏镜像 #\(id) 换到 \(width)x\(height)（原来 \(from)）")
+            return true
+        }
+        Log.warn("内建屏镜像 #\(id) 帮手说换到了 \(width)x\(height)，\(Int(Self.screenUpdateTimeout)) 秒内界面没认到，现在 \(DisplayMode.describe(id))")
+        return false
     }
 
     public func bounds(_ id: DisplayID) -> CGRect? {
@@ -120,6 +212,46 @@ public final class PhoneDisplayService: PhoneDisplays {
         return display
     }
 
+    private func makeMirror(serial: UInt32, pointSize: CGSize, pixels: CGSize, scale: CGFloat) -> CGVirtualDisplay? {
+        let descriptor = CGVirtualDisplayDescriptor()
+        descriptor.name = MirrorScreenSpec.name
+        descriptor.maxPixelsWide = UInt32(pixels.width)
+        descriptor.maxPixelsHigh = UInt32(pixels.height)
+        descriptor.sizeInMillimeters = MirrorScreenSpec.millimeters(pointSize: pointSize, scale: scale)
+        descriptor.vendorID = MirrorScreenSpec.vendorID
+        descriptor.productID = MirrorScreenSpec.productID
+        descriptor.serialNum = serial
+        guard let display = autoreleasepool(invoking: { CGVirtualDisplay(descriptor: descriptor) }) else { return nil }
+        let settings = CGVirtualDisplaySettings()
+        settings.hiDPI = true
+        settings.modes = [
+            CGVirtualDisplayMode(width: UInt(pointSize.width.rounded()), height: UInt(pointSize.height.rounded()), refreshRate: 60)
+        ]
+        guard autoreleasepool(invoking: { display.apply(settings) }) else {
+            Log.warn("内建屏镜像（serial=\(serial)）apply 失败")
+            return nil
+        }
+        return display
+    }
+
+    /// 让内建屏镜像到虚拟屏上。虚拟屏是镜像组的主屏：ScreenCaptureKit 只列主屏，
+    /// 从屏（内建屏）在 NSScreen 和 ScreenCaptureKit 里都看不到。两边都是 2 倍才不会掉清晰度
+    private func configureMirror(builtin: DisplayID, virtual: DisplayID) throws {
+        var config: CGDisplayConfigRef?
+        let begin = CGBeginDisplayConfiguration(&config)
+        guard begin == .success else { throw MirrorScreenError.mirrorFailed(begin) }
+        let set = CGConfigureDisplayMirrorOfDisplay(config, builtin, virtual)
+        guard set == .success else {
+            CGCancelDisplayConfiguration(config)
+            throw MirrorScreenError.mirrorFailed(set)
+        }
+        let done = CGCompleteDisplayConfiguration(config, .permanently)
+        guard done == .success else {
+            CGCancelDisplayConfiguration(config)
+            throw MirrorScreenError.mirrorFailed(done)
+        }
+    }
+
     private func wait(_ id: DisplayID, online: Bool, timeout: TimeInterval) async -> Bool {
         let deadline = ProcessInfo.processInfo.systemUptime + timeout
         while Self.isOnline(id) != online {
@@ -139,10 +271,10 @@ public final class PhoneDisplayService: PhoneDisplays {
 
     /// 起帮手进程换档，等它退出；返回退出码，起不来返回 nil。
     /// 最多等 helperTimeout：帮手卡在屏幕配置里不退出，就结束它（换档本来就是尽力而为），不能让建屏和整条调度队一直等
-    private func runHelper(_ id: DisplayID, width: Int) async -> Int32? {
+    private func runHelper(_ id: DisplayID, _ arguments: [String]) async -> Int32? {
         let process = Process()
         process.executableURL = helper
-        process.arguments = ["--set-mode", "\(id)", "\(width)"]
+        process.arguments = arguments
         return await withCheckedContinuation { continuation in
             process.terminationHandler = { continuation.resume(returning: $0.terminationStatus) }
             do {

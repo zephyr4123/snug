@@ -15,6 +15,8 @@ public enum LaunchMode: Equatable, Sendable {
     case app
     /// 正常启动，但不等手机连上，直接加手机屏（开发自测用：没有手机也能看手机屏和上面的列表）
     case previewPhone
+    /// 正常启动，不等手机连上就同时加手机屏和内建屏镜像（开发自测用）
+    case previewMirror
     /// 只把界面渲染成 PNG
     case render(RenderTarget, output: URL)
     /// 打印从 UU远程 读到的控制端与屏幕
@@ -22,14 +24,18 @@ public enum LaunchMode: Equatable, Sendable {
     /// 帮手模式：把手机屏换到 width 那一档（2 倍）后立即退出。
     /// 主程序亲自切模式，这块虚拟屏释放时会拖 40 秒以上才下线；交给短命的子进程切就没有这个问题
     case setMode(display: DisplayID, width: Int)
+    /// 帮手模式：把内建屏镜像换到 width×height 的 2 倍模式后立即退出（同样是为了释放不拖）
+    case setMirrorMode(display: DisplayID, width: Int, height: Int)
 
     public static let usage = """
     用法：Snug [模式]
       （无参数）                      正常启动
       --preview-phone                 正常启动，不等手机连上就加手机屏（开发自测用）
+      --preview-mirror                正常启动，不等手机连上就加手机屏和内建屏镜像（开发自测用）
       --render-<界面> <目录>           把界面渲染成 PNG（界面：\(RenderTarget.allCases.map(\.rawValue).joined(separator: " / "))）
       --dump-uu                       打印从 UU远程 读到的表格行、控制端与屏幕
       --set-mode <屏幕编号> <宽>        把手机屏换到这一档宽度（点，2 倍）（主程序内部用）
+      --set-mirror-mode <编号> <宽> <高> 把内建屏镜像换到这一档 2 倍模式（主程序内部用）
     """
 
     public static func parse(_ arguments: [String]) throws -> LaunchMode {
@@ -61,10 +67,17 @@ public enum LaunchMode: Equatable, Sendable {
         switch flag {
         case "--preview-phone":
             return .previewPhone
+        case "--preview-mirror":
+            return .previewMirror
         case "--dump-uu":
             return .dumpUU
         case "--set-mode":
             return .setMode(display: try number(DisplayID.self), width: try number(Int.self))
+        case "--set-mirror-mode":
+            let display = try number(DisplayID.self)
+            let width = try number(Int.self)
+            let height = try number(Int.self)
+            return .setMirrorMode(display: display, width: width, height: height)
         default:
             throw LaunchModeError.unknownFlag(flag)
         }

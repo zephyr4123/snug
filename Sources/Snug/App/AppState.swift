@@ -60,6 +60,7 @@ enum LoginItemIssue: Equatable {
 @MainActor
 protocol AppIntents: AnyObject {
     func setPhoneScreen(_ on: Bool)
+    func setMirrorBuiltinScreen(_ on: Bool)
     func setGestures(_ on: Bool)
     func setZoomSteps(_ steps: Int)
     func setLaunchAtLogin(_ on: Bool)

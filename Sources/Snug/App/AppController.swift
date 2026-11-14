@@ -21,6 +21,8 @@ final class AppController {
     let store: ConfigStore
     /// --preview-phone：不等手机连上就要手机屏
     private let previewPhone: Bool
+    /// --preview-mirror：不等手机连上就要手机屏和内建屏镜像
+    private let previewMirror: Bool
     private let sensor = UUSensor()
     private var session = RemoteSession()
     private let touch = TouchTap()
@@ -31,8 +33,9 @@ final class AppController {
     /// 单调时钟的起点：系统改时间不会让「已经过了多久」算错
     private let anchor = (date: Date(), uptime: ProcessInfo.processInfo.systemUptime)
 
-    init(paths: SnugPaths, previewPhone: Bool = false) {
+    init(paths: SnugPaths, previewPhone: Bool = false, previewMirror: Bool = false) {
         self.previewPhone = previewPhone
+        self.previewMirror = previewMirror
         store = ConfigStore(url: paths.config)
         let helper = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
         desk = PhoneDesk(displays: PhoneDisplayService(helper: helper), windows: windows, paths: paths,
@@ -68,7 +71,7 @@ final class AppController {
         tickTimer = timer
         tick()
         Log.info("开始监控（手机屏\(store.config.phoneScreen ? "已开" : "已关")，手势\(store.config.gestures ? "已开" : "已关")"
-                 + "\(previewPhone ? "，预览模式：不等手机直接加手机屏" : "")）")
+                 + "\((previewPhone || previewMirror) ? "，预览模式：不等手机直接加手机屏" : "")）")
     }
 
     /// 停止监控（退出收尾前调用）
@@ -91,6 +94,7 @@ final class AppController {
         let sample = sensor.sample(now: Date())
         for t in session.update(sample.signals, now: now) { Log.info("会话：\(Self.describe(t))") }
         desk.setWanted(wantsPhoneScreen)
+        desk.setMirrorWanted(wantsMirror)
         if now.timeIntervalSince(lastVerifyAt) >= Self.verifyInterval {
             lastVerifyAt = now
             desk.verifyPlacement()
@@ -103,7 +107,12 @@ final class AppController {
     /// 要不要手机屏：开着总开关、有权限，这次远程的控制端不是电脑（见 RemoteSession.wantsPhoneScreen）
     private var wantsPhoneScreen: Bool {
         guard store.config.phoneScreen, state.accessibilityTrusted else { return false }
-        return previewPhone || session.wantsPhoneScreen(now: now)
+        return previewPhone || previewMirror || session.wantsPhoneScreen(now: now)
+    }
+
+    /// 要不要内建屏镜像：手机屏在的时候才加，跟着这次远程一起进退
+    private var wantsMirror: Bool {
+        wantsPhoneScreen && (previewMirror || store.config.mirrorBuiltinScreen)
     }
 
     /// 权限是用户在系统设置里给的，随时会变：刚给上时把上次没放回去的窗口放回去
@@ -121,6 +130,9 @@ final class AppController {
         state.phone = phone
         syncGestures()
     }
+
+    /// 设置里改了内建屏镜像：不用等下一拍
+    func syncMirrorWanted() { desk.setMirrorWanted(wantsMirror) }
 
     /// 手势翻译只在手机屏在、并且开着手势时运行；范围跟着手机屏
     func syncGestures() {

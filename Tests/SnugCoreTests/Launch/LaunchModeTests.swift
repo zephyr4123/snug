@@ -28,10 +28,16 @@ struct LaunchModeTests {
         #expect(try LaunchMode.parse(["--set-mode", "14", "740"]) == .setMode(display: 14, width: 740))
     }
 
-    @Test("--dump-uu、--preview-phone")
+    @Test("--set-mirror-mode <屏幕编号> <宽> <高>")
+    func setMirrorMode() throws {
+        #expect(try LaunchMode.parse(["--set-mirror-mode", "27", "1512", "982"]) == .setMirrorMode(display: 27, width: 1512, height: 982))
+    }
+
+    @Test("--dump-uu、--preview-phone、--preview-mirror")
     func flags() throws {
         #expect(try LaunchMode.parse(["--dump-uu"]) == .dumpUU)
         #expect(try LaunchMode.parse(["--preview-phone"]) == .previewPhone)
+        #expect(try LaunchMode.parse(["--preview-mirror"]) == .previewMirror)
     }
 
     @Test("缺参数值、数字写错、两个模式一起：报错而不是悄悄按正常模式启动")
