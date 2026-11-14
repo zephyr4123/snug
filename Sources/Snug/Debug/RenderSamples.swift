@@ -74,7 +74,7 @@ enum RenderSamples {
         let note = { (patch: Int, date: String, message: String) in
             ReleaseNote(version: Version(major: 2, minor: 1, patch: patch), date: date, tagMessage: message)
         }
-        let package = UpdatePackage(file: "Snug-2.1.2.pack", chunking: Chunker.algorithm, chunks: [], files: [])
+        let package = UpdatePackage(file: "Snug-2.1.2.pack", chunks: [], files: [])
         return UpdateFeed(version: Version(major: 2, minor: 1, patch: 2), releases: [
             note(2, "2026-12-08", """
                 Snug 2.1.2：窗口列表按最近使用排序

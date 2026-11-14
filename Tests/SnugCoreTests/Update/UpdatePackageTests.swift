@@ -52,7 +52,6 @@ struct UpdatePackageTests {
         try makeApp(at: app, binary: binary, plist: "<plist>2.1.0</plist>")
         let (package, pack) = try UpdatePackage.make(app: app, file: "Snug-2.1.0.pack")
         #expect(package.file == "Snug-2.1.0.pack")
-        #expect(package.chunking == Chunker.algorithm)
         #expect(package.missingRanges(have: [:]) == [0..<pack.count])
         try package.assemble(into: out, from: package.unpack(pack, at: 0..<pack.count))
         try expectSameTree(app, out)
@@ -122,14 +121,14 @@ struct UpdatePackageTests {
 @Suite("update.json UpdateFeed")
 struct UpdateFeedTests {
     private func feed(files: [UpdatePackage.File], chunks: [UpdatePackage.Chunk] = [], format: Int = UpdateFeed.format) -> Data {
-        let package = UpdatePackage(file: "Snug-2.2.0.pack", chunking: Chunker.algorithm, chunks: chunks, files: files)
+        let package = UpdatePackage(file: "Snug-2.2.0.pack", chunks: chunks, files: files)
         var json = try! JSONSerialization.jsonObject(with: JSONEncoder().encode(
             UpdateFeed(version: Version(major: 2, minor: 2, patch: 0), releases: [], package: package))) as! [String: Any]
         json["format"] = format
         return try! JSONSerialization.data(withJSONObject: json)
     }
 
-    private let chunk = UpdatePackage.Chunk(sha256: String(repeating: "a", count: 64), size: 3, offset: 0, length: 3)
+    private let chunk = UpdatePackage.Chunk(sha256: String(repeating: "a", count: 64), offset: 0, length: 3)
 
     @Test("读得懂这一版的格式")
     func decodes() throws {
@@ -153,9 +152,16 @@ struct UpdateFeedTests {
 
     @Test("包的文件名只能是一个普通的名字", arguments: ["", "../Snug.pack", "a/b.pack"])
     func rejectsBadPackName(name: String) {
-        let package = UpdatePackage(file: name, chunking: Chunker.algorithm, chunks: [], files: [])
+        let package = UpdatePackage(file: name, chunks: [], files: [])
         let data = try! JSONEncoder().encode(UpdateFeed(version: Version(major: 2, minor: 2, patch: 0), releases: [], package: package))
         #expect(throws: UpdateError.self) { try UpdateFeed.decode(data) }
+    }
+
+    @Test("块的长度大到让偏移溢出：不收，不崩")
+    func rejectsOverflow() {
+        let huge = [UpdatePackage.Chunk(sha256: String(repeating: "a", count: 64), offset: 0, length: Int.max),
+                    UpdatePackage.Chunk(sha256: String(repeating: "b", count: 64), offset: Int.max, length: 1)]
+        #expect(throws: UpdateError.self) { try UpdateFeed.decode(feed(files: [], chunks: huge)) }
     }
 
     @Test("块的下标越界：不收")
@@ -169,7 +175,7 @@ struct UpdateFeedTests {
     func releasesAfter() {
         let note = { (patch: Int) in ReleaseNote(version: Version(major: 2, minor: 1, patch: patch), date: "2026-11-2\(patch)",
                                                  title: "t\(patch)", body: "") }
-        let package = UpdatePackage(file: "x.pack", chunking: Chunker.algorithm, chunks: [], files: [])
+        let package = UpdatePackage(file: "x.pack", chunks: [], files: [])
         let feed = UpdateFeed(version: Version(major: 2, minor: 1, patch: 3), releases: [note(3), note(2), note(1), note(0)],
                               package: package)
         #expect(feed.releases(after: Version(major: 2, minor: 1, patch: 1)).map(\.title) == ["t3", "t2"])

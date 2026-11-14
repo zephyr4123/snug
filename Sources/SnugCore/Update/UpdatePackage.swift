@@ -8,23 +8,19 @@ import Foundation
 public struct UpdatePackage: Codable, Equatable, Sendable {
     /// 包的文件名，和 update.json 放在同一个版本下
     public let file: String
-    /// 切法（Chunker.algorithm）。只是记一笔：切法不同块照样按 sha256 认，只是认得出的少了
-    public let chunking: String
     /// 包里的块，按在包里的顺序
     public let chunks: [Chunk]
     public let files: [File]
 
     public struct Chunk: Codable, Equatable, Sendable {
+        /// 原始内容的 sha256
         public let sha256: String
-        /// 原始字节数
-        public let size: Int
         /// 在包里从哪个字节开始、占多少字节（压过的）
         public let offset: Int
         public let length: Int
 
-        public init(sha256: String, size: Int, offset: Int, length: Int) {
+        public init(sha256: String, offset: Int, length: Int) {
             self.sha256 = sha256
-            self.size = size
             self.offset = offset
             self.length = length
         }
@@ -44,9 +40,8 @@ public struct UpdatePackage: Codable, Equatable, Sendable {
         }
     }
 
-    public init(file: String, chunking: String, chunks: [Chunk], files: [File]) {
+    public init(file: String, chunks: [Chunk], files: [File]) {
         self.file = file
-        self.chunking = chunking
         self.chunks = chunks
         self.files = files
     }
@@ -65,13 +60,13 @@ public struct UpdatePackage: Codable, Equatable, Sendable {
                 if let id = known[sha] { return id }
                 let packed = try (Data(raw) as NSData).compressed(using: .lzma) as Data
                 known[sha] = chunks.count
-                chunks.append(Chunk(sha256: sha, size: raw.count, offset: pack.count, length: packed.count))
+                chunks.append(Chunk(sha256: sha, offset: pack.count, length: packed.count))
                 pack.append(packed)
                 return chunks.count - 1
             }
             return File(path: item.path, executable: item.executable, chunks: ids)
         }
-        return (UpdatePackage(file: file, chunking: Chunker.algorithm, chunks: chunks, files: files), pack)
+        return (UpdatePackage(file: file, chunks: chunks, files: files), pack)
     }
 
     // MARK: 更新
@@ -111,7 +106,7 @@ public struct UpdatePackage: Codable, Equatable, Sendable {
         for chunk in chunks where chunk.offset >= range.lowerBound && chunk.offset + chunk.length <= range.upperBound {
             let start = data.startIndex + chunk.offset - range.lowerBound
             let raw = try? (Data(data[start ..< start + chunk.length]) as NSData).decompressed(using: .lzma) as Data
-            guard let raw, raw.count == chunk.size, raw.sha256 == chunk.sha256 else {
+            guard let raw, raw.sha256 == chunk.sha256 else {
                 throw UpdateError.corruptDownload("块 \(chunk.sha256.prefix(12)) 对不上")
             }
             out[chunk.sha256] = raw
@@ -140,10 +135,12 @@ public struct UpdatePackage: Codable, Equatable, Sendable {
         guard !file.isEmpty, !file.contains("/"), file != ".." else { throw UpdateError.malformed("包的文件名不对：\(file)") }
         var offset = 0
         for chunk in chunks {
-            guard chunk.offset == offset, chunk.length > 0, chunk.size > 0 else {
+            // 长度来自网络：累加溢出时 Swift 会直接崩溃，所以按溢出检查
+            let (next, overflow) = offset.addingReportingOverflow(chunk.length)
+            guard chunk.offset == offset, chunk.length > 0, !overflow else {
                 throw UpdateError.malformed("块 \(chunk.sha256.prefix(12)) 在包里的位置不对")
             }
-            offset += chunk.length
+            offset = next
         }
         for file in files {
             let parts = file.path.split(separator: "/", omittingEmptySubsequences: false)
