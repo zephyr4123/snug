@@ -13,13 +13,18 @@ final class Journal: Sendable {
 
 @MainActor
 final class FakeDisplays: PhoneDisplays {
+    /// 假屏的左上角（辅助功能坐标）和菜单栏高度：可放区域 = 这一档扣掉菜单栏和底部小横条
+    nonisolated static let origin = CGPoint(x: 2000, y: 0)
+    nonisolated static let menuBar: CGFloat = 25
+
     let journal: Journal
     var nextID: DisplayID = 100
     /// 接下来这么多次建屏失败
     var failuresLeft = 0
-    var hiDPI = true
-    var screen = CGRect(x: 2000, y: 0, width: 540, height: 950)
-    var area: CGRect? = CGRect(x: 2000, y: 25, width: 540, height: 897)
+    /// 换档不成（帮手进程失败）：屏还是原来那一档
+    var switchFails = false
+    /// 读不到可放区域（屏幕组合还在变）
+    var areaUnavailable = false
     /// 加屏、撤屏时 macOS 的副作用（把窗口拉过去、挪走）
     var onCreate: (() -> Void)?
     var onRetire: (() -> Void)?
@@ -27,8 +32,17 @@ final class FakeDisplays: PhoneDisplays {
     var clock: (() -> TimeInterval)?
     private(set) var createdAt: [DisplayID: TimeInterval] = [:]
     private(set) var retiredAt: [DisplayID: TimeInterval] = [:]
+    /// 每块屏此刻是哪一档；建好时是基准宽度。设成别的值模拟系统自己改了模式
+    var widths: [DisplayID: Int] = [:]
 
     init(journal: Journal) { self.journal = journal }
+
+    /// 这一档的可放区域，和真的一样：整屏扣掉菜单栏和（跟着缩放的）底部小横条
+    nonisolated static func area(width: Int) -> CGRect {
+        let size = ScreenFit.size(width: width)
+        let bar = ScreenFit.homeBarHeight(screenWidth: size.width)
+        return CGRect(x: origin.x, y: origin.y + menuBar, width: size.width, height: size.height - menuBar - bar)
+    }
 
     func create() async throws -> DisplayID {
         journal.add("create")
@@ -38,6 +52,7 @@ final class FakeDisplays: PhoneDisplays {
         }
         nextID += 1
         createdAt[nextID] = clock?()
+        widths[nextID] = ScreenFit.baseWidth
         onCreate?()
         return nextID
     }
@@ -45,16 +60,25 @@ final class FakeDisplays: PhoneDisplays {
     func retire(_ id: DisplayID) async {
         journal.add("retire \(id)")
         retiredAt[id] = clock?()
+        widths[id] = nil
         onRetire?()
     }
 
-    func ensureHiDPI(_ id: DisplayID) async -> Bool {
-        journal.add("ensure \(id)")
-        return hiDPI
+    func width(_ id: DisplayID) -> Int? { widths[id] }
+
+    func setWidth(_ id: DisplayID, _ width: Int) async {
+        journal.add("width \(id) \(width)")
+        if !switchFails { widths[id] = width }
     }
 
-    func bounds(_ id: DisplayID) -> CGRect? { screen }
-    func windowArea(_ id: DisplayID) -> CGRect? { area }
+    func bounds(_ id: DisplayID) -> CGRect? {
+        widths[id].map { CGRect(origin: Self.origin, size: ScreenFit.size(width: $0)) }
+    }
+
+    func windowArea(_ id: DisplayID) -> CGRect? {
+        guard !areaUnavailable, let width = widths[id] else { return nil }
+        return Self.area(width: width)
+    }
 }
 
 /// 假窗口：记住每个窗口的位置、是否全屏、是否最小化、字号级数
@@ -76,7 +100,7 @@ final class FakeWindows: WindowControl {
     private let movesBlocked = Locked(false)
     private let zoomBlocked = Locked(false)
     private let grows = Locked(false)
-    private let minWidths = Locked<[WindowKey: CGFloat]>([:])
+    private let minSizes = Locked<[WindowKey: CGSize]>([:])
     private let moveHook = Locked<(@Sendable (WindowKey) -> Void)?>(nil)
     /// 设了就在每次挪窗口、发按键时记一下此刻还原记录在不在（检查「先记账再动手」）
     let ledger: URL?
@@ -94,8 +118,10 @@ final class FakeWindows: WindowControl {
     func blockZoom(_ on: Bool = true) { zoomBlocked.withLock { $0 = on } }
     /// 像终端那样：调字号时保持行列数，窗口跟着变大
     func growOnZoom() { grows.withLock { $0 = true } }
-    /// 像系统设置、Safari 那样：App 限定了最小宽度，再窄也压不下去
-    func setMinWidth(_ key: WindowKey, _ width: CGFloat) { minWidths.withLock { $0[key] = width } }
+    /// 像系统设置、Safari 那样：App 限定了最小尺寸，再小也压不下去
+    func setMinSize(_ key: WindowKey, width: CGFloat = 0, height: CGFloat = 0) {
+        minSizes.withLock { $0[key] = CGSize(width: width, height: height) }
+    }
     /// 每次挪窗口前先调一下（检查挪的那一刻还原记录里写的是什么）
     func onMove(_ hook: @escaping @Sendable (WindowKey) -> Void) { moveHook.withLock { $0 = hook } }
 
@@ -134,7 +160,9 @@ final class FakeWindows: WindowControl {
         moveHook.withLock { $0 }?(window)
         journal.add("move \(window.id) \(frame.short)\(mark)")
         var got = frame
-        if let min = minWidths.withLock({ $0[window] }) { got.size.width = max(got.width, min) }
+        if let min = minSizes.withLock({ $0[window] }) {
+            got.size = CGSize(width: max(got.width, min.width), height: max(got.height, min.height))
+        }
         setFrame(window, got)
         return got
     }

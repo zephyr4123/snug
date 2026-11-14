@@ -188,7 +188,7 @@ enum RenderSamples {
 
     private static func phoneSample(_ name: String, dark: Bool = false, windows list: [WindowInfo] = windows, loaded: Bool = true,
                                     _ configure: @escaping @MainActor (AppState) -> Void) -> RenderSample {
-        let size = CGSize(width: PhoneScreenSpec.width, height: PhoneScreenSpec.height)
+        let size = ScreenFit.size(width: ScreenFit.baseWidth)
         return RenderSample(name: name, dark: dark, size: size) {
             let s = AppState()
             s.phone.screen = .ready(14)

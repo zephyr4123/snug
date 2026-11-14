@@ -13,7 +13,7 @@ private let safariHome = CGRect(x: 0, y: 25, width: 1512, height: 920)
 /// Safari 退出全屏后的平时位置
 private let safariWindowed = CGRect(x: 200, y: 100, width: 1000, height: 700)
 private let notesHome = CGRect(x: 400, y: 300, width: 700, height: 500)
-private let phoneArea = CGRect(x: 2000, y: 25, width: 540, height: 897)
+private let phoneArea = FakeDisplays.area(width: ScreenFit.baseWidth)
 
 /// 一套假系统 + 一个 PhoneDesk。每个用例一个临时数据目录
 @MainActor
@@ -539,7 +539,7 @@ struct PhoneDeskTests {
     func pullWhenScreenNotReady() async throws {
         let rig = try Rig()
         await rig.ready()
-        rig.displays.area = nil
+        rig.displays.areaUnavailable = true
         await rig.pull(finder)
         #expect(rig.desk.state.notice == .screenNotReady)
         #expect(rig.journal.all.isEmpty)
@@ -601,26 +601,7 @@ struct PhoneDeskTests {
         #expect(rig.journal.all.last == "zoom 7 +1 ✎")
     }
 
-    @Test("App 限定了最小宽度（系统设置、Safari）：靠左放；之后核对不再白挪，被挪动了才重新铺满")
-    func minimumWidthWindow() async throws {
-        let rig = try Rig()
-        rig.windows.setMinWidth(finder.key, 740)
-        await rig.ready()
-        await rig.pull(finder)
-        let clamped = CGRect(x: phoneArea.minX, y: phoneArea.minY, width: 740, height: phoneArea.height)
-        #expect(rig.windows.window(finder.key)?.frame == clamped)
-        rig.journal.clear()
-        rig.desk.displaysChanged()
-        await rig.desk.idle()
-        #expect(rig.journal.all == ["ensure 101"])      // 铺不满是 App 定的，不再挪
-        rig.windows.setFrame(finder.key, CGRect(x: 0, y: 25, width: 740, height: 500))
-        rig.journal.clear()
-        rig.desk.displaysChanged()
-        await rig.desk.idle()
-        #expect(rig.journal.all == ["ensure 101", "move 8 \(phoneArea.short) ✎"])
-    }
-
-    @Test("屏幕配置变了：过一会儿检查 2 倍，窗口不铺满了就重新铺满")
+    @Test("屏幕配置变了：过一会儿检查，窗口不铺满了就重新铺满")
     func displaysChanged() async throws {
         let rig = try Rig()
         await rig.ready()
@@ -630,7 +611,146 @@ struct PhoneDeskTests {
         rig.desk.displaysChanged()
         rig.desk.displaysChanged()   // 连着来几次只查一回
         await rig.desk.idle()
-        #expect(rig.journal.all == ["ensure 101", "move 8 \(phoneArea.short) ✎"])
+        #expect(rig.journal.all == ["move 8 \(phoneArea.short) ✎"])
+    }
+
+    @Test("系统自己改了手机屏的模式（屏幕组合变化）：过一会儿换回该用的那一档，再铺满")
+    func systemChangedMode() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        rig.displays.widths[101] = 1080
+        rig.desk.displaysChanged()
+        await rig.desk.idle()
+        #expect(rig.journal.all == ["width 101 540"])     // 露着列表：基准宽度
+        await rig.pull(finder)
+        rig.displays.widths[101] = 1080
+        rig.journal.clear()
+        rig.desk.displaysChanged()
+        await rig.desk.idle()
+        #expect(rig.journal.all == ["width 101 540", "move 8 \(phoneArea.short) ✎"])
+    }
+
+    @Test("App 限定了最小宽度（系统设置 740）：先按 540 铺，换到装得下它的一档再铺满；之后核对不再白挪")
+    func minimumWidthWindow() async throws {
+        let rig = try Rig()
+        rig.windows.setMinSize(finder.key, width: 740)
+        await rig.ready()
+        await rig.pull(finder)
+        let wide = FakeDisplays.area(width: 740)
+        #expect(rig.journal.all == ["move 8 \(phoneArea.short) ✎", "width 101 740", "move 8 \(wide.short) ✎", "focus 8"])
+        #expect(rig.windows.window(finder.key)?.frame == wide)
+        #expect(rig.desk.state.listVisible == false)
+        rig.journal.clear()
+        rig.desk.displaysChanged()
+        await rig.desk.idle()
+        #expect(rig.journal.all.isEmpty)
+    }
+
+    @Test("Safari 至少 574：换到 580（每档差 10 点），窗口照样铺满")
+    func nearestStep() async throws {
+        let rig = try Rig()
+        rig.windows.setMinSize(finder.key, width: 574)
+        await rig.ready()
+        await rig.pull(finder)
+        #expect(rig.displays.widths[101] == 580)
+        #expect(rig.windows.window(finder.key)?.frame == FakeDisplays.area(width: 580))
+    }
+
+    @Test("App 限定了最小高度：按高度等比换档，窗口照样铺满")
+    func minimumHeightWindow() async throws {
+        let rig = try Rig()
+        rig.windows.setMinSize(finder.key, height: 1000)
+        await rig.ready()
+        await rig.pull(finder)
+        #expect(rig.displays.widths[101] == 610)
+        #expect(rig.windows.window(finder.key)?.frame == FakeDisplays.area(width: 610))
+    }
+
+    @Test("比最宽一档还宽（1200）：用最宽一档，靠左放；之后核对不再白挪")
+    func widerThanLadder() async throws {
+        let rig = try Rig()
+        rig.windows.setMinSize(finder.key, width: 1200)
+        await rig.ready()
+        await rig.pull(finder)
+        let widest = FakeDisplays.area(width: 1080)
+        #expect(rig.journal.all == ["move 8 \(phoneArea.short) ✎", "width 101 1080", "move 8 \(widest.short) ✎", "focus 8"])
+        var clamped = widest
+        clamped.size.width = 1200
+        #expect(rig.windows.window(finder.key)?.frame == clamped)
+        rig.journal.clear()
+        rig.desk.displaysChanged()
+        await rig.desk.idle()
+        #expect(rig.journal.all.isEmpty)
+    }
+
+    @Test("放着宽窗口时回到列表：列表马上露出来、手机屏换回 540；点返回再换过去、重新铺满，然后收起列表")
+    func listAndBackWithWideWindow() async throws {
+        let rig = try Rig()
+        rig.windows.setMinSize(finder.key, width: 740)
+        await rig.ready()
+        await rig.pull(finder)
+        rig.journal.clear()
+        rig.desk.showList()
+        #expect(rig.desk.state.listVisible)
+        await rig.desk.idle()
+        #expect(rig.journal.all == ["width 101 540"])
+        rig.windows.setFrame(finder.key, CGRect(x: 2000, y: 25, width: 740, height: 500))   // 屏变窄时系统挪了它
+        rig.journal.clear()
+        rig.desk.returnToPlaced()
+        await rig.desk.idle()
+        let wide = FakeDisplays.area(width: 740)
+        #expect(rig.journal.all == ["width 101 740", "move 8 \(wide.short) ✎", "focus 8"])
+        #expect(rig.desk.state.listVisible == false)
+    }
+
+    @Test("从宽窗口直接换成能铺满的窗口：新窗口从 540 开始铺")
+    func wideThenFitting() async throws {
+        let rig = try Rig()
+        rig.windows.setMinSize(finder.key, width: 740)
+        await rig.ready()
+        await rig.pull(finder)
+        rig.journal.clear()
+        await rig.pull(ghostty)
+        let back = try #require(rig.journal.index(of: "width 101 540"))
+        let placed = try #require(rig.journal.index(of: "move 7 \(phoneArea.short) ✎"))
+        #expect(back < placed)
+        #expect(rig.displays.widths[101] == 540)
+        #expect(rig.windows.window(ghostty.key)?.frame == phoneArea)
+    }
+
+    @Test("宽窗口放回原位、被藏起来：回到列表，手机屏换回 540")
+    func wideWindowLeaves() async throws {
+        let rig = try Rig()
+        rig.windows.setMinSize(finder.key, width: 740)
+        await rig.ready()
+        await rig.pull(finder)
+        rig.desk.putBack()
+        await rig.desk.idle()
+        #expect(rig.displays.widths[101] == 540)
+        await rig.pull(finder)
+        #expect(rig.displays.widths[101] == 740)
+        rig.windows.hide(finder.key)
+        rig.desk.verifyPlacement()
+        await rig.desk.idle()
+        #expect(rig.desk.state.listVisible)
+        #expect(rig.displays.widths[101] == 540)
+    }
+
+    @Test("换档没成（帮手进程失败）：照原来那一档放，不一直往上换；下次屏幕配置变化时再换")
+    func switchFails() async throws {
+        let rig = try Rig()
+        rig.windows.setMinSize(finder.key, width: 740)
+        rig.displays.switchFails = true
+        await rig.ready()
+        await rig.pull(finder)
+        #expect(rig.journal.all == ["move 8 \(phoneArea.short) ✎", "width 101 740", "move 8 \(phoneArea.short) ✎", "focus 8"])
+        rig.displays.switchFails = false
+        rig.journal.clear()
+        rig.desk.displaysChanged()
+        await rig.desk.idle()
+        let wide = FakeDisplays.area(width: 740)
+        #expect(rig.journal.all == ["width 101 740", "move 8 \(wide.short) ✎"])
+        #expect(rig.windows.window(finder.key)?.frame == wide)
     }
 
     @Test("上次崩溃留下的记录：窗口还在就缩回字号、放回原位、恢复全屏，然后销账")

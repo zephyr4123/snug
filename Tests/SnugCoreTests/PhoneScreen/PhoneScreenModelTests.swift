@@ -5,22 +5,16 @@ import Testing
 
 @Suite("手机屏的规格")
 struct PhoneScreenSpecTests {
-    @Test("竖屏 540x950，宽 540 正好是 2 倍高清的门槛，像素正好 2 倍")
-    func sizes() {
-        #expect((PhoneScreenSpec.width, PhoneScreenSpec.height) == (540, 950))
-        #expect((PhoneScreenSpec.pixelWidth, PhoneScreenSpec.pixelHeight) == (1080, 1900))
-    }
-
-    @Test("物理尺寸按 220ppi 折算（不是手机的 460ppi）")
+    @Test("物理尺寸按像素上限、220ppi 折算（不是手机的 460ppi）")
     func millimeters() {
         let mm = PhoneScreenSpec.millimeters
-        #expect(abs(mm.width - 1080.0 / 220 * 25.4) < 0.001)
-        #expect(abs(mm.height - 1900.0 / 220 * 25.4) < 0.001)
+        #expect(abs(mm.width - 2160.0 / 220 * 25.4) < 0.001)
+        #expect(abs(mm.height - 3800.0 / 220 * 25.4) < 0.001)
     }
 
     @Test("一个固定身份，外加两个备用，互不重复")
     func serials() {
-        #expect(PhoneScreenSpec.serials == [200_000_008, 200_000_018, 200_000_028])
+        #expect(PhoneScreenSpec.serials == [200_000_108, 200_000_118, 200_000_128])
     }
 }
 

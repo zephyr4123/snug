@@ -1,6 +1,7 @@
-// 手机屏的建、撤（CGVirtualDisplay 私有接口）。实测过的做法（见记忆 project-phone-screen）：
-// - maxPixels 正好等于 2 倍像素、只给一个模式、hiDPI 打开，系统上线时多半就是 2 倍
-// - 但系统按「当前这组屏幕」记模式，不是 2 倍时交给帮手进程去切（主程序亲自切会让释放拖 40 秒以上）
+// 手机屏的建、撤、换档（CGVirtualDisplay 私有接口）。实测过的做法（见记忆 project-phone-screen）：
+// - 建屏时把 ScreenFit 的每一档都登记成模式，hiDPI 打开，maxPixels 正好是最宽一档的 2 倍：每一档都有 2 倍模式
+// - 系统上线时用它记着的那一档（第一次是最宽的），所以上线后切回基准宽度
+// - 换档交给帮手进程（主程序亲自切会让释放拖 40 秒以上）
 // - 建好不上线就换备用身份
 // - 在主线程建和释放；释放时不能留局部强引用，否则不会真正释放
 import AppKit
@@ -13,6 +14,8 @@ public final class PhoneDisplayService: PhoneDisplays {
     static let offlineTimeout: TimeInterval = 10
     /// 帮手切模式最多等这么久（正常不到一秒）
     nonisolated static let helperTimeout: TimeInterval = 10
+    /// 切完等界面（NSScreen）认到新尺寸最多这么久：可放区域按它算，认到之前算出来的还是旧尺寸
+    static let screenUpdateTimeout: TimeInterval = 2
 
     private var displays: [DisplayID: CGVirtualDisplay] = [:]
     /// 帮手进程：就是 Snug 自己，带 --set-mode 运行
@@ -35,9 +38,9 @@ public final class PhoneDisplayService: PhoneDisplays {
                 await retire(id)
                 continue
             }
-            // 刚上线时模式还在变，等它定下来再看是不是 2 倍
+            // 刚上线时模式还在变，等它定下来再看是哪一档
             try? await Task.sleep(for: .seconds(0.8))
-            if await !ensureHiDPI(id) { Log.warn("手机屏 #\(id) 不是 2 倍：\(DisplayMode.describe(id))") }
+            if width(id) != ScreenFit.baseWidth { await setWidth(id, ScreenFit.baseWidth) }
             return id
         }
         throw madeAny ? PhoneScreenError.neverOnline : PhoneScreenError.createFailed
@@ -56,18 +59,23 @@ public final class PhoneDisplayService: PhoneDisplays {
         try? await Task.sleep(for: .seconds(1))
     }
 
-    public func ensureHiDPI(_ id: DisplayID) async -> Bool {
-        if DisplayMode.isHiDPI(id) { return true }
-        Log.info("手机屏 #\(id) 现在是 \(DisplayMode.describe(id))，让帮手进程切到 2 倍")
-        let status = await runHelper(id)
-        try? await Task.sleep(for: .seconds(1))
-        let ok = DisplayMode.isHiDPI(id)
-        if ok {
-            Log.info("手机屏 #\(id) 已是 2 倍：\(DisplayMode.describe(id))")
-        } else {
-            Log.warn("帮手进程切 2 倍没成（退出码 \(status.map(String.init) ?? "启动失败")），现在 \(DisplayMode.describe(id))")
+    public func width(_ id: DisplayID) -> Int? {
+        DisplayMode.hiDPIWidth(id)
+    }
+
+    public func setWidth(_ id: DisplayID, _ width: Int) async {
+        let from = DisplayMode.describe(id)
+        let status = await runHelper(id, width: width)
+        let switched = { self.width(id) == width && Screens.screen(for: id)?.frame.width == CGFloat(width) }
+        let deadline = ProcessInfo.processInfo.systemUptime + Self.screenUpdateTimeout
+        while !switched(), ProcessInfo.processInfo.systemUptime < deadline {
+            try? await Task.sleep(for: .seconds(0.05))
         }
-        return ok
+        if switched() {
+            Log.info("手机屏 #\(id) 换到 \(width) 宽（原来 \(from)）")
+        } else {
+            Log.warn("手机屏 #\(id) 换不到 \(width) 宽（帮手退出码 \(status.map(String.init) ?? "启动失败")），现在 \(DisplayMode.describe(id))")
+        }
     }
 
     public func bounds(_ id: DisplayID) -> CGRect? {
@@ -79,7 +87,7 @@ public final class PhoneDisplayService: PhoneDisplays {
     public func windowArea(_ id: DisplayID) -> CGRect? {
         guard let screen = Screens.screen(for: id) else { return nil }
         var area = Screens.axRect(fromAppKit: screen.visibleFrame)
-        area.size.height -= PhoneScreenSpec.homeBarHeight
+        area.size.height -= ScreenFit.homeBarHeight(screenWidth: screen.frame.width)
         return area
     }
 
@@ -88,8 +96,8 @@ public final class PhoneDisplayService: PhoneDisplays {
     private func make(serial: UInt32) -> CGVirtualDisplay? {
         let descriptor = CGVirtualDisplayDescriptor()
         descriptor.name = PhoneScreenSpec.name
-        descriptor.maxPixelsWide = UInt32(PhoneScreenSpec.pixelWidth)
-        descriptor.maxPixelsHigh = UInt32(PhoneScreenSpec.pixelHeight)
+        descriptor.maxPixelsWide = UInt32(ScreenFit.maxPixels.width)
+        descriptor.maxPixelsHigh = UInt32(ScreenFit.maxPixels.height)
         descriptor.sizeInMillimeters = CGSize(width: PhoneScreenSpec.millimeters.width, height: PhoneScreenSpec.millimeters.height)
         descriptor.vendorID = PhoneScreenSpec.vendorID
         descriptor.productID = PhoneScreenSpec.productID
@@ -97,7 +105,10 @@ public final class PhoneDisplayService: PhoneDisplays {
         guard let display = autoreleasepool(invoking: { CGVirtualDisplay(descriptor: descriptor) }) else { return nil }
         let settings = CGVirtualDisplaySettings()
         settings.hiDPI = true
-        settings.modes = [CGVirtualDisplayMode(width: UInt(PhoneScreenSpec.width), height: UInt(PhoneScreenSpec.height), refreshRate: 60)]
+        settings.modes = ScreenFit.widths.map { width in
+            let size = ScreenFit.size(width: width)
+            return CGVirtualDisplayMode(width: UInt(size.width), height: UInt(size.height), refreshRate: 60)
+        }
         guard autoreleasepool(invoking: { display.apply(settings) }) else {
             Log.warn("手机屏（serial=\(serial)）apply 失败")
             return nil
@@ -122,12 +133,12 @@ public final class PhoneDisplayService: PhoneDisplays {
         return ids.prefix(Int(count)).contains(id)
     }
 
-    /// 起帮手进程切模式，等它退出；返回退出码，起不来返回 nil。
-    /// 最多等 helperTimeout：帮手卡在屏幕配置里不退出，就结束它（2 倍本来就是尽力而为），不能让建屏和整条调度队一直等
-    private func runHelper(_ id: DisplayID) async -> Int32? {
+    /// 起帮手进程换档，等它退出；返回退出码，起不来返回 nil。
+    /// 最多等 helperTimeout：帮手卡在屏幕配置里不退出，就结束它（换档本来就是尽力而为），不能让建屏和整条调度队一直等
+    private func runHelper(_ id: DisplayID, width: Int) async -> Int32? {
         let process = Process()
         process.executableURL = helper
-        process.arguments = ["--set-mode", "\(id)", "\(PhoneScreenSpec.width)", "\(PhoneScreenSpec.height)"]
+        process.arguments = ["--set-mode", "\(id)", "\(width)"]
         return await withCheckedContinuation { continuation in
             process.terminationHandler = { continuation.resume(returning: $0.terminationStatus) }
             do {

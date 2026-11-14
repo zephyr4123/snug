@@ -2,15 +2,18 @@
 import CoreGraphics
 import Foundation
 
-/// 建屏、撤屏。CGVirtualDisplay 要在主线程建和释放
+/// 建屏、撤屏、换档。CGVirtualDisplay 要在主线程建和释放
 @MainActor
 public protocol PhoneDisplays: AnyObject {
-    /// 建一块手机屏，等它上线，尽量切到 2 倍（切不成只记日志、照样返回）。上线不了就换备用身份，都不行就抛错
+    /// 建一块手机屏（档位见 ScreenFit），等它上线，尽量切到基准宽度（切不成只记日志、照样返回）。
+    /// 上线不了就换备用身份，都不行就抛错
     func create() async throws -> DisplayID
     /// 释放，等它下线
     func retire(_ id: DisplayID) async
-    /// 不是 2 倍就让帮手进程切过去；返回此刻是不是 2 倍
-    func ensureHiDPI(_ id: DisplayID) async -> Bool
+    /// 此刻是哪一档（2 倍模式的宽度，点）；不是 2 倍、或屏不在了返回 nil
+    func width(_ id: DisplayID) -> Int?
+    /// 换到这一档的 2 倍模式，等界面认到新尺寸再返回。换不成只记日志：窗口照样能用，只是没铺满
+    func setWidth(_ id: DisplayID, _ width: Int) async
     /// 整块屏的范围（辅助功能坐标，左上原点）。撤屏前用它认出原本就在这块屏上的窗口
     func bounds(_ id: DisplayID) -> CGRect?
     /// 窗口该铺满的区域（辅助功能坐标，左上原点）：这块屏扣掉菜单栏和底部小横条

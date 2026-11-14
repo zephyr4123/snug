@@ -18,10 +18,11 @@ case .render(let target, let output):
     exit(MainActor.assumeIsolated { Renderer.run(target, output: output) } ? 0 : 1)
 case .dumpUU:
     exit(MainActor.assumeIsolated { UUDump.run() })
-case .setMode(let display, let width, let height):
+case .setMode(let display, let width):
     Log.setSink(FileLogSink(url: SnugPaths.standard.logFile, processTag: "帮手"))
-    let outcome = DisplayMode.switchToHiDPI(display, width: width, height: height)
-    Log.info("切屏幕 #\(display) 到 2 倍 \(width)x\(height)：\(outcome)")
+    let size = ScreenFit.size(width: width)
+    let outcome = DisplayMode.switchToHiDPI(display, width: Int(size.width), height: Int(size.height))
+    Log.info("切屏幕 #\(display) 到 2 倍 \(Int(size.width))x\(Int(size.height))：\(outcome)")
     Log.flush()
     exit(outcome == .switched ? 0 : 1)
 case .app, .previewPhone:

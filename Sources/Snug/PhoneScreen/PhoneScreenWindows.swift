@@ -1,5 +1,5 @@
 // 手机屏上 Snug 自己的两块面板：盖满整块屏的窗口列表，和窗口放上来后底部的小横条。
-// 跟着 PhoneDesk 的状态走：手机屏在才建，列表该露就露、该收就收，屏幕一变就重新摆位置。
+// 跟着 PhoneDesk 的状态走：手机屏在才建，列表该露就露、该收就收，屏幕一变（含换档）就重新摆位置。
 // 面板不抢焦点（点它不会激活 Snug），所有桌面都在，盖在这块屏的菜单栏之上
 import AppKit
 import SnugCore
@@ -14,6 +14,7 @@ final class PhoneScreenWindows {
     private var display: DisplayID?
     private var list: PhonePanel?
     private var homeBar: PhonePanel?
+    private var homeBarView: HomeBarView?
     private var screenObserver: (any NSObjectProtocol)?
 
     init(state: AppState, catalog: WindowCatalog, intents: any PhoneIntents) {
@@ -51,6 +52,7 @@ final class PhoneScreenWindows {
         guard let list, let homeBar else { return }
         list.setFrame(screen.frame, display: true)
         homeBar.setFrame(homeBarFrame(on: screen), display: true)
+        homeBarView?.scale = ScreenFit.scale(screenWidth: screen.frame.width)
 
         let showList = phone.listVisible || phone.placed == nil
         if showList { list.orderFrontRegardless() } else { list.orderOut(nil) }
@@ -71,6 +73,7 @@ final class PhoneScreenWindows {
         let bar = HomeBarView()
         bar.onActivate = { [weak self] in self?.intents.showList() }
         homeBar = PhonePanel(content: bar)
+        homeBarView = bar
     }
 
     private func tearDown() {
@@ -79,13 +82,15 @@ final class PhoneScreenWindows {
         homeBar?.orderOut(nil)
         list = nil
         homeBar = nil
+        homeBarView = nil
         display = nil
     }
 
-    /// 可见区底部那一条：放上来的窗口正好让出这一条（PhoneScreenSpec.homeBarHeight）
+    /// 可见区底部那一条：放上来的窗口正好让出这一条（高度跟着档位缩放，见 ScreenFit.homeBarHeight）
     private func homeBarFrame(on screen: NSScreen) -> NSRect {
         let visible = screen.visibleFrame
-        return NSRect(x: visible.minX, y: visible.minY, width: visible.width, height: PhoneScreenSpec.homeBarHeight)
+        return NSRect(x: visible.minX, y: visible.minY, width: visible.width,
+                      height: ScreenFit.homeBarHeight(screenWidth: screen.frame.width))
     }
 }
 
@@ -114,19 +119,23 @@ final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-/// 底部小横条：点一下，或者往上滑，回到窗口列表。中间是 SF Symbols 的 chevron.compact.up
+/// 底部小横条：点一下，或者往上滑，回到窗口列表。中间是 SF Symbols 的 chevron.compact.up。
+/// 手机屏换到更宽的一档时跟着放大（scale），在手机上看着、点着、滑着都和基准宽度一样
 final class HomeBarView: NSView {
-    /// 往上滑过这么多点算数
+    /// 基准宽度下往上滑过这么多点算数
     static let swipeDistance: CGFloat = 12
 
     var onActivate: (() -> Void)?
+    /// 这一档比基准宽度宽几倍（ScreenFit.scale）
+    var scale: CGFloat = 1 {
+        didSet { if scale != oldValue { updateGrabber() } }
+    }
+    private let grabber = NSImageView()
     private var swipe: CGFloat = 0
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        let grabber = NSImageView()
-        grabber.image = NSImage(systemSymbolName: "chevron.compact.up", accessibilityDescription: "窗口列表")?
-            .withSymbolConfiguration(.init(pointSize: 22, weight: .semibold))
+        updateGrabber()
         grabber.contentTintColor = .secondaryLabelColor
         grabber.translatesAutoresizingMaskIntoConstraints = false
         addSubview(grabber)
@@ -138,6 +147,11 @@ final class HomeBarView: NSView {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("不从 nib 加载") }
+
+    private func updateGrabber() {
+        grabber.image = NSImage(systemSymbolName: "chevron.compact.up", accessibilityDescription: "窗口列表")?
+            .withSymbolConfiguration(.init(pointSize: 22 * scale, weight: .semibold))
+    }
 
     override var isOpaque: Bool { true }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -158,7 +172,7 @@ final class HomeBarView: NSView {
     override func scrollWheel(with event: NSEvent) {
         if event.phase == .began { swipe = 0 }
         swipe += event.scrollingDeltaY
-        if swipe <= -Self.swipeDistance {
+        if swipe <= -Self.swipeDistance * scale {
             swipe = 0
             onActivate?()
         }

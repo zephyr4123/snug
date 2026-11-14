@@ -1,4 +1,4 @@
-// 显示模式：看是不是 2 倍，以及帮手进程里真正去切。
+// 显示模式：读此刻是哪一档，以及帮手进程里真正去切。
 // 主程序不亲自切模式：亲自切过模式的进程，这块虚拟屏释放后要拖 40 秒以上才下线（两次实测）；
 // 交给短命的帮手进程（Snug --set-mode）切完就退出，释放照样 0.1 秒下线
 import CoreGraphics
@@ -7,22 +7,23 @@ import SnugCore
 public enum DisplayMode {
     public enum Outcome: Equatable, CustomStringConvertible {
         case switched
-        /// 这块屏没有这个 2 倍模式（短边不到 540 点时系统不提供）
+        /// 这块屏没有这一档的 2 倍模式
         case unavailable
         case failed(CGError)
 
         public var description: String {
             switch self {
             case .switched: "已切换"
-            case .unavailable: "没有这个 2 倍模式"
+            case .unavailable: "没有这一档的 2 倍模式"
             case .failed(let err): "切换失败（CGError=\(err.rawValue)）"
             }
         }
     }
 
-    public static func isHiDPI(_ id: DisplayID) -> Bool {
-        guard let mode = CGDisplayCopyDisplayMode(id) else { return false }
-        return mode.pixelWidth == 2 * mode.width
+    /// 此刻 2 倍模式的宽度（点）；不是 2 倍、或屏不在了返回 nil
+    public static func hiDPIWidth(_ id: DisplayID) -> Int? {
+        guard let mode = CGDisplayCopyDisplayMode(id), mode.pixelWidth == 2 * mode.width else { return nil }
+        return mode.width
     }
 
     public static func describe(_ id: DisplayID) -> String {

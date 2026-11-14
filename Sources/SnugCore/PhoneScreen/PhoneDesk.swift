@@ -1,5 +1,6 @@
-// 手机屏的调度中枢：什么时候加屏、撤屏，窗口怎么放上来、放回去，字号怎么改。
+// 手机屏的调度中枢：什么时候加屏、撤屏，窗口怎么放上来、放回去，字号怎么改，手机屏用哪一档。
 // 所有动作排成一队依次做（加屏要等上线、搬窗口要核对重试，中间不能被别的动作插进来）。
+// 屏幕适配（ScreenFit）：手机屏的宽度跟着屏上显示的东西走，露着列表是基准宽度，放着窗口是那个窗口要的一档。
 // 隔离：只动手机屏和放上来的那一个窗口；加屏、撤屏被系统挪动的其它窗口放回原处；
 // 每一处改动先记账再动手，还原成功、或窗口确实没了才销账。没销的账（Snug 崩溃、App 卡住没放成）
 // 在下次启动（recover()）、或下次放窗口之前按账还原，不会被新的记录盖掉
@@ -130,17 +131,18 @@ public final class PhoneDesk {
         }
     }
 
-    /// 底部小横条：回到窗口列表。提示留着：列表收着时出的错（比如调字号没成），这时才看得到
+    /// 底部小横条：回到窗口列表（马上露出来），手机屏换回基准宽度。
+    /// 提示留着：列表收着时出的错（比如调字号没成），这时才看得到
     public func showList() {
         state.listVisible = true
+        lane.run { await self.matchWidth() }
     }
 
     /// 列表左上角的返回键：回到手机屏上的窗口
     public func returnToPlaced() {
-        guard let p = placement else { return }
+        guard placement != nil else { return }
         state.notice = nil
-        state.listVisible = false
-        lane.run { await self.windows.focus(p.window.key) }
+        lane.run { await self.reveal() }
     }
 
     /// 把手机屏上的窗口放回原位。放不回去（App 卡住）就留在手机屏上，提示一下，可以再点
@@ -151,6 +153,7 @@ public final class PhoneDesk {
             if let p = self.placement, await !self.returnToOriginal(p) {
                 self.state.notice = .windowUnresponsive(app: p.window.app)
             }
+            await self.matchWidth()
             self.state.work = nil
         }
     }
@@ -177,7 +180,7 @@ public final class PhoneDesk {
         saveZoomBook()
     }
 
-    /// 屏幕配置变了（插拔外接屏、系统改模式）：过一会儿检查手机屏还是不是 2 倍、窗口还铺不铺满
+    /// 屏幕配置变了（插拔外接屏、系统改模式、Snug 自己换档）：过一会儿检查手机屏还是不是该用的那一档、窗口还铺不铺满
     public func displaysChanged() {
         guard display != nil else { return }
         recheckGeneration += 1
@@ -203,11 +206,13 @@ public final class PhoneDesk {
                 self.placement = nil
                 self.state.listVisible = true
                 self.settleRecord()
+                await self.matchWidth()
                 return
             }
             if !self.state.listVisible, await !self.windows.isShown(p.window.key) {
                 Log.info("手机屏上的 \(p.window.label) 不在屏上了（最小化、隐藏或关成了隐藏），回到窗口列表")
                 self.state.listVisible = true
+                await self.matchWidth()
             }
         }
     }
@@ -255,7 +260,7 @@ public final class PhoneDesk {
             failures = 0
             await windows.restore(before, except: placement?.window.key)
             state.screen = .ready(id)
-            Log.info("手机屏 #\(id) 已就绪（\(PhoneScreenSpec.width)x\(PhoneScreenSpec.height)）")
+            Log.info("手机屏 #\(id) 已就绪（\(displays.width(id).map { "\($0) 宽" } ?? "不是 2 倍")）")
         } catch {
             state.screen = .failed
             Log.error("加手机屏失败：\(error)")
@@ -314,34 +319,74 @@ public final class PhoneDesk {
     }
 
     private func recheck() async {
-        guard let id = display?.id else { return }
-        if await !displays.ensureHiDPI(id) {
-            Log.warn("守护：手机屏 #\(id) 切不回 2 倍")
-        }
-        await refill(because: "屏幕配置变了")
+        if state.listVisible { await matchWidth() } else { await refill(because: "屏幕配置变了") }
     }
 
-    /// 窗口被挪动、撑大了（屏幕配置变了；终端类 App 调字号时会按行列数撑大窗口）就重新铺满。
-    /// 跟上次挪完的样子比，不跟手机屏比：App 限定了最小宽度时本来就铺不满，再挪也一样
+    /// 窗口没铺好就重新铺：手机屏不在它那一档（刚从列表回来、换档没成、系统改了模式），
+    /// 或者窗口被挪动、撑大了（换档时系统会挪它；终端类 App 调字号时会按行列数撑大窗口）。
+    /// 跟上次挪完的样子比，不跟可放区域比：比最宽一档还宽的窗口本来就铺不满，再挪也一样
     private func refill(because reason: String) async {
-        guard let id = display?.id, var p = placement, let area = displays.windowArea(id),
-              let frame = await windows.look(p.window.key)?.frame, !frame.matches(p.settled ?? area) else { return }
-        Log.info("\(reason)，\(p.window.label) 变成了 \(frame.short)，重新铺满")
-        p.settled = await windows.move(p.window.key, to: area)
+        guard let id = display?.id, var p = placement, let frame = await windows.look(p.window.key)?.frame else { return }
+        let moved = p.settled.map { !frame.matches($0) } ?? true
+        guard moved || displays.width(id) != p.width else { return }
+        let what = moved ? "变成了 \(frame.short)" : "要的 \(p.width) 宽不是手机屏现在这一档"
+        Log.info("\(reason)，\(p.window.label) \(what)，重新铺满")
+        await fill(&p, on: id)
         placement = p
+    }
+
+    // MARK: 屏幕适配
+
+    /// 手机屏该用哪一档：露着列表（或没放窗口）是基准宽度，放着窗口是它那一档
+    private var wantedWidth: Int {
+        guard let p = placement, !state.listVisible else { return ScreenFit.baseWidth }
+        return p.width
+    }
+
+    /// 让手机屏跟上该用的那一档
+    private func matchWidth() async {
+        guard let id = display?.id else { return }
+        await switchWidth(id, to: wantedWidth)
+    }
+
+    private func switchWidth(_ id: DisplayID, to width: Int) async {
+        if displays.width(id) != width { await displays.setWidth(id, width) }
+    }
+
+    /// 手机屏换到窗口那一档，把窗口铺满。铺不满（App 限定了最小尺寸）就按它实际的大小换到装得下的一档再铺。
+    /// 换档没成时屏还是原来那一档，算出来的还是这一档，不会一直往上换。返回最后挪到的位置；挪不动（窗口关了、App 没响应）返回 nil
+    @discardableResult
+    private func fill(_ p: inout Placement, on id: DisplayID) async -> CGRect? {
+        await switchWidth(id, to: p.width)
+        guard let area = displays.windowArea(id), let got = await windows.move(p.window.key, to: area) else { return nil }
+        p.settled = got
+        guard let current = displays.width(id) else { return got }
+        let width = ScreenFit.width(toFit: got.size, in: area.size, at: current)
+        guard width > current, width != p.width else { return got }
+        Log.info("\(p.window.label) 在 \(current) 宽的手机屏上铺不满（App 限定了最小尺寸，实际 \(got.short)），换到 \(width) 宽")
+        p.width = width
+        return await fill(&p, on: id)
+    }
+
+    /// 收起列表、露出手机屏上的窗口：先换到它那一档、重新铺满，再收列表、激活它。
+    /// 换档时列表还盖着，手机上看不到窗口被挪来挪去
+    private func reveal() async {
+        guard let p = placement else { return }
+        await refill(because: "回到窗口")
+        state.listVisible = false
+        await windows.focus(p.window.key)
     }
 
     // MARK: 放窗口
 
     private func place(_ window: WindowInfo) async {
         let started = timeline.now
-        guard let area = readyArea(for: "放 \(window.label)") else {
+        guard let id = readyDisplay(for: "放 \(window.label)") else {
             state.notice = .screenNotReady
             return
         }
         if placement?.window.key == window.key {
-            state.listVisible = false
-            await windows.focus(window.key)
+            await reveal()
             return
         }
         // 先确认要放的窗口够得着，再动手机屏上现在那个：点到刚关掉的卡片，不能先把现在的拆了、两头落空
@@ -377,21 +422,24 @@ public final class PhoneDesk {
             }
         }
         placement = next
-        guard let got = await windows.move(window.key, to: area) else {
+        // 先按基准宽度铺，App 卡在自己的最小尺寸上时换档再铺；这时列表还盖着（「正在打开」）
+        guard let got = await fill(&next, on: id) else {
             let notice = await unreachable(window)
             Log.warn("\(window.label) 挪不上手机屏（\(Self.reason(notice, gone: "刚关了"))），放回去")
             placement = nil
             await putBack(next.record)
+            // 露着列表：手机屏可能停在铺的中途换过的那一档
+            await matchWidth()
             state.notice = notice
             return
         }
-        next.settled = got
         placement = next
         await windows.focus(window.key)
         state.listVisible = false
         let was = look.fullScreen ? "（原来全屏）" : look.minimized ? "（原来最小化）" : ""
         let took = String(format: "%.1f", timeline.now - started)
-        Log.info("\(window.label) 放上手机屏（\(took)s）：原位 \(next.record.original.short)\(was)，\(Self.describeFill(got, in: area))")
+        let fill = Self.describeFill(got, in: displays.windowArea(id), width: displays.width(id) ?? next.width)
+        Log.info("\(window.label) 放上手机屏（\(took)s）：原位 \(next.record.original.short)\(was)，\(fill)")
 
         let steps = zoomBook.steps(for: window.bundleID, default: defaultZoom)
         guard steps != 0 else { return }
@@ -505,24 +553,24 @@ public final class PhoneDesk {
         state.work = work
     }
 
-    /// 手机屏的可放区域；没好时写明是哪一步没好
-    private func readyArea(for what: String) -> CGRect? {
+    /// 可以放窗口的手机屏；没好时写明是哪一步没好
+    private func readyDisplay(for what: String) -> DisplayID? {
         guard let id = display?.id else {
             Log.warn("\(what)：没有手机屏（\(state.screen)）")
             return nil
         }
-        guard let area = displays.windowArea(id) else {
+        guard displays.windowArea(id) != nil else {
             Log.warn("\(what)：读不到手机屏 #\(id) 的可放区域（屏幕组合可能还在变）")
             return nil
         }
-        return area
+        return id
     }
 
-    /// 铺满了没有；没铺满多半是 App 限定了最小尺寸（系统设置宽度固定 740，Safari 至少 574），窗口靠左放
-    private static func describeFill(_ got: CGRect, in area: CGRect) -> String {
-        if got.matches(area) { return "已铺满" }
-        if got.width > area.width + 2 { return "App 限定宽度至少 \(Int(got.width))，铺不满，靠左放（实际 \(got.short)）" }
-        return "没铺满，实际 \(got.short)"
+    /// 铺满了没有、用的哪一档。没铺满是 App 要的比最宽一档还宽，或者换档没成（见前面的日志）
+    private static func describeFill(_ got: CGRect, in area: CGRect?, width: Int) -> String {
+        let screen = width == ScreenFit.baseWidth ? "" : "（手机屏 \(width) 宽）"
+        if let area, got.matches(area) { return "已铺满\(screen)" }
+        return "没铺满\(screen)，实际 \(got.short)"
     }
 
     /// 读要放的窗口；读不到就提示是关了还是 App 没响应
@@ -573,11 +621,13 @@ public final class PhoneDesk {
     }
 }
 
-/// 放在手机屏上的那个窗口：它的还原记录（写进盘里的就是这一份，不另抄字段）和上次挪完的样子
+/// 放在手机屏上的那个窗口：它的还原记录（写进盘里的就是这一份，不另抄字段）、它要的那一档和上次挪完的样子
 private struct Placement {
     let window: WindowInfo
     var record: PhoneRecord
-    /// 上次挪完的样子：App 限定了最小尺寸时铺不满，以它为准判断窗口有没有被再挪动
+    /// 手机屏用哪一档（ScreenFit）：先按基准宽度，铺不满时换成装得下它的一档
+    var width = ScreenFit.baseWidth
+    /// 上次挪完的样子：比最宽一档还宽的窗口铺不满，以它为准判断窗口有没有被再挪动
     var settled: CGRect?
 }
 
