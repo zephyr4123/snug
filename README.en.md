@@ -152,7 +152,7 @@ rm ~/Library/LaunchAgents/com.corndog.uudisplay.watchdog-agent.plist
 | :--- | :--- |
 | Relies on undocumented macOS APIs | May break after a major macOS update |
 | Screen proportions match the iPhone 17 Pro Max | Other models may show slight letterboxing; portrait only |
-| Some windows cannot fill the screen | Apps such as System Settings and Safari enforce a minimum width; their windows are left-aligned |
+| Smaller text in some windows | Apps such as System Settings and Safari enforce a minimum width; the phone screen switches to a resolution just wide enough, so the window still fills it and text shrinks accordingly (pinch to zoom) |
 | Text enlargement covers terminals and editors only | Ghostty, Terminal, iTerm2, VS Code, Cursor, and Zed; browsers are not adjusted |
 | Not an official NetEase product | Unaffiliated with UU Remote or its developer; UU Remote updates may affect some features |
 | The phone screen may occasionally remain after a session ends | Occurs when the system log misses the end of the stream; the menu bar still shows the session as active (「远程中」). Turn off the phone screen in Settings to restore |
