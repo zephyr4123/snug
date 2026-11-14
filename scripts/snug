@@ -378,7 +378,7 @@ publish_cos() {
 }
 
 # <目录> 里应用内更新用的 Snug-<版本>.pack 和 update.json 传到国内源、从下载地址核对，再把 latest/update.json 换成它。
-# 只有 2.1.0 起的版本有（mirror 补传的老版本没有）
+# ship 和 mirror 都调；2.1.0 起的版本才有这两个文件
 publish_cos_update() {
   local version=$1 dir=$2 name
   step "传应用内更新到国内源"
@@ -560,6 +560,11 @@ cmd_mirror() {
   gh release download "$tag" --pattern "$name" --pattern "$name.sha256" --dir "$dir"
   (cd "$dir" && shasum -a 256 -c -s "$name.sha256") || die "下载下来的 $name 和 GitHub 上的校验值对不上"
   publish_cos "$version" "$dir"
+  # 有应用内更新的版本一并补传，latest/update.json 才会跟着换。grep 不用 -q，理由同 cmd_ship
+  if gh release view "$tag" --json assets --jq '.assets[].name' | grep -x update.json >/dev/null; then
+    gh release download "$tag" --pattern "Snug-$version.pack" --pattern update.json --dir "$dir"
+    publish_cos_update "$version" "$dir"
+  fi
   rm -rf "$dir"
   print -- "✅ Snug $version 已在国内源：$DOWNLOAD_BASE/v$version/$name"
 }

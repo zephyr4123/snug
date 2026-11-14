@@ -5,7 +5,6 @@ let package = Package(
     name: "Snug",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "Snug", targets: ["Snug"]),
         .executable(name: "snug-release", targets: ["SnugRelease"]),
     ],
     dependencies: [
