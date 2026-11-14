@@ -33,6 +33,7 @@ struct UpdateState: Equatable {
 
 /// 给用户看的失败原因：短词，不带技术细节（细节在日志里）
 enum UpdateProblem: Equatable {
+    /// 网络不通，或者更新源上没有要的文件（HTTP 出错）
     case unreachable(UpdateSource)
     case corrupt
     /// update.json 的格式比这一版新，这一版拼不出新版本
@@ -44,7 +45,7 @@ enum UpdateProblem: Equatable {
 
     var text: String {
         switch self {
-        case .unreachable(let source): "无法连接\(source.title)"
+        case .unreachable(let source): "无法从\(source.title)获取更新"
         case .corrupt: "下载内容校验失败"
         case .tooOld: "此版本无法自动更新"
         case .cannotReplace: "无权替换当前位置的 Snug"
