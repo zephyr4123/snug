@@ -7,5 +7,5 @@ let t0 = Date(timeIntervalSinceReferenceDate: 800_000_000)
 /// 距 t0 多少秒
 func at(_ s: Double) -> Date { t0.addingTimeInterval(s) }
 
-/// 只有控制端表格的观测（覆盖窗口不在、推流未知）
-func table(_ names: String...) -> UUSignals { UUSignals(overlayVisible: false, controllers: names, captureActive: nil) }
+/// 只有控制端表格认出了控制端的观测（覆盖窗口不在、推流未知）
+func table(_ names: String...) -> UUSignals { UUSignals(overlayVisible: false, controllers: .shown(names), captureActive: nil) }

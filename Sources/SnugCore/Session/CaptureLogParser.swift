@@ -1,6 +1,6 @@
 // 解析 `log stream --style ndjson` 里 UURemoteServer 的推流与编码事件。
 // 这些行来自 ScreenCaptureKit / VideoToolbox 的调试日志，格式不是公开接口，所以只认几条稳定的关键字，
-// 认不出的行一律忽略；格式变了最多是推流信号变成「未知」，连接判定还有覆盖窗口和控制端表格兜底
+// 认不出的行一律忽略。格式变了，认不出开始事件时推流信号缺席，认不出停止事件时推流会一直显示在进行，后果见 ConnectionTracker
 import Foundation
 
 public enum CaptureLogEvent: Equatable, Sendable {

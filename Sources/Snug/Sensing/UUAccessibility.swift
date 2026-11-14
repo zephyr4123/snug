@@ -1,5 +1,6 @@
-// 通过辅助功能接口读 UU远程 主界面「本机被控中」表格里的控制端名称。只读，不点 UU 的任何东西：
-// 主窗口没开就读不到，那就不读（名字只用来区分手机和电脑，读不到按手机处理），不为了读名字把 UU 的窗口弹出来。
+// 通过辅助功能接口读 UU远程 窗口里表格每一行的文字，交给 ControllerTable 认控制端。只读，不点 UU 的任何东西，
+// 不为了读表格把 UU 的窗口弹出来或切页面：读不到、没认出都照常远程，只是少了一路在场证据和控制端名字（读不到按手机处理）。
+// 主窗口最小化也读得到；没有窗口时读不到。
 // AX 调用会阻塞（UU 卡顿时每次最多等 1 秒），所以这里的函数都是同步的，只在后台队列调用，绝不在主线程。
 // 进程号由调用方在主线程查好传进来，后台只碰 AX，不碰 AppKit
 import ApplicationServices
@@ -11,22 +12,17 @@ enum UUAccessibility {
     static let maxDepth = 25
     static let maxNodes = 2048
 
-    /// 「本机被控中」表格里的控制端名称。主窗口读不到返回 nil，明确无人控制返回 []
-    static func readControllers(pid: pid_t) -> [String]? {
+    /// UU 所有窗口里每个表格行的静态文字，按界面顺序。没有窗口或超出上限时返回 nil
+    static func rows(pid: pid_t) -> [[String]]? {
         guard let all = flattenWindows(pid: pid) else { return nil }
-        var names: [String] = []
+        var rows: [[String]] = []
         for row in all where role(row) == kAXRowRole {
             var inner: [AXUIElement] = []
             var seen = Set<AXUIElement>()
             guard flatten(row, depth: 0, into: &inner, seen: &seen) else { return nil }
-            let texts = inner.filter { role($0) == kAXStaticTextRole }.compactMap(value)
-            // 只认带「远程控制」标记的行，别的表格不算连入
-            guard texts.contains("远程控制") else { continue }
-            if let n = texts.first(where: { $0 != "远程控制" && !$0.hasPrefix("连接时长") && !$0.isEmpty }), !names.contains(n) {
-                names.append(n)
-            }
+            rows.append(inner.filter { role($0) == kAXStaticTextRole }.compactMap(value))
         }
-        return names
+        return rows
     }
 
     // MARK: AX 基础（薄封装在 SnugSystem 的 AX）

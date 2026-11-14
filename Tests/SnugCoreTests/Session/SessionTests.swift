@@ -36,8 +36,8 @@ struct SessionEpisodeTests {
 
 @Suite("远程会话 RemoteSession")
 struct RemoteSessionTests {
-    private let present = UUSignals(overlayVisible: false, controllers: ["iPhone"], captureActive: nil)
-    private let absent = UUSignals(overlayVisible: false, controllers: [], captureActive: nil)
+    private let present = UUSignals(overlayVisible: false, controllers: .shown(["iPhone"]), captureActive: nil)
+    private let absent = UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: nil)
 
     @Test("连入 → began；断开 → interrupted；窗口内重连 → resumed；窗口过后 → ended")
     func transitions() {
@@ -65,9 +65,24 @@ struct RemoteSessionTests {
     @Test("控制端换名透传为 controllerChanged")
     func controllerChanged() {
         var s = RemoteSession()
-        _ = s.update(UUSignals(overlayVisible: true, controllers: nil, captureActive: nil), now: at(0))
+        _ = s.update(UUSignals(overlayVisible: true, controllers: .unreadable, captureActive: nil), now: at(0))
         #expect(s.update(present, now: at(0.5)) == [.controllerChanged("iPhone")])
         #expect(s.controller == "iPhone")
+    }
+
+    @Test("回归 #1：没认出控制端、推流一直在，远程不断开；停流后照常 interrupted、ended")
+    func unrecognizedTableKeepsStreamingSession() {
+        var s = RemoteSession()
+        let streaming = UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: true)
+        let stopped = UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: false)
+        #expect(s.update(streaming, now: at(0)) == [.began(controller: nil)])
+        for seconds in [0.5, 59.5, 60, 60.5, 75.6, 300] {
+            #expect(s.update(streaming, now: at(seconds)) == [])
+        }
+        #expect(s.wantsPhoneScreen(now: at(300)))
+        #expect(s.update(stopped, now: at(300.5)) == [])
+        #expect(s.update(stopped, now: at(301.6)) == [.interrupted])
+        #expect(s.update(stopped, now: at(316.7)) == [.ended])
     }
 
     @Test("自扰静默期经 RemoteSession 转给 tracker")
@@ -82,8 +97,8 @@ struct RemoteSessionTests {
 
 @Suite("要不要手机屏 RemoteSession.wantsPhoneScreen")
 struct PhoneDemandTests {
-    private let overlayOnly = UUSignals(overlayVisible: true, controllers: [], captureActive: nil)
-    private let absent = UUSignals(overlayVisible: false, controllers: [], captureActive: nil)
+    private let overlayOnly = UUSignals(overlayVisible: true, controllers: .unrecognized, captureActive: nil)
+    private let absent = UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: nil)
 
     @Test("电脑控制端：断开后的重连窗口里也不要（断开那一拍名字被清空，不能当成手机）")
     func computerStaysComputerWhileReconnecting() {
@@ -116,13 +131,13 @@ struct PhoneDemandTests {
         var s = RemoteSession()
         #expect(s.update(overlayOnly, now: at(0)) == [.began(controller: nil)])
         #expect(!s.wantsPhoneScreen(now: at(0)))
-        #expect(s.update(UUSignals(overlayVisible: true, controllers: ["MacBook Air"], captureActive: nil), now: at(0.5))
+        #expect(s.update(UUSignals(overlayVisible: true, controllers: .shown(["MacBook Air"]), captureActive: nil), now: at(0.5))
                 == [.controllerChanged("MacBook Air")])
         #expect(!s.wantsPhoneScreen(now: at(0.5)))
         #expect(!s.wantsPhoneScreen(now: at(5)))
     }
 
-    @Test("一直读不到名字（UU 主窗口没开）：等满 2 秒后按手机处理")
+    @Test("一直没拿到名字（表格读不到或没认出控制端）：等满 2 秒后按手机处理")
     func unreadableNameGetsScreenAfterGrace() {
         var s = RemoteSession()
         _ = s.update(overlayOnly, now: at(0))

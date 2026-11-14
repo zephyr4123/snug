@@ -17,11 +17,18 @@ enum UUDump {
             print("UU远程 没有在运行")
             return 1
         }
-        guard let names = UUAccessibility.readControllers(pid: pid) else {
-            print("控制端：读不到（UU远程 主窗口没开）→ 按手机处理")
+        guard let rows = UUAccessibility.rows(pid: pid) else {
+            print("表格：读不到（UU远程 没有窗口，或界面超出遍历上限）→ 控制端按手机处理")
             return 0
         }
-        print("控制端：\(names.isEmpty ? "无" : "")")
+        // 每行原文都打出来：认不出控制端时，看这里就知道 UU 此刻显示的是什么
+        print("表格：\(rows.count) 行")
+        for texts in rows { print("  \(texts.joined(separator: " | "))") }
+        guard case .shown(let names) = ControllerTable(rows: rows) else {
+            print("控制端：未识别（没被控时 UU 不显示控制端；远程中也这样，说明认不出 UU 的界面）→ 按手机处理")
+            return 0
+        }
+        print("控制端：")
         for name in names { print("  \(name) → \(ControllerKind(name: name).wantsPhoneScreen ? "加手机屏" : "电脑，不加")") }
         return 0
     }

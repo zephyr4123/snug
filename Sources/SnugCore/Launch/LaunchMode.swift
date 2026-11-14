@@ -26,7 +26,7 @@ public enum LaunchMode: Equatable, Sendable {
       （无参数）                      正常启动
       --preview-phone                 正常启动，不等手机连上就加手机屏（开发自测用）
       --render-<界面> <目录>           把界面渲染成 PNG（界面：\(RenderTarget.allCases.map(\.rawValue).joined(separator: " / "))）
-      --dump-uu                       打印从 UU远程 读到的控制端与屏幕
+      --dump-uu                       打印从 UU远程 读到的表格行、控制端与屏幕
       --set-mode <屏幕编号> <宽> <高>   把这块屏切到 2 倍的宽×高（点）模式（主程序内部用）
     """
 

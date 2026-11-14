@@ -2,24 +2,23 @@ import Foundation
 import Testing
 @testable import SnugCore
 
-/// 时间都写成「距 t0 的秒数」，断言里的数字能直接对上 1.5s 防抖、5s 静默期、60s 上限
+/// 时间都写成「距 t0 的秒数」，断言里的数字能直接对上 1.5s 防抖、5s 静默期
 
-private let none = UUSignals(overlayVisible: false, controllers: [], captureActive: false)
-private let overlay = UUSignals(overlayVisible: true, controllers: nil, captureActive: nil)
-private func capture(_ on: Bool?) -> UUSignals { UUSignals(overlayVisible: false, controllers: nil, captureActive: on) }
-/// 推流还在，表格读得到、明确没人
-private func captureButNobody(_ on: Bool?) -> UUSignals { UUSignals(overlayVisible: false, controllers: [], captureActive: on) }
+private let none = UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: false)
+private let overlay = UUSignals(overlayVisible: true, controllers: .unreadable, captureActive: nil)
+private func capture(_ on: Bool?, _ table: ControllerTable = .unreadable) -> UUSignals {
+    UUSignals(overlayVisible: false, controllers: table, captureActive: on)
+}
 
 @Suite("连接判定 ConnectionTracker")
 struct ConnectionTrackerTests {
-    @Test("常量：防抖 1.5s、自扰静默期 5s、推流否决上限 60s")
+    @Test("常量：防抖 1.5s、自扰静默期 5s")
     func constants() {
         #expect(ConnectionTracker.disconnectDebounce == 1.5)
         #expect(ConnectionTracker.quietWindow == 5)
-        #expect(ConnectionTracker.maxCaptureVeto == 60)
     }
 
-    @Test("首连不做确认延迟：第一次看到在场就连入，名字取 controllers.first")
+    @Test("首连不做确认延迟：第一次看到在场就连入，名字取认出的第一个控制端")
     func immediateConnect() {
         var t = ConnectionTracker()
         #expect(t.update(none, now: at(0)) == nil)
@@ -77,7 +76,7 @@ struct ConnectionTrackerTests {
     @Test("推流仍在时其余信号缺席也不断开；推流结束后从最后一次在场起 1.5s 判断开")
     func captureVetoThenEnd() {
         var t = ConnectionTracker()
-        _ = t.update(UUSignals(overlayVisible: false, controllers: ["iPhone"], captureActive: true), now: at(0))
+        _ = t.update(capture(true, .shown(["iPhone"])), now: at(0))
         for s in stride(from: 0.5, through: 10.0, by: 0.5) {
             #expect(t.update(capture(true), now: at(s)) == nil)
         }
@@ -86,57 +85,59 @@ struct ConnectionTrackerTests {
         #expect(t.update(capture(false), now: at(11.6)) == .disconnected)
     }
 
-    @Test("推流卡在 true：控制端表格连续 60s 明确显示没人才判断开，之后卡住的 true 不再算在场，推流重新开始才算")
-    func captureVetoCap() {
+    @Test("推流在就一直连着：表格读不到、没认出控制端都不算缺席，不设时长上限；停流后照常 1.5s 判断开",
+          arguments: [ControllerTable.unreadable, .unrecognized])
+    func captureKeepsConnection(table: ControllerTable) {
         var t = ConnectionTracker()
-        _ = t.update(UUSignals(overlayVisible: true, controllers: ["iPhone"], captureActive: true), now: at(0))
-        #expect(t.update(captureButNobody(true), now: at(30)) == nil)
-        #expect(t.update(captureButNobody(true), now: at(60)) == nil)
-        #expect(t.update(captureButNobody(true), now: at(60.1)) == .disconnected)
-        #expect(t.update(captureButNobody(true), now: at(61)) == nil)
-        #expect(t.update(captureButNobody(true), now: at(120)) == nil)
-        #expect(t.update(captureButNobody(false), now: at(121)) == nil)
-        #expect(t.update(captureButNobody(true), now: at(122)) == .connected(controller: nil))
-    }
-
-    @Test("表格读不到（UU 主窗口关着）时推流是唯一的信号：一直连着，不按缺席计时")
-    func captureAloneWhenTableUnreadable() {
-        var t = ConnectionTracker()
-        #expect(t.update(capture(true), now: at(0)) == .connected(controller: nil))
-        for s in stride(from: 10.0, through: 300.0, by: 10.0) {
-            #expect(t.update(capture(true), now: at(s)) == nil)
+        #expect(t.update(capture(true, table), now: at(0)) == .connected(controller: nil))
+        for s in [0.5, 59.5, 60.1, 300] {
+            #expect(t.update(capture(true, table), now: at(s)) == nil)
         }
         #expect(t.isConnected)
-        // 下一拍起表格读得到、没人：从最后一次读不到（300）起计时
-        #expect(t.update(captureButNobody(true), now: at(300.5)) == nil)
-        #expect(t.update(captureButNobody(true), now: at(360)) == nil)
-        #expect(t.update(captureButNobody(true), now: at(360.1)) == .disconnected)
+        #expect(t.update(capture(false, table), now: at(300.5)) == nil)
+        #expect(t.update(capture(false, table), now: at(301.5)) == nil)   // 距最后在场 300 恰 1.5
+        #expect(t.update(capture(false, table), now: at(301.6)) == .disconnected)
     }
 
-    @Test("推流否决上限也要等过静默期")
-    func captureCapRespectsQuiet() {
+    @Test("认出过控制端、之后没认出（主窗口切走了），推流还在：不断开，名字保留")
+    func tableGoesUnrecognizedMidSession() {
         var t = ConnectionTracker()
-        _ = t.update(UUSignals(overlayVisible: true, controllers: [], captureActive: true), now: at(0))
-        t.noteSelfInducedChange(at: at(58))
-        #expect(t.update(captureButNobody(true), now: at(61)) == nil)
-        #expect(t.update(captureButNobody(true), now: at(63.1)) == .disconnected)
-    }
-
-    @Test("控制端名字：先没有后出现、或换人，发 controllerChanged；读不到时保留原名")
-    func controllerChanges() {
-        var t = ConnectionTracker()
-        #expect(t.update(overlay, now: at(0)) == .connected(controller: nil))
-        #expect(t.update(UUSignals(overlayVisible: true, controllers: ["iPad"], captureActive: nil), now: at(0.5)) == .controllerChanged("iPad"))
-        #expect(t.update(UUSignals(overlayVisible: true, controllers: ["iPad"], captureActive: nil), now: at(1.0)) == nil)
-        #expect(t.update(UUSignals(overlayVisible: true, controllers: ["iPhone"], captureActive: nil), now: at(1.5)) == .controllerChanged("iPhone"))
-        #expect(t.update(UUSignals(overlayVisible: true, controllers: [], captureActive: nil), now: at(2.0)) == nil)
+        #expect(t.update(capture(true, .shown(["iPhone"])), now: at(0)) == .connected(controller: "iPhone"))
+        for s in stride(from: 0.5, through: 120.0, by: 0.5) {
+            #expect(t.update(capture(true, .unrecognized), now: at(s)) == nil)
+        }
+        #expect(t.isConnected)
         #expect(t.controller == "iPhone")
     }
 
-    @Test("信号快照写进日志用的描述：区分读不到 / 明确无人 / 具体名字")
+    @Test("控制端名字：先没有后出现、或换人，发 controllerChanged；读不到、没认出时保留原名")
+    func controllerChanges() {
+        var t = ConnectionTracker()
+        #expect(t.update(overlay, now: at(0)) == .connected(controller: nil))
+        #expect(t.update(UUSignals(overlayVisible: true, controllers: .shown(["iPad"]), captureActive: nil), now: at(0.5)) == .controllerChanged("iPad"))
+        #expect(t.update(UUSignals(overlayVisible: true, controllers: .shown(["iPad"]), captureActive: nil), now: at(1.0)) == nil)
+        #expect(t.update(UUSignals(overlayVisible: true, controllers: .shown(["iPhone"]), captureActive: nil), now: at(1.5)) == .controllerChanged("iPhone"))
+        #expect(t.update(UUSignals(overlayVisible: true, controllers: .unrecognized, captureActive: nil), now: at(2.0)) == nil)
+        #expect(t.update(UUSignals(overlayVisible: true, controllers: .unreadable, captureActive: nil), now: at(2.5)) == nil)
+        #expect(t.controller == "iPhone")
+    }
+
+    @Test("信号快照写进日志用的描述：区分读不到 / 未识别 / 具体名字")
     func snapshotDescription() {
-        #expect(UUSignals(overlayVisible: true, controllers: nil, captureActive: nil).description == "overlay=是 控制端=读不到 capture=未知")
-        #expect(UUSignals(overlayVisible: false, controllers: [], captureActive: false).description == "overlay=否 控制端=无 capture=否")
-        #expect(UUSignals(overlayVisible: false, controllers: ["iPhone", "iPad"], captureActive: true).description == "overlay=否 控制端=iPhone,iPad capture=是")
+        #expect(UUSignals(overlayVisible: true, controllers: .unreadable, captureActive: nil).description == "overlay=是 控制端=读不到 capture=未知")
+        #expect(UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: false).description == "overlay=否 控制端=未识别 capture=否")
+        #expect(UUSignals(overlayVisible: false, controllers: .shown(["iPhone", "iPad"]), captureActive: true).description == "overlay=否 控制端=iPhone,iPad capture=是")
+    }
+
+    @Test("在场只认正面证据：覆盖窗口、认出控制端、推流进行中，任一路就算；读不到、没认出都不算")
+    func presenceNeedsPositiveEvidence() {
+        #expect(UUSignals(overlayVisible: true, controllers: .unreadable, captureActive: nil).isPresent)
+        #expect(UUSignals(overlayVisible: false, controllers: .shown(["iPhone"]), captureActive: nil).isPresent)
+        #expect(UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: true).isPresent)
+        for table in [ControllerTable.unreadable, .unrecognized] {
+            for captureActive in [nil, false] as [Bool?] {
+                #expect(!UUSignals(overlayVisible: false, controllers: table, captureActive: captureActive).isPresent)
+            }
+        }
     }
 }
