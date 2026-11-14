@@ -11,22 +11,18 @@ enum UUAccessibility {
     static let maxDepth = 25
     static let maxNodes = 2048
 
-    /// 「本机被控中」表格里的控制端名称。主窗口读不到返回 nil，明确无人控制返回 []
+    /// 「本机被控中」表格里的控制端名称。窗口或控制端行读不到返回 nil。
+    /// 尚未识别能证明「无人控制」的专用空态：没有匹配行时不能返回 []，否则正常推流 60s 后会被判断开。
     static func readControllers(pid: pid_t) -> [String]? {
         guard let all = flattenWindows(pid: pid) else { return nil }
-        var names: [String] = []
+        var rows: [[String]] = []
         for row in all where role(row) == kAXRowRole {
             var inner: [AXUIElement] = []
             var seen = Set<AXUIElement>()
             guard flatten(row, depth: 0, into: &inner, seen: &seen) else { return nil }
-            let texts = inner.filter { role($0) == kAXStaticTextRole }.compactMap(value)
-            // 只认带「远程控制」标记的行，别的表格不算连入
-            guard texts.contains("远程控制") else { continue }
-            if let n = texts.first(where: { $0 != "远程控制" && !$0.hasPrefix("连接时长") && !$0.isEmpty }), !names.contains(n) {
-                names.append(n)
-            }
+            rows.append(inner.filter { role($0) == kAXStaticTextRole }.compactMap(value))
         }
-        return names
+        return UURemote.controllers(in: rows)
     }
 
     // MARK: AX 基础（薄封装在 SnugSystem 的 AX）

@@ -18,7 +18,7 @@ enum UUDump {
             return 1
         }
         guard let names = UUAccessibility.readControllers(pid: pid) else {
-            print("控制端：读不到（UU远程 主窗口没开）→ 按手机处理")
+            print("控制端：读不到（UU远程 窗口或控制端列表不可读）→ 按手机处理")
             return 0
         }
         print("控制端：\(names.isEmpty ? "无" : "")")
