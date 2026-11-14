@@ -101,7 +101,9 @@ UU Remote's mobile client carries over trackpad gesture conventions. On the phon
 2. Drag Snug into Applications and open it
 3. Grant the Accessibility permission when the welcome window prompts you (the setting was renamed in macOS 27)
 
-Snug then stays in the menu bar; no further setup is needed.
+Snug then stays in the menu bar; no further setup is needed. Open Snug again at any time to bring up Settings.
+
+**Updates**: Snug checks for a new version each time it starts. When one is available, it lists what changed in every newer version and installs with one click, downloading only the parts that changed and keeping your settings and permissions. You can also check manually in About Snug (「关于 Snug」), or switch the update source between Tencent Cloud (「腾讯云」) and GitHub. In-app updates are available from 2.1.0; replace earlier versions manually.
 
 <div align="center">
 <img src="https://dl.zephyrxiang.com/snug/media/welcome.57ad51da.png" width="45%" alt="Welcome window"> <img src="https://dl.zephyrxiang.com/snug/media/settings-ready.482119c9.png" width="45%" alt="Settings">
