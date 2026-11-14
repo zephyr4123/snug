@@ -12,6 +12,7 @@ final class AppController {
     static let verifyInterval: TimeInterval = 2
 
     let state = AppState()
+    let updater: Updater
     let desk: PhoneDesk
     let windows = WindowService()
     /// 用户从菜单或设置里点「退出」（由 AppDelegate 接到退出流程上）
@@ -38,7 +39,9 @@ final class AppController {
                          defaultZoom: store.config.zoomSteps)
         state.config = store.config
         state.accessibilityTrusted = AX.isTrusted
+        updater = Updater(state: state)
         AX.configureTimeout()
+        updater.onInstalled = { [weak self] in self?.quit() }
     }
 
     var now: Date { anchor.date.addingTimeInterval(ProcessInfo.processInfo.systemUptime - anchor.uptime) }

@@ -32,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         phoneScreen = PhoneScreenWindows(state: controller.state, catalog: WindowCatalog(service: controller.windows),
                                          intents: controller)
         handleSIGTERM()
+        controller.updater.onAvailable = { [weak self] in self?.router.openUpdate() }
         legacyObservers = LegacyApp.observe { [weak self] running in
             self?.controller.state.legacyAppRunning = running
             if !running { self?.router.legacyAppGone() }
@@ -79,6 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startMonitoring() {
         controller.start()
         controller.refreshLaunchAtLogin()
+        controller.updater.checkAtLaunch()
         if !controller.state.config.welcomed {
             if !controller.state.launchAtLogin { controller.setLaunchAtLogin(true) }
             router.showFirstWelcome()

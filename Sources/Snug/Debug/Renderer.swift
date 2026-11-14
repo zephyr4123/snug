@@ -60,6 +60,10 @@ final class RenderStub: AppIntents, PhoneIntents, Navigation {
     func markWelcomed() {}
     func quitLegacyApp() {}
     func quit() {}
+    func checkForUpdates() {}
+    func installUpdate() {}
+    func setUpdateSource(_ source: UpdateSource) {}
+    func openDownloadPage() {}
     func pull(_ window: WindowInfo) {}
     func showList() {}
     func returnToPlaced() {}
@@ -68,4 +72,5 @@ final class RenderStub: AppIntents, PhoneIntents, Navigation {
     func openSettings() {}
     func openWelcome() {}
     func openAbout() {}
+    func openUpdate() {}
 }

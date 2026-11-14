@@ -48,8 +48,17 @@ struct SettingsView: View {
                 }
             }
             Section {
-                HStack {
+                HStack(spacing: 8) {
                     Button("关于 Snug", systemImage: "info.circle") { navigation.openAbout() }
+                    if let feed = state.update.available {
+                        // 有新版本：在「关于 Snug」旁边标一下，更新在那里面
+                        Text("新版本 \(feed.version.description)")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(.blue, in: Capsule())
+                    }
                     Spacer()
                     Button("退出 Snug", systemImage: "power") { intents.quit() }
                         .help("还原窗口后退出")
@@ -64,35 +73,6 @@ struct SettingsView: View {
 
     private func binding<T>(_ value: T, _ set: @escaping @MainActor (T) -> Void) -> Binding<T> {
         Binding(get: { value }, set: { set($0) })
-    }
-}
-
-/// 设置行的标题：系统设置那样的彩色方块图标（SF Symbols）+ 标题 + 一行短说明
-private struct SettingLabel: View {
-    let title: String
-    var detail: String?
-    let symbol: String
-    let tint: Color
-
-    init(_ title: String, detail: String? = nil, symbol: String, tint: Color) {
-        self.title = title
-        self.detail = detail
-        self.symbol = symbol
-        self.tint = tint
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: symbol)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 24, height: 24)
-                .background(tint.gradient, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                if let detail { Text(detail).font(.callout).foregroundStyle(.secondary) }
-            }
-        }
     }
 }
 

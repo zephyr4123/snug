@@ -52,6 +52,18 @@ extension AppController: AppIntents {
 
     func quit() { onQuitRequested?() }
 
+    func checkForUpdates() { updater.check() }
+
+    func installUpdate() { updater.install() }
+
+    /// 换了更新源，上一个源连不上之类的提示就不作数了
+    func setUpdateSource(_ source: UpdateSource) {
+        guard changeConfig("更新源 → \(source.title)", { $0.updateSource = source }) else { return }
+        state.update.problem = nil
+    }
+
+    func openDownloadPage() { NSWorkspace.shared.open(state.config.updateSource.downloadPage) }
+
     // MARK: 退出收尾
 
     /// 停止监控，放回窗口、撤掉手机屏。timeout 内没收完也照样回调：手机屏会随进程退出消失，

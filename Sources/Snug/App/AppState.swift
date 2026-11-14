@@ -31,6 +31,8 @@ final class AppState {
     var legacyAppRunning = false
     /// 正在退出收尾
     var quitting = false
+    /// 应用内更新：查到了什么、进行到哪（Updater 写）
+    var update = UpdateState()
 
     init() {}
 
@@ -64,6 +66,11 @@ protocol AppIntents: AnyObject {
     func markWelcomed()
     func quitLegacyApp()
     func quit()
+    func checkForUpdates()
+    func installUpdate()
+    func setUpdateSource(_ source: UpdateSource)
+    /// 自动更新走不通时，打开所选更新源的下载地址
+    func openDownloadPage()
 }
 
 /// 手机屏上的列表和小横条能发起的意图
@@ -82,4 +89,5 @@ protocol Navigation: AnyObject {
     func openSettings()
     func openWelcome()
     func openAbout()
+    func openUpdate()
 }
