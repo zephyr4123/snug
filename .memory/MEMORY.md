@@ -4,8 +4,8 @@
 - [通用 skill 路由](skill-routing-general.md) — 密钥、多仓、云运维、Multica、编排、长任务、去 AI 腔用哪个 skill
 - [iOS skill 路由](skill-routing-ios.md) — SwiftUI 视图、iOS 验证闭环用哪个 skill
 - [项目定位](project-positioning.md) — 承接的自有项目，保留原作者版权与致谢；2.0.0 已发布，本地数据格式变更要带迁移
-- [产品](project-product.md) — 目标与已拍板的形态：可选竖屏手机屏、默认同原版 UU；砍横屏、删设主屏、不做键盘避让
-- [手机屏实测坑](project-phone-screen.md) — 多数已在代码注释和 docs；这里留 UU 事件形态、ColorSync 排障、自测别抢焦点
+- [产品](project-product.md) — 目标与已拍板的形态：可选竖屏手机屏、默认同原版 UU、屏幕适配按窗口换档；砍横屏、删设主屏、不做键盘避让
+- [手机屏实测坑](project-phone-screen.md) — 多数已在代码注释和 docs；这里留 UU 事件形态、ColorSync 排障、自测别抢焦点、换档实测
 - [发版](project-release.md) — 只走 scripts/snug；个人 Developer ID（29898YBGWD）公证；gh 绑定 zephyr4123
 - [国内源](project-domestic-mirror.md) — dl.zephyrxiang.com/snug/ 放安装包与 README 媒体；README 图片经 GitHub 代理、动图 ≤5 MB；证书 2027-01-12 到期
 - [产品思维](feedback-product-thinking.md) — 用户无感、可选不强制、隔离干净；验证用的步骤不进产品
