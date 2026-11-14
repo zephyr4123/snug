@@ -10,13 +10,15 @@ public struct AppConfig: Codable, Equatable, Sendable {
     public var zoomSteps = 2
     /// 是否已看过首次启动的欢迎页
     public var welcomed = false
+    /// 从哪检查和下载更新。UU远程 的用户基本在国内，默认腾讯云
+    public var updateSource = UpdateSource.tencent
 
     public static let zoomStepsRange = 0...4
 
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case phoneScreen, gestures, zoomSteps, welcomed
+        case phoneScreen, gestures, zoomSteps, welcomed, updateSource
     }
 
     // 每一项都有默认值：以后加字段、或者手改漏了某项，都不会让整份配置被判为损坏
@@ -27,5 +29,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
         gestures = try c.decodeIfPresent(Bool.self, forKey: .gestures) ?? d.gestures
         zoomSteps = try c.decodeIfPresent(Int.self, forKey: .zoomSteps).map { $0.clamped(to: Self.zoomStepsRange) } ?? d.zoomSteps
         welcomed = try c.decodeIfPresent(Bool.self, forKey: .welcomed) ?? d.welcomed
+        // 不认识的更新源（更新的版本加的、降级回来）用默认值
+        updateSource = (try? c.decodeIfPresent(UpdateSource.self, forKey: .updateSource)) ?? d.updateSource
     }
 }

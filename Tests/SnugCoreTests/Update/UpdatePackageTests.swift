@@ -151,6 +151,13 @@ struct UpdateFeedTests {
         }
     }
 
+    @Test("包的文件名只能是一个普通的名字", arguments: ["", "../Snug.pack", "a/b.pack"])
+    func rejectsBadPackName(name: String) {
+        let package = UpdatePackage(file: name, chunking: Chunker.algorithm, chunks: [], files: [])
+        let data = try! JSONEncoder().encode(UpdateFeed(version: Version(major: 2, minor: 2, patch: 0), releases: [], package: package))
+        #expect(throws: UpdateError.self) { try UpdateFeed.decode(data) }
+    }
+
     @Test("块的下标越界：不收")
     func rejectsBadIndex() {
         #expect(throws: UpdateError.self) {

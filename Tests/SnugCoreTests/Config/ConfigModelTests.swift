@@ -4,13 +4,21 @@ import Testing
 
 @Suite("配置 AppConfig")
 struct ConfigModelTests {
-    @Test("默认值：手机屏和手势都开着，字号默认放大 2 级，还没看过欢迎页")
+    @Test("默认值：手机屏和手势都开着，字号默认放大 2 级，还没看过欢迎页，从腾讯云更新")
     func defaults() {
         let c = AppConfig()
         #expect(c.phoneScreen)
         #expect(c.gestures)
         #expect(c.zoomSteps == 2)
         #expect(!c.welcomed)
+        #expect(c.updateSource == .tencent)
+    }
+
+    @Test("不认识的更新源（比如更新的版本写的）用默认值，不把整份配置判为损坏")
+    func unknownUpdateSource() throws {
+        let c = try JSONDecoder().decode(AppConfig.self, from: Data(#"{"updateSource":"mirror","zoomSteps":3}"#.utf8))
+        #expect(c.updateSource == .tencent)
+        #expect(c.zoomSteps == 3)
     }
 
     @Test("缺字段的 config.json 用默认值补齐；旧版留下的字段忽略，而不是整份判为损坏")
@@ -36,6 +44,7 @@ struct ConfigModelTests {
         c.phoneScreen = false
         c.zoomSteps = 3
         c.welcomed = true
+        c.updateSource = .github
         #expect(try JSONDecoder().decode(AppConfig.self, from: JSONEncoder().encode(c)) == c)
     }
 }

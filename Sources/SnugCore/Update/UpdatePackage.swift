@@ -134,8 +134,10 @@ public struct UpdatePackage: Codable, Equatable, Sendable {
 
     // MARK: 核对
 
-    /// update.json 解析后核对一遍（UpdateFeed.decode 调）：块在包里首尾相接，文件的路径都在应用包里面、块的下标都在
+    /// update.json 解析后核对一遍（UpdateFeed.decode 调）：包是一个普通的文件名，块在包里首尾相接，
+    /// 文件的路径都在应用包里面、块的下标都在
     func validate() throws {
+        guard !file.isEmpty, !file.contains("/"), file != ".." else { throw UpdateError.malformed("包的文件名不对：\(file)") }
         var offset = 0
         for chunk in chunks {
             guard chunk.offset == offset, chunk.length > 0, chunk.size > 0 else {
