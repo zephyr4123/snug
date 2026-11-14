@@ -53,7 +53,7 @@ UU Remote scales your entire desktop down to fit the phone. Snug adds a dedicate
 
 - When the session ends, windows return to their original positions and text sizes are restored
 - When you are not on the phone screen, UU Remote behaves exactly as it always has
-- **Built-in screen mirror** (optional): turn it on in Settings and UU Remote's screen list also shows a landscape "Snug 内建屏" screen mirroring your Mac's built-in display, handy on a tablet or desktop client
+- **Built-in screen mirror** (optional): turn it on in Settings and UU Remote's screen list also shows a landscape "Snug 内建屏" screen mirroring your Mac's built-in display, handy on a tablet or desktop client; your Mac can sleep or close its lid to save power, and UU Remote wakes it when needed, so it does not have to stay awake for remote access
 
 ## 📱 iPhone-Native Interactions
 
