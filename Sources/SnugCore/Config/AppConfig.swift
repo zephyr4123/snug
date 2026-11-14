@@ -12,13 +12,15 @@ public struct AppConfig: Codable, Equatable, Sendable {
     public var welcomed = false
     /// 从哪检查和下载更新。UU远程 的用户基本在国内，默认腾讯云
     public var updateSource = UpdateSource.tencent
+    /// 上次运行的版本：和这次不一样说明刚换了版本，启动时弹「关于 Snug」
+    public var lastVersion: Version?
 
     public static let zoomStepsRange = 0...4
 
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case phoneScreen, gestures, zoomSteps, welcomed, updateSource
+        case phoneScreen, gestures, zoomSteps, welcomed, updateSource, lastVersion
     }
 
     // 每一项都有默认值：以后加字段、或者手改漏了某项，都不会让整份配置被判为损坏
@@ -31,5 +33,6 @@ public struct AppConfig: Codable, Equatable, Sendable {
         welcomed = try c.decodeIfPresent(Bool.self, forKey: .welcomed) ?? d.welcomed
         // 不认识的更新源（更新的版本加的、降级回来）用默认值
         updateSource = (try? c.decodeIfPresent(UpdateSource.self, forKey: .updateSource)) ?? d.updateSource
+        lastVersion = try? c.decodeIfPresent(Version.self, forKey: .lastVersion)
     }
 }

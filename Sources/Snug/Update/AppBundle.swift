@@ -2,6 +2,7 @@
 import Darwin
 import Foundation
 import Security
+import SnugCore
 
 enum AppBundle {
     /// 新版本要满足正在运行的这份的指定要求：同一个应用标识、同一个开发者团队，签名完好。
@@ -18,6 +19,12 @@ enum AppBundle {
         try check(SecStaticCodeCreateWithPath(app as CFURL, [], &incoming))
         let flags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSStrictValidate | kSecCSCheckNestedCode)
         try check(SecStaticCodeCheckValidity(incoming!, flags, requirement))
+    }
+
+    /// 应用包 Info.plist 里的版本号。核过签名再读：Info.plist 在签名范围内，读到的才可信
+    static func version(of app: URL) -> Version? {
+        let info = NSDictionary(contentsOf: app.appendingPathComponent("Contents/Info.plist"))
+        return (info?["CFBundleShortVersionString"] as? String).flatMap(Version.init)
     }
 
     /// 两个目录原子对调（同一个磁盘上一步完成）：要么都换了，要么都没动

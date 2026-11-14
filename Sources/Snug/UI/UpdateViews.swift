@@ -6,7 +6,7 @@ import SnugCore
 
 extension UpdateState {
     /// 一句话的状态：「关于 Snug」里软件更新那一行的说明
-    @MainActor var summary: String {
+    var summary: String {
         switch phase {
         case .checking: return "检查中"
         case .downloading(let fraction): return "下载中 \(Int(fraction * 100))%"
@@ -33,7 +33,8 @@ struct UpdateSection: View {
             LabeledContent {
                 action
             } label: {
-                SettingLabel("软件更新", detail: state.update.summary, symbol: "arrow.down", tint: .blue)
+                SettingLabel("软件更新", detail: state.update.summary, warning: state.update.problem != nil,
+                             symbol: "arrow.down", tint: .blue)
             }
             LabeledContent {
                 Picker("更新源", selection: Binding(get: { state.config.updateSource }, set: { intents.setUpdateSource($0) })) {
@@ -58,16 +59,18 @@ struct UpdateSection: View {
         case .downloading(let fraction):
             ProgressView(value: fraction).frame(width: 96)
         case .idle:
-            if update.problem?.needsDownload == true {
-                Button("前往下载") { intents.openDownloadPage() }
-            } else if update.available != nil {
-                HStack(spacing: 12) {
+            HStack(spacing: 12) {
+                if update.available != nil {
                     Button("更新内容") { navigation.openUpdate() }.buttonStyle(.link)
+                }
+                if update.problem?.needsDownload == true {
+                    Button("前往下载") { intents.openDownloadPage() }
+                } else if update.available != nil {
                     Button(update.problem == nil ? "立即更新" : "重试") { intents.installUpdate() }
                         .buttonStyle(.borderedProminent)
+                } else {
+                    Button("检查更新") { intents.checkForUpdates() }.disabled(Updater.current == nil)
                 }
-            } else {
-                Button("检查更新") { intents.checkForUpdates() }.disabled(Updater.current == nil)
             }
         }
     }
@@ -90,26 +93,33 @@ struct UpdateView: View {
                         .frame(width: 48, height: 48)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("新版本 \(feed.version.description)").font(.title3.bold())
-                        Text("当前 \(current.description) · 共 \(notes.count) 个新版本").foregroundStyle(.secondary)
+                        Text(notes.count > 1 ? "当前 \(current.description) · 共 \(notes.count) 个新版本" : "当前 \(current.description)")
+                            .foregroundStyle(.secondary)
                     }
                 }
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        ForEach(Array(notes.enumerated()), id: \.element.version) { index, note in
-                            if index > 0 { Divider() }
-                            ReleaseNoteView(note: note)
-                        }
-                    }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                // 内容少时按内容高度，多了封顶 240 再滚动
+                ViewThatFits(in: .vertical) {
+                    noteList(notes)
+                    ScrollView { noteList(notes) }
                 }
-                .frame(height: 240)
+                .frame(maxHeight: 240)
                 .background(.fill.quaternary, in: .rect(cornerRadius: 10))
                 footer
             }
             .padding(20)
             .frame(width: 480)
         }
+    }
+
+    private func noteList(_ notes: [ReleaseNote]) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ForEach(Array(notes.enumerated()), id: \.element.version) { index, note in
+                if index > 0 { Divider() }
+                ReleaseNoteView(note: note)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// 底部：没开始时是按钮，进行中是进度，没成时写明原因并给出下一步
@@ -193,21 +203,12 @@ final class UpdateWindowController {
         self.intents = intents
     }
 
-    func show() {
+    func show(activating: Bool) {
         guard let current = Updater.current else { return }
         if window == nil {
             let view = UpdateView(state: state, current: current, intents: intents) { [weak self] in self?.window?.close() }
-            let hosting = NSHostingController(rootView: view)
-            hosting.sizingOptions = [.preferredContentSize]
-            let w = NSWindow(contentViewController: hosting)
-            w.title = "软件更新"
-            w.styleMask = [.titled, .closable]
-            w.isReleasedWhenClosed = false
-            w.setContentSize(hosting.view.fittingSize)
-            w.center()
-            window = w
+            window = NSWindow(hosting: view, title: "软件更新")
         }
-        NSApp.activate()
-        window?.makeKeyAndOrderFront(nil)
+        window?.present(activating: activating)
     }
 }

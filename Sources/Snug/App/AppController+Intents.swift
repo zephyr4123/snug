@@ -48,11 +48,19 @@ extension AppController: AppIntents {
 
     func markWelcomed() { changeConfig("看过欢迎页") { $0.welcomed = true } }
 
+    /// 记下这次运行的版本，交回是不是刚换了版本（应用内更新或手动替换）。第一次记的不算
+    func recordVersion() -> Bool {
+        guard let current = Updater.current, state.config.lastVersion != current else { return false }
+        let previous = state.config.lastVersion
+        changeConfig("运行版本 → \(current)") { $0.lastVersion = current }
+        return previous != nil
+    }
+
     func quitLegacyApp() { LegacyApp.quit() }
 
     func quit() { onQuitRequested?() }
 
-    func checkForUpdates() { updater.check() }
+    func checkForUpdates() { updater.check(userInitiated: true) }
 
     func installUpdate() { updater.install() }
 

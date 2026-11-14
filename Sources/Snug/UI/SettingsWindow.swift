@@ -48,16 +48,20 @@ struct SettingsView: View {
                 }
             }
             Section {
-                HStack(spacing: 8) {
-                    Button("关于 Snug", systemImage: "info.circle") { navigation.openAbout() }
-                    if let feed = state.update.available {
-                        // 有新版本：在「关于 Snug」旁边标一下，更新在那里面
-                        Text("新版本 \(feed.version.description)")
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(.blue, in: Capsule())
+                HStack {
+                    Button { navigation.openAbout() } label: {
+                        HStack(spacing: 8) {
+                            Label("关于 Snug", systemImage: "info.circle")
+                            // 有新版本：标在「关于 Snug」上，更新在那里面
+                            if state.update.hasNewVersion {
+                                Text(["新版本", state.update.available?.version.description].compactMap { $0 }.joined(separator: " "))
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(.blue, in: Capsule())
+                            }
+                        }
                     }
                     Spacer()
                     Button("退出 Snug", systemImage: "power") { intents.quit() }
@@ -143,18 +147,9 @@ final class SettingsWindowController {
 
     func show() {
         if window == nil, let navigation {
-            // NSHostingController 做内容控制器：窗口高度跟着内容（提示出现、消失）自动变
-            let hosting = NSHostingController(rootView: SettingsView(state: state, intents: intents, navigation: navigation))
-            hosting.sizingOptions = [.preferredContentSize]
-            let w = NSWindow(contentViewController: hosting)
-            w.styleMask = [.titled, .closable, .miniaturizable]
-            w.title = "Snug 设置"
-            w.isReleasedWhenClosed = false
-            w.setContentSize(hosting.view.fittingSize)   // 先定尺寸再居中，否则按 0×0 居中会偏
-            w.center()
-            window = w
+            window = NSWindow(hosting: SettingsView(state: state, intents: intents, navigation: navigation),
+                              title: "Snug 设置", style: [.titled, .closable, .miniaturizable])
         }
-        NSApp.activate()
-        window?.makeKeyAndOrderFront(nil)
+        window?.present(activating: true)
     }
 }

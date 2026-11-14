@@ -29,16 +29,15 @@ struct UpdateClient: Sendable {
         var request = URLRequest(url: url)
         request.setValue("bytes=\(range.lowerBound)-\(range.upperBound - 1)", forHTTPHeaderField: "Range")
         let (bytes, response) = try await Self.immediate.bytes(for: request)
-        // 206 是只回了这一段；200 是不认字节范围、回了整个文件（有的代理会这样），从里面截
-        let whole = (response as? HTTPURLResponse)?.statusCode == 200
-        if !whole { try Self.expect(response, 206) }
-        var data = Data(capacity: whole ? range.upperBound : range.count)
+        // GitHub（跟着跳转到存放附件的地方）和国内源都按字节范围回 206；不认字节范围的当成取不到
+        try Self.expect(response, 206)
+        var data = Data()
         for try await byte in bytes {
             data.append(byte)
-            if data.count % 65_536 == 0 { await progress(min(data.count, range.count)) }
+            if data.count % 65_536 == 0 { await progress(data.count) }
         }
-        await progress(range.count)
-        return whole && data.count >= range.upperBound ? data[range] : data
+        await progress(data.count)
+        return data
     }
 
     private static func expect(_ response: URLResponse, _ status: Int) throws {

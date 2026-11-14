@@ -4,12 +4,15 @@ import SwiftUI
 struct SettingLabel: View {
     let title: String
     var detail: String?
+    /// 说明是要用户注意的问题：橙色、带警示图标，和正常状态区分开
+    var warning = false
     let symbol: String
     let tint: Color
 
-    init(_ title: String, detail: String? = nil, symbol: String, tint: Color) {
+    init(_ title: String, detail: String? = nil, warning: Bool = false, symbol: String, tint: Color) {
         self.title = title
         self.detail = detail
+        self.warning = warning
         self.symbol = symbol
         self.tint = tint
     }
@@ -23,7 +26,11 @@ struct SettingLabel: View {
                 .background(tint.gradient, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                if let detail { Text(detail).font(.callout).foregroundStyle(.secondary) }
+                if let detail, warning {
+                    Label(detail, systemImage: "exclamationmark.triangle.fill").font(.callout).foregroundStyle(.orange)
+                } else if let detail {
+                    Text(detail).font(.callout).foregroundStyle(.secondary)
+                }
             }
         }
     }

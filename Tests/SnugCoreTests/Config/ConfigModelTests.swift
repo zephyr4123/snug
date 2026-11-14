@@ -12,6 +12,7 @@ struct ConfigModelTests {
         #expect(c.zoomSteps == 2)
         #expect(!c.welcomed)
         #expect(c.updateSource == .tencent)
+        #expect(c.lastVersion == nil)
     }
 
     @Test("不认识的更新源（比如更新的版本写的）用默认值，不把整份配置判为损坏")
@@ -45,6 +46,7 @@ struct ConfigModelTests {
         c.zoomSteps = 3
         c.welcomed = true
         c.updateSource = .github
+        c.lastVersion = Version(major: 2, minor: 1, patch: 0)
         #expect(try JSONDecoder().decode(AppConfig.self, from: JSONEncoder().encode(c)) == c)
     }
 }

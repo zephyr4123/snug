@@ -19,7 +19,16 @@ final class WindowRouter: Navigation {
 
     func openWelcome() { welcome.show() }
     func openAbout() { about.show() }
-    func openUpdate() { update.show() }
+    func openUpdate() { showUpdate(activating: true) }
+
+    /// 查到新版本：能自动更新的弹更新窗口（讲落下了哪几版）；只能手动下载的没有更新日志可看，弹「关于 Snug」
+    func showUpdate(activating: Bool) {
+        if controller.state.update.available != nil {
+            update.show(activating: activating)
+        } else {
+            about.show(activating: activating)
+        }
+    }
 
     /// 第一次打开：欢迎页关掉后记下「看过了」
     func showFirstWelcome() {

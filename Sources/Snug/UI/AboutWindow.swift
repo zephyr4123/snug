@@ -24,11 +24,6 @@ struct AboutView: View {
                author: "huberdf", usage: "虚拟屏接口声明"),
     ]
 
-    /// 版本号来自 Info.plist（scripts/snug 打包时从仓库根目录的 VERSION 写入）；调试运行时没有
-    static var version: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "开发版"
-    }
-
     var body: some View {
         Form {
             Section {
@@ -39,7 +34,7 @@ struct AboutView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text("Snug").font(.title2.bold())
-                            Text(Self.version).foregroundStyle(.secondary).monospacedDigit()
+                            Text(Updater.current?.description ?? "开发版").foregroundStyle(.secondary).monospacedDigit()
                         }
                         Text("手机远程 Mac 的显示与触控增强")
                         Link("github.com/zephyr4123/snug", destination: URL(string: "https://github.com/zephyr4123/snug")!)
@@ -85,20 +80,10 @@ final class AboutWindowController {
         self.navigation = navigation
     }
 
-    func show() {
+    func show(activating: Bool = true) {
         if window == nil, let navigation {
-            // 和设置窗口一样：高度跟着内容（更新进度、出错提示）自动变
-            let hosting = NSHostingController(rootView: AboutView(state: state, intents: intents, navigation: navigation))
-            hosting.sizingOptions = [.preferredContentSize]
-            let w = NSWindow(contentViewController: hosting)
-            w.title = "关于 Snug"
-            w.styleMask = [.titled, .closable]
-            w.isReleasedWhenClosed = false
-            w.setContentSize(hosting.view.fittingSize)
-            w.center()
-            window = w
+            window = NSWindow(hosting: AboutView(state: state, intents: intents, navigation: navigation), title: "关于 Snug")
         }
-        NSApp.activate()
-        window?.makeKeyAndOrderFront(nil)
+        window?.present(activating: activating)
     }
 }

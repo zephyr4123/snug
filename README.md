@@ -103,7 +103,7 @@ UU远程 手机端沿用触控板的手势逻辑；Snug 在手机屏上按手机
 
 完成后 Snug 常驻菜单栏，此后无需任何操作。需要查看状态时，再次打开 Snug 即弹出设置。
 
-**更新**：Snug 每次启动时检查新版本，有更新时列出各版本的更新内容，确认后一键完成。只下载有变化的部分，设置与授权保留。也可在「关于 Snug」中手动检查，或将更新源切换为腾讯云或 GitHub。应用内更新自 2.1.0 起提供，更早的版本请手动下载替换。
+**更新**：Snug 每次启动时检查新版本，有更新时列出各版本的更新内容，确认后一键完成。只下载有变化的部分，设置与授权保留。也可在「关于 Snug」中手动检查，或切换更新源（腾讯云、GitHub）。应用内更新自 2.1.0 起提供，更早的版本请手动下载替换。
 
 <div align="center">
 <img src="https://dl.zephyrxiang.com/snug/media/welcome.57ad51da.png" width="45%" alt="欢迎页"> <img src="https://dl.zephyrxiang.com/snug/media/settings-ready.482119c9.png" width="45%" alt="设置">

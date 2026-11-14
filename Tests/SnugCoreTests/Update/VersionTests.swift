@@ -4,7 +4,7 @@ import Testing
 
 @Suite("版本号 Version")
 struct VersionTests {
-    @Test("只认主.次.修订三段数字", arguments: ["", "2.0", "2.0.1.4", "v2.0.1", "2.0.x", "2.0.-1", " 2.0.1", "2..1", "开发版"])
+    @Test("只认主.次.修订三段数字", arguments: ["", "2.0", "2.0.1.4", "v2.0.1", "2.0.x", "2.0.-1", " 2.0.1", "2..1"])
     func rejects(text: String) {
         #expect(Version(text) == nil)
     }

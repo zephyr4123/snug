@@ -41,7 +41,6 @@ final class AppController {
         state.accessibilityTrusted = AX.isTrusted
         updater = Updater(state: state)
         AX.configureTimeout()
-        updater.onInstalled = { [weak self] in self?.quit() }
     }
 
     var now: Date { anchor.date.addingTimeInterval(ProcessInfo.processInfo.systemUptime - anchor.uptime) }

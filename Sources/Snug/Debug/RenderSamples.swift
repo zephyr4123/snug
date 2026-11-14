@@ -40,6 +40,7 @@ enum RenderSamples {
                 s.phone.placed = PhoneDesk.Placed(window: windows[0], zoom: 2)
             },
             setting("settings-update-available") { s in s.update.check = .available(sampleFeed) },
+            setting("settings-update-too-old") { s in s.update.problem = .tooOld },
             setting("settings-trouble") { s in
                 s.accessibilityTrusted = false
                 s.legacyAppRunning = true
@@ -112,6 +113,7 @@ enum RenderSamples {
                 u.check = .available(sampleFeed)
                 u.problem = .cannotReplace
             },
+            aboutSample("about-too-old") { $0.problem = .tooOld },
         ]
     }
 
@@ -131,15 +133,17 @@ enum RenderSamples {
             updateSample("update-installing-dark", dark: true) { $0.phase = .installing },
             updateSample("update-corrupt") { $0.problem = .corrupt },
             updateSample("update-cannot-replace") { $0.problem = .cannotReplace },
+            updateSample("update-one-behind", current: Version(major: 2, minor: 1, patch: 1)) { _ in },
         ]
     }
 
-    private static func updateSample(_ name: String, dark: Bool = false, _ configure: @escaping (inout UpdateState) -> Void) -> RenderSample {
+    private static func updateSample(_ name: String, dark: Bool = false, current: Version = sampleCurrent,
+                                     _ configure: @escaping (inout UpdateState) -> Void) -> RenderSample {
         RenderSample(name: name, dark: dark) {
             let s = AppState()
             s.update.check = .available(sampleFeed)
             configure(&s.update)
-            return AnyView(UpdateView(state: s, current: sampleCurrent, intents: stub, close: {}))
+            return AnyView(UpdateView(state: s, current: current, intents: stub, close: {}))
         }
     }
 
