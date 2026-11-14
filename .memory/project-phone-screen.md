@@ -23,6 +23,7 @@ metadata:
 - 主人手机实测：换档时 UU **不重建推流**（日志里没有 SCStream 停/起），画面平滑缩一下；四角点击全部命中；UU 支持双指放大
 - 原生全屏绕不过最小宽度（740 的窗口在 540 屏上全屏仍是 740）；辅助功能没有「最小尺寸」属性，只能按 540 铺、读回实际大小
 - 新身份第一次上线是最宽一档，之后按系统记住的那一档上线，所以建屏后要切回 540
+- **UU 停推流时会把每块屏按推流开始时的模式恢复一遍**（UURemoteServer 调 `SLSCompleteDisplayConfigurationWithOption: kCGSConfigureForSession`），手机屏会被拨回旧档；Snug 的复查 1.5 秒内切回来。只发生在断开、或在 UU 里切去别的屏时，手机上看不到，不用改。系统还按「这组屏幕」各记一份模式，加一块屏也会把手机屏拨回去；用 `.permanently` 切也一样，别再试
 - 旧身份的两个 ICC（`Snug 手机屏-0AD98A6A…`、`-0AF3DF3D…`）和 `Snug 实验屏-63B1145C…` 已不用，删要主人 sudo
 
 相关：[[project-product]]
