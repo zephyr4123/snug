@@ -10,7 +10,7 @@ metadata:
 
 2026-11-13 主人定的：安装包要有国内源（以后官网也从这里取，GitHub Release 照留）；README 的图片、视频也放这里，用原画质。
 
-- **摆法**：前缀 `https://dl.zephyrxiang.com/snug/`，和 SpeakMore 发布包同一个桶（桶名、地域、凭据名在不进 git 的 `.machine.env`，这份记忆会公开，别写进来）。`v<版本>/` 发过不改；`latest/Snug.dmg` 是固定的最新版地址，缓存 5 分钟、只往新版本换；`media/<名>.<指纹>.<后缀>` 放 README 媒体
+- **摆法**：前缀 `https://dl.zephyrxiang.com/snug/`，和 SpeakMore 发布包同一个桶（桶名、地域、凭据名在不进 git 的 `.machine.env`，这份记忆会公开，别写进来）。`v<版本>/` 发过不改；`latest/Snug.dmg` 是固定的最新版地址，缓存 5 分钟、只往新版本换；2.1.0 起 `v<版本>/` 下多 `Snug-<版本>.pack` 和 `update.json`，`latest/update.json` 是 App 检查更新的地址（同样只往新版本换）；`media/<名>.<指纹>.<后缀>` 放 README 媒体
 - **命令**：`ship` 发版时自动传；`mirror <版本>` 补传 GitHub 上已公开的版本；`media <文件…>` 传媒体并打出地址。对象都带 sha256 元数据，重跑一样就跳过、不一样就拒绝
 - **README 媒体**：GitHub 会删掉 `<video>`，录屏在 README 里用 animated WebP，完整 MP4 用链接给（链接不走代理，没有大小限制）。README 里的外链图片一律经 GitHub 图片代理转发，大小上限在代理而不在 COS：开源 camo 默认 5 MiB，4.97 MB 实测能取到，更大的没试过。代理原样转发字节，不会再压缩
 - **动图体积**：几乎全花在整屏滚动的帧上（每帧约 50 KB，打字、弹键盘的帧约 7 KB）；超了先用 img2webp 逐帧 `-q` 只降滚动段，宽度 540 在 README 30% 宽下看不出差别
