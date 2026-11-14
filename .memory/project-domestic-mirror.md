@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: f97709de-705a-489b-bb7a-7353b1fba51c
-  modified: 2026-11-13T15:09:49.658Z
+  modified: 2026-11-14T12:01:10.683Z
 ---
 
 2026-11-13 主人定的：安装包要有国内源（以后官网也从这里取，GitHub Release 照留）；README 的图片、视频也放这里，用原画质。
@@ -16,6 +16,7 @@ metadata:
 - **动图体积**：几乎全花在整屏滚动的帧上（每帧约 50 KB，打字、弹键盘的帧约 7 KB）；超了先用 img2webp 逐帧 `-q` 只降滚动段，宽度 540 在 README 30% 宽下看不出差别
 - **录屏打码**：按字符范围定位（Vision `boundingBox(for:)`），只糊「用户名@机器名」那一截，敲的命令照常露出；逐帧识别复查，并拿没打码的原画做正对照，证明识别在该尺寸下认得出来
 - **CDN**：防盗链关着（GitHub 图片代理才取得到）；每小时 4 GB 的流量上限和费用跟 SpeakMore 共用，SpeakMore 的下载统计按它自己的文件名认，不会算进 Snug
+- **看下载量**（主人问了才查）：GitHub 用 releases API 的 download_count，含少量发版核对、扣不干净；国内源没有现成命令，先在 SpeakMore 仓库跑一次它的 stats 刷新 `.stats/logs` 里同域名的访问日志缓存（只读），再筛 `/snug/`，按「字节 ÷ 包大小」折算、同 IP 同天最多算 1 次、本机出口算自测。curl 拉包的不能当自测：2026-11-14 宣传片后十几个不同来源用 curl 下载，还去找 `latest/` 下的校验文件，多半是用户让 AI 助手装的
 - **证书**：`dl.zephyrxiang.com` 的免费证书 2027-01-12 到期，续期记在 SpeakMore 的记忆里；不换，两个项目的下载会一起断
 - 上传用的是主账号密钥，以后可换成只能写 `snug/` 前缀的子账号密钥（未做）
 

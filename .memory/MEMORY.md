@@ -13,3 +13,4 @@
 - [对外文案](feedback-doc-writing.md) — 书面语、提炼不照抄；分点、图文对应；打码只糊必要的一小块
 - [直接修不建 issue](feedback-direct-fix-no-issues.md) — bug 直接修、重构直接做，追溯靠 commit 信息
 - [Workflow 规模](feedback-workflow-scale.md) — agent 5 个左右、两段链路，不搞反驳者扇出
+- [宣传片](feedback-promo-video.md) — 在 kineto 做：发布会式快节奏、代码画为主、场景可演绎细节必须真；给 kineto 只给方向
