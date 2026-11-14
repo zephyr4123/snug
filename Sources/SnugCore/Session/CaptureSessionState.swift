@@ -57,10 +57,12 @@ public struct CaptureSessionState: Sendable {
     }
 
     /// 日志监听（重新）启动时：先按时间回放启动前的日志（UU 的常驻推流只在远程开头打一次「开始」，不回放就以为没在推），
-    /// 再接上启动后收到的；两段重叠的部分按时间去掉
-    public static func resumed(history: [CaptureLogRecord], live: [CaptureLogRecord]) -> CaptureSessionState {
+    /// 再接上启动后收到的；两段重叠的部分按时间去掉。
+    /// 启动前的日志只认 server（此刻的 UURemoteServer 进程）打的：进程崩溃时不留停流日志，上一个进程的「开始」
+    /// 永远等不到「停止」，放进来会一直算推流中。server 为 nil（没在运行）时启动前的日志一条不认
+    public static func resumed(history: [CaptureLogRecord], live: [CaptureLogRecord], server: pid_t?) -> CaptureSessionState {
         var state = CaptureSessionState()
-        for r in history { state.apply(r) }
+        for r in history where server != nil && r.processID == server { state.apply(r) }
         let after = history.last?.date ?? .distantPast
         for r in live where r.date > after { state.apply(r) }
         return state

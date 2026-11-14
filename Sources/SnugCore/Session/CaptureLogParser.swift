@@ -22,10 +22,13 @@ public enum CaptureLogEvent: Equatable, Sendable {
 public struct CaptureLogRecord: Equatable, Sendable {
     public let date: Date
     public let event: CaptureLogEvent
+    /// 打这条日志的 UURemoteServer 进程号；读不到为 nil
+    public let processID: pid_t?
 
-    public init(date: Date, event: CaptureLogEvent) {
+    public init(date: Date, event: CaptureLogEvent, processID: pid_t? = nil) {
         self.date = date
         self.event = event
+        self.processID = processID
     }
 }
 
@@ -53,7 +56,8 @@ public struct CaptureLogParser {
               let stamp = object["timestamp"] as? String,
               let date = formatter.date(from: stamp) else { return nil }
         if let process = object["processImagePath"] as? String, !process.hasSuffix("/" + UURemote.serverProcess) { return nil }
-        return Self.classify(message).map { CaptureLogRecord(date: date, event: $0) }
+        let processID = (object["processID"] as? Int).flatMap(pid_t.init(exactly:))
+        return Self.classify(message).map { CaptureLogRecord(date: date, event: $0, processID: processID) }
     }
 
     static func classify(_ message: String) -> CaptureLogEvent? {

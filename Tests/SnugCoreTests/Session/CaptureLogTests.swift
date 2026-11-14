@@ -38,8 +38,9 @@ private func activity(_ name: String, at probes: [String]) throws -> [String: Bo
 }
 
 private func message(_ text: String, process: String = "/Applications/UURemote.app/Contents/Helpers/UURemoteServer",
-                     at time: String = "19:01:43.417100") -> String {
-    let obj: [String: String] = ["timestamp": "2026-11-12 \(time)-0800", "processImagePath": process, "eventMessage": text]
+                     at time: String = "19:01:43.417100", processID: Int? = nil) -> String {
+    var obj: [String: Any] = ["timestamp": "2026-11-12 \(time)-0800", "processImagePath": process, "eventMessage": text]
+    obj["processID"] = processID
     return String(decoding: try! JSONSerialization.data(withJSONObject: obj), as: UTF8.self)
 }
 
@@ -196,9 +197,9 @@ struct CaptureLogTests {
     func resumedFromHistory() {
         let d = ts("22:00:00.000")
         let history = [
-            CaptureLogRecord(date: d, event: .displayDescribed(79)),
-            CaptureLogRecord(date: d.addingTimeInterval(0.1), event: .captureStarted),
-            CaptureLogRecord(date: d.addingTimeInterval(600), event: .captureStopped),
+            CaptureLogRecord(date: d, event: .displayDescribed(79), processID: 100),
+            CaptureLogRecord(date: d.addingTimeInterval(0.1), event: .captureStarted, processID: 100),
+            CaptureLogRecord(date: d.addingTimeInterval(600), event: .captureStopped, processID: 100),
         ]
         // 实时这段和回放的最后一条重叠，之后又开推
         let live = [
@@ -206,11 +207,37 @@ struct CaptureLogTests {
             CaptureLogRecord(date: d.addingTimeInterval(600.5), event: .displayDescribed(5)),
             CaptureLogRecord(date: d.addingTimeInterval(600.6), event: .captureStarted),
         ]
-        let s = CaptureSessionState.resumed(history: history, live: live)
+        let s = CaptureSessionState.resumed(history: history, live: live, server: 100)
         #expect(s.isActive(at: d.addingTimeInterval(700)))
         #expect(s.streamingDisplay(at: d.addingTimeInterval(700)) == 5)
         // 没有回放时（回看失败）只靠实时日志
-        #expect(CaptureSessionState.resumed(history: [], live: Array(live.prefix(1))).isActive(at: d.addingTimeInterval(700)) == false)
+        #expect(CaptureSessionState.resumed(history: [], live: Array(live.prefix(1)), server: 100).isActive(at: d.addingTimeInterval(700)) == false)
+    }
+
+    @Test("回放只认此刻的 UURemoteServer 进程：上一个进程崩溃前开的推流不算；服务端没在运行、读不到进程号的都不认")
+    func resumedIgnoresOtherProcesses() {
+        let d = ts("22:00:00.000")
+        // 进程 100 开推后崩溃，没留下停流的日志；现在的服务端是 200
+        let crashed = [
+            CaptureLogRecord(date: d, event: .displayDescribed(79), processID: 100),
+            CaptureLogRecord(date: d.addingTimeInterval(0.1), event: .captureStarted, processID: 100),
+        ]
+        let later = d.addingTimeInterval(600)
+        #expect(!CaptureSessionState.resumed(history: crashed, live: [], server: 200).isActive(at: later))
+        #expect(!CaptureSessionState.resumed(history: crashed, live: [], server: nil).isActive(at: later))
+        #expect(CaptureSessionState.resumed(history: crashed, live: [], server: 100).isActive(at: later))
+        let unknown = crashed.map { CaptureLogRecord(date: $0.date, event: $0.event) }
+        #expect(!CaptureSessionState.resumed(history: unknown, live: [], server: 100).isActive(at: later))
+        // 当前进程自己开的推流照样认
+        let current = crashed + [CaptureLogRecord(date: d.addingTimeInterval(300), event: .captureStarted, processID: 200)]
+        #expect(CaptureSessionState.resumed(history: current, live: [], server: 200).isActive(at: later))
+    }
+
+    @Test("解析时带上打日志的进程号，没有就是 nil")
+    func parsesProcessID() {
+        let p = CaptureLogParser()
+        #expect(p.parse(line: message(startCapture, processID: 18369))?.processID == 18369)
+        #expect(p.parse(line: message(startCapture))?.processID == nil)
     }
 
     @Test("按字节切行：一行切在两块里、一块里有多行、结尾半行等到 finish 才解析")
