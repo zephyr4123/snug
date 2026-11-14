@@ -4,6 +4,10 @@ import PackageDescription
 let package = Package(
     name: "Snug",
     platforms: [.macOS(.v14)],
+    products: [
+        .executable(name: "Snug", targets: ["Snug"]),
+        .executable(name: "snug-release", targets: ["SnugRelease"]),
+    ],
     dependencies: [
         // 权限引导：打开系统设置隐私页 + 拖拽授权悬浮面板（MIT，内置副本见 Vendor/PermissionFlow/VENDORED.md）
         .package(path: "Vendor/PermissionFlow"),
@@ -24,6 +28,8 @@ let package = Package(
                 .product(name: "PermissionFlow", package: "PermissionFlow"),
             ]
         ),
+        // 发版工具（只由 scripts/snug 调）：打更新包、写 update.json。和 App 共用 SnugCore 里的包格式
+        .executableTarget(name: "SnugRelease", dependencies: ["SnugCore"]),
         .testTarget(name: "SnugCoreTests", dependencies: ["SnugCore"], resources: [.copy("Fixtures")]),
     ]
 )

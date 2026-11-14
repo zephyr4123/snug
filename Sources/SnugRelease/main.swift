@@ -1,0 +1,89 @@
+// snug-release：发版时打更新包、写 update.json。只由 scripts/snug 调：
+//   snug-release pack <应用包> <版本> <目录>   dist：把公证过的 Snug.app 打成 Snug-<版本>.pack 和清单 update-package.json，
+//                                              再照清单拼一遍核对，拼出来的和原来的不一样就不交
+//   snug-release feed <版本> <目录>            ship：清单加上各版本的更新日志（取自标签说明），写成 update.json。
+//                                              放在 ship 而不是 dist：先打包、后打标签时，dist 那会儿还没有这一版的说明
+import Foundation
+import SnugCore
+
+/// 应用内更新从这一版起才有。更早的版本自己不会检查更新，它们的更新日志不用放进 update.json
+let firstUpdatable = Version(major: 2, minor: 1, patch: 0)
+let manifestName = "update-package.json"
+
+struct Failure: Error, CustomStringConvertible {
+    let description: String
+}
+
+let encoder: JSONEncoder = {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+    return encoder
+}()
+
+func pack(app: URL, version: Version, into dir: URL) throws {
+    let name = "Snug-\(version).pack"
+    let (package, data) = try UpdatePackage.make(app: app, file: name)
+    // 照清单从包里拼一遍，再把拼出来的重新打包：清单和包一字不差，才说明拼出来的就是原来的应用包
+    let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("snug-release-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: scratch) }
+    let assembled = scratch.appendingPathComponent("Snug.app")
+    try package.assemble(into: assembled, from: package.unpack(data, at: 0..<data.count))
+    guard try UpdatePackage.make(app: assembled, file: name) == (package, data) else {
+        throw Failure(description: "照清单拼出来的应用包和 \(app.path) 不一样")
+    }
+    try data.write(to: dir.appendingPathComponent(name))
+    try encoder.encode(package).write(to: dir.appendingPathComponent(manifestName))
+    let size = ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file)
+    print("更新包 \(name)：\(package.files.count) 个文件、\(package.chunks.count) 块、\(size)，照清单拼过一遍，一致")
+}
+
+func feed(version: Version, dir: URL) throws {
+    let package = try JSONDecoder().decode(UpdatePackage.self, from: Data(contentsOf: dir.appendingPathComponent(manifestName)))
+    let versions = try git("tag", "--list", "v*").split(separator: "\n").compactMap { Version(String($0.dropFirst())) }
+    let releases = try versions.filter { $0 >= firstUpdatable && $0 <= version }.sorted(by: >).map { v in
+        ReleaseNote(version: v, date: try git("tag", "--list", "--format=%(taggerdate:short)", "v\(v)"),
+                    tagMessage: try git("tag", "--list", "--format=%(contents)", "v\(v)"))
+    }
+    guard releases.first?.version == version else { throw Failure(description: "没有标签 v\(version)，更新日志取自标签说明") }
+    let feed = UpdateFeed(version: version, releases: releases, package: package)
+    try encoder.encode(feed).write(to: dir.appendingPathComponent("update.json"))
+    print("update.json：\(version)，更新日志 \(releases.count) 版（\(releases.map(\.version.description).joined(separator: "、"))）")
+}
+
+func git(_ arguments: String...) throws -> String {
+    let process = Process()
+    let output = Pipe()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+    process.arguments = ["git"] + arguments
+    process.standardOutput = output
+    try process.run()
+    let data = output.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
+    guard process.terminationStatus == 0 else {
+        throw Failure(description: "git \(arguments.joined(separator: " ")) 退出码 \(process.terminationStatus)")
+    }
+    return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+let usage = """
+用法：snug-release pack <应用包> <版本> <目录>
+      snug-release feed <版本> <目录>
+"""
+
+let arguments = Array(CommandLine.arguments.dropFirst())
+do {
+    switch (arguments.first, arguments.count) {
+    case ("pack", 4):
+        guard let version = Version(arguments[2]) else { throw Failure(description: "版本号不对：\(arguments[2])") }
+        try pack(app: URL(fileURLWithPath: arguments[1]), version: version, into: URL(fileURLWithPath: arguments[3]))
+    case ("feed", 3):
+        guard let version = Version(arguments[1]) else { throw Failure(description: "版本号不对：\(arguments[1])") }
+        try feed(version: version, dir: URL(fileURLWithPath: arguments[2]))
+    default:
+        FileHandle.standardError.write(Data("\(usage)\n".utf8))
+        exit(2)
+    }
+} catch {
+    FileHandle.standardError.write(Data("❌ snug-release：\(error)\n".utf8))
+    exit(1)
+}
