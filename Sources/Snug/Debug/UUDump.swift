@@ -18,14 +18,14 @@ enum UUDump {
             return 1
         }
         guard let rows = UUAccessibility.rows(pid: pid) else {
-            print("表格：读不到（UU远程 没有窗口，或界面超出遍历上限）→ 控制端按手机处理")
+            print("表格：读不到（UU远程 没有窗口、没响应，或界面超出遍历上限）→ 控制端按手机处理")
             return 0
         }
-        // 每行原文都打出来：认不出控制端时，看这里就知道 UU 此刻显示的是什么
-        print("表格：\(rows.count) 行")
+        // 打出所有表格行的文字：没认出控制端时，先看 UU 是不是停在别的页面
+        print("表格行：\(rows.count)")
         for texts in rows { print("  \(texts.joined(separator: " | "))") }
         guard case .shown(let names) = ControllerTable(rows: rows) else {
-            print("控制端：未识别（没被控时 UU 不显示控制端；远程中也这样，说明认不出 UU 的界面）→ 按手机处理")
+            print("控制端：未识别（UU 只在被控页显示控制端：远程中出现这一行，多半是主窗口停在首页、错误页；上面确实是被控页的行，才是认不出 UU 的界面）→ 按手机处理")
             return 0
         }
         print("控制端：")

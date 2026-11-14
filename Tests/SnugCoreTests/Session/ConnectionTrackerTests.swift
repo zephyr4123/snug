@@ -73,13 +73,14 @@ struct ConnectionTrackerTests {
         #expect(t.update(overlay, now: at(0.1)) == .connected(controller: nil))
     }
 
-    @Test("推流仍在时其余信号缺席也不断开；推流结束后从最后一次在场起 1.5s 判断开")
-    func captureVetoThenEnd() {
+    @Test("认出控制端后表格读不到、只剩推流：不断开、名字保留；停流后从最后一次在场起 1.5s 判断开")
+    func captureAloneAfterNameKeepsName() {
         var t = ConnectionTracker()
         _ = t.update(capture(true, .shown(["iPhone"])), now: at(0))
         for s in stride(from: 0.5, through: 10.0, by: 0.5) {
             #expect(t.update(capture(true), now: at(s)) == nil)
         }
+        #expect(t.controller == "iPhone")
         #expect(t.update(capture(false), now: at(10.5)) == nil)
         #expect(t.update(capture(false), now: at(11.5)) == nil)   // 距最后在场 10.0 恰 1.5
         #expect(t.update(capture(false), now: at(11.6)) == .disconnected)

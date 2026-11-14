@@ -153,6 +153,7 @@ rm ~/Library/LaunchAgents/com.corndog.uudisplay.watchdog-agent.plist
 | 部分窗口无法完全铺满 | 系统设置、Safari 等限定了最小宽度，窗口靠左放置 |
 | 字号放大仅限终端与编辑器 | Ghostty、终端、iTerm2、VS Code、Cursor、Zed；浏览器不做调整 |
 | 非网易官方软件 | 与 UU远程 及其开发商无关；UU远程 更新后部分功能可能受影响 |
+| 远程结束后手机屏偶尔未移除 | 推流停止未被系统日志记录时出现，菜单栏仍显示「远程中」；在设置中关闭手机屏即可还原 |
 
 各项限制的成因见 [工作原理](docs/how-it-works.md#已知限制的技术原因)。
 

@@ -137,10 +137,10 @@ struct PhoneDemandTests {
         #expect(!s.wantsPhoneScreen(now: at(5)))
     }
 
-    @Test("一直没拿到名字（表格读不到或没认出控制端）：等满 2 秒后按手机处理")
-    func unreadableNameGetsScreenAfterGrace() {
+    @Test("一直没拿到名字（表格读不到或没认出控制端）：等满 2 秒后按手机处理", arguments: [ControllerTable.unreadable, .unrecognized])
+    func namelessGetsScreenAfterGrace(table: ControllerTable) {
         var s = RemoteSession()
-        _ = s.update(overlayOnly, now: at(0))
+        _ = s.update(UUSignals(overlayVisible: true, controllers: table, captureActive: nil), now: at(0))
         #expect(!s.wantsPhoneScreen(now: at(1.9)))
         #expect(s.wantsPhoneScreen(now: at(2)))
     }
