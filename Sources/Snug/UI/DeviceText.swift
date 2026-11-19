@@ -9,9 +9,10 @@ extension DeviceChoice {
 }
 
 extension DeviceScreen {
-    var sizeText: String { "\(width) × \(height)" }
-    /// 自定义输入下面的说明（设置窗口、屏上的型号页共用）
-    static let customHint = "屏幕分辨率或比例，如 1080 × 2400、9 × 20"
+    func sizeText(in orientation: Orientation) -> String {
+        let size = dimensions(in: orientation)
+        return "\(size.width) × \(size.height)"
+    }
 }
 
 extension DeviceKind {
@@ -37,6 +38,11 @@ extension DeviceKind {
 
 extension Orientation {
     var title: String { self == .portrait ? "竖" : "横" }
+
+    /// 自定义输入的例子和这一方向上实际看到的宽、高一致
+    var customHint: String {
+        self == .portrait ? "屏幕分辨率或比例，如 1080 × 2400、9 × 20" : "屏幕分辨率或比例，如 2400 × 1080、20 × 9"
+    }
 }
 
 extension ScreenConfig {

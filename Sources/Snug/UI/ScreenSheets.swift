@@ -54,7 +54,7 @@ struct AddScreenSheet: View {
                         Text("添加后不能改")
                     }
                     LabeledContent("型号") {
-                        DeviceMenu(state: state, kinds: [kind], current: chosen) { device = $0 }
+                        DeviceMenu(state: state, kinds: [kind], current: chosen, orientation: orientation) { device = $0 }
                     }
                     LabeledContent {
                         TextField("名字", text: $name, prompt: Text(suggested))
@@ -114,7 +114,8 @@ struct ScreenDetailSheet: View {
     }
 
     private func content(_ screen: ScreenConfig) -> some View {
-        VStack(alignment: .leading, spacing: MacTokens.Space.l) {
+        let other = state.config.otherOrientation(for: screen)
+        return VStack(alignment: .leading, spacing: MacTokens.Space.l) {
             HStack(spacing: MacTokens.Space.m) {
                 StatusTile(MacTokens.IconTile.screen(symbol: screen.symbol))
                 VStack(alignment: .leading, spacing: MacTokens.Space.xxs) {
@@ -134,14 +135,32 @@ struct ScreenDetailSheet: View {
                     }
                     LabeledContent("型号") {
                         // 触屏和电脑之间不换（见 DeviceKind.swappableKinds）
-                        DeviceMenu(state: state, kinds: screen.device.kind.swappableKinds, current: screen.device) {
+                        DeviceMenu(state: state, kinds: screen.device.kind.swappableKinds, current: screen.device, orientation: screen.orientation) {
                             intents.setScreenDevice(id, $0)
                         }
                     }
-                    LabeledContent("方向") { Text(screen.orientation.title).foregroundStyle(.secondary) }
+                    LabeledContent("方向") {
+                        HStack(spacing: MacTokens.Space.m) {
+                            Text("\(screen.orientation.title)屏").foregroundStyle(.secondary)
+                            switch other {
+                            case .add(let direction):
+                                Button("添加\(direction.title)屏", action: useOtherOrientation)
+                            case .existing(let saved) where !saved.enabled:
+                                Button("启用\(saved.orientation.title)屏", action: useOtherOrientation)
+                            default: EmptyView()
+                            }
+                        }
+                    }
                 } footer: {
-                    Text("改型号当场换比例，不用重连。方向添加后不能改；改名下次远程时生效。")
-                        .font(.callout).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: MacTokens.Space.xs) {
+                        if case .existing(let saved) = other, saved.enabled {
+                            Text("转为\(saved.orientation.title)屏后，在 UU远程 的屏幕列表中选择「\(saved.name)」。")
+                        } else if other == .limitReached {
+                            Text("已达到 \(ScreenConfig.limit) 块屏幕上限，腾出位置后可添加另一方向。")
+                        }
+                        Text("改型号当场换比例，不用重连。改名下次远程时生效。")
+                    }
+                    .font(.callout).foregroundStyle(.secondary)
                 }
             }
             .sheetForm()
@@ -167,6 +186,16 @@ struct ScreenDetailSheet: View {
             }
         } message: {
             Text("远程中删除会马上撤掉这块屏，上面的窗口放回原处。")
+        }
+    }
+
+    private func useOtherOrientation() {
+        // 点按时再读配置：连按添加、或在另一处改过型号，都只操作此刻需要的那块屏。
+        guard let screen = state.screen(id) else { return }
+        switch state.config.otherOrientation(for: screen) {
+        case .add(let direction): intents.addScreen(orientation: direction, device: screen.device, name: "")
+        case .existing(let saved) where !saved.enabled: intents.setScreenEnabled(saved.id, true)
+        default: break
         }
     }
 }
@@ -202,16 +231,19 @@ struct DeviceMenu: View {
     let state: AppState
     let kinds: Set<DeviceKind>
     let current: DeviceChoice
+    let orientation: Orientation
     let choose: @MainActor (DeviceChoice) -> Void
     @State private var customizing = false
 
     var body: some View {
         let brands = state.devices.brands(in: kinds)
-        Menu(current.customScreen.map { "\(current.displayName) \($0.sizeText)" } ?? current.displayName) {
+        Menu(current.customScreen.map { "\(current.displayName) \($0.sizeText(in: orientation))" } ?? current.displayName) {
             ForEach(brands) { brand in
                 Menu(brand.label(mixed: kinds.count > 1)) {
                     ForEach(brand.models) { model in
-                        Toggle(model.name, isOn: Binding(get: { model.id == current.model }, set: { _ in choose(DeviceChoice(model)) }))
+                        let size = model.screen.sizeText(in: orientation)
+                        Toggle(model.name == size ? size : "\(model.name) · \(size)",
+                               isOn: Binding(get: { model.id == current.model }, set: { _ in choose(DeviceChoice(model)) }))
                     }
                 }
             }
@@ -220,7 +252,7 @@ struct DeviceMenu: View {
         }
         .fixedSize()
         .popover(isPresented: $customizing, arrowEdge: .bottom) {
-            CustomScreenForm(current: current) { screen in
+            CustomScreenForm(current: current, orientation: orientation) { screen in
                 customizing = false
                 // 自己填的沿用现在的类别
                 if let screen { choose(DeviceChoice(model: nil, screen: screen, kind: current.kind)) }
@@ -244,6 +276,7 @@ extension DeviceCatalog.Brand {
 /// 自己填分辨率：宽 × 高，横着填也行，比例也行（见 DeviceScreen.custom）
 private struct CustomScreenForm: View {
     let current: DeviceChoice
+    let orientation: Orientation
     /// 填好的分辨率；取消为 nil
     let done: (DeviceScreen?) -> Void
     @State private var width: Int?
@@ -261,7 +294,7 @@ private struct CustomScreenForm: View {
             }
             .textFieldStyle(.roundedBorder)
             .multilineTextAlignment(.center)
-            Text(current.kind == .computer ? "电脑上「显示器」设置里的分辨率，如 1920 × 1080" : DeviceScreen.customHint)
+            Text(current.kind == .computer ? "电脑上「显示器」设置里的分辨率，如 1920 × 1080" : orientation.customHint)
                 .font(.callout).foregroundStyle(.secondary)
             HStack {
                 Spacer()
@@ -275,9 +308,9 @@ private struct CustomScreenForm: View {
         .padding(MacTokens.Space.l)
         .frame(width: MacTokens.Size.resolutionPopoverWidth)
         .onAppear {
-            guard let screen = current.customScreen else { return }
-            width = screen.width
-            height = screen.height
+            guard let size = current.customScreen?.dimensions(in: orientation) else { return }
+            width = size.width
+            height = size.height
         }
     }
 }

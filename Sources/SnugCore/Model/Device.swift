@@ -68,6 +68,11 @@ public struct DeviceScreen: Codable, Hashable, Sendable {
         width > 0 && height > 0 && width <= height && (points ?? 1) > 0 && (notch ?? 0) >= 0
     }
 
+    /// 机型库和配置都存短边在前，界面按屏幕方向显示、回填宽和高
+    public func dimensions(in orientation: Orientation) -> (width: Int, height: Int) {
+        orientation == .portrait ? (width, height) : (height, width)
+    }
+
     /// 自己填的分辨率或比例：长短边填反了的换过来；没填、不是正数、大得离谱的不收
     public static func custom(_ a: Int?, _ b: Int?) -> DeviceScreen? {
         let range = 1...20000

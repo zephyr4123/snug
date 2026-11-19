@@ -32,6 +32,21 @@ public struct AppConfig: Codable, Equatable, Sendable {
 
     public init() {}
 
+    public enum OtherOrientation: Equatable, Sendable {
+        case add(Orientation)
+        case existing(ScreenConfig)
+        case limitReached
+    }
+
+    /// 转向时在 UU 中选另一块屏。已有同型号同方向的屏就复用，优先选开着的。
+    public func otherOrientation(for screen: ScreenConfig) -> OtherOrientation? {
+        guard screen.device.kind.isTouch else { return nil }
+        let direction: Orientation = screen.orientation == .portrait ? .landscape : .portrait
+        let matches = screens.filter { $0.device == screen.device && $0.orientation == direction }
+        if let existing = matches.first(where: \.enabled) ?? matches.first { return .existing(existing) }
+        return screens.count < ScreenConfig.limit ? .add(direction) : .limitReached
+    }
+
     /// 加一块屏：分配一段没用过的序列号，名字按型号起。已经有 ScreenConfig.limit 块就不加，返回 nil
     @discardableResult
     public mutating func addScreen(orientation: Orientation, device: DeviceChoice, name: String? = nil, now: Date = Date()) -> ScreenConfig? {

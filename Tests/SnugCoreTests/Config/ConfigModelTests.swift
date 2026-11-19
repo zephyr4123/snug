@@ -86,6 +86,40 @@ struct ConfigModelTests {
         #expect(c.screens.map(\.id) == [.phone, b.id, d.id])
     }
 
+    @Test("同一设备两种方向：已有的屏可以直接用；就算列表已满，也可以启用关着的另一方向")
+    func otherOrientation() {
+        var c = AppConfig()
+        let ipad = DeviceChoice(model: "Apple iPad mini（第 6 代）", screen: DeviceScreen(width: 1488, height: 2266, points: 744), kind: .tablet)
+        let portrait = c.addScreen(orientation: .portrait, device: ipad)!
+        let computer = c.addScreen(orientation: .landscape, device: DeviceChoice(model: nil, screen: ipad.screen, kind: .computer))!
+        #expect(c.otherOrientation(for: portrait) == .add(.landscape))
+        #expect(c.otherOrientation(for: computer) == nil)
+
+        let landscape = c.addScreen(orientation: .landscape, device: ipad, name: "书桌")!
+        #expect(c.otherOrientation(for: landscape) == .existing(portrait))
+        #expect(c.otherOrientation(for: portrait) == .existing(landscape))
+        #expect(c.otherOrientation(for: c.screens[0]) == .limitReached)
+        c.screens[3].enabled = false
+        #expect(c.otherOrientation(for: portrait) == .existing(c.screens[3]))
+    }
+
+    @Test("手动加过多块相同的横屏时，优先指向开着的那块")
+    func prefersEnabledOrientation() {
+        var c = AppConfig()
+        let phone = c.screens[0]
+        c.addScreen(orientation: .landscape, device: phone.device)
+        c.screens[1].enabled = false
+        let on = c.addScreen(orientation: .landscape, device: phone.device)!
+        #expect(c.otherOrientation(for: phone) == .existing(on))
+    }
+
+    @Test("横屏自定义的宽高重新打开时按填写方向显示，转成竖屏时共用同一份设备尺寸")
+    func orientedCustomDimensions() throws {
+        let screen = try #require(DeviceScreen.custom(2266, 1488))
+        #expect(screen.dimensions(in: .landscape) == (2266, 1488))
+        #expect(screen.dimensions(in: .portrait) == (1488, 2266))
+    }
+
     @Test("降级到 2.5 跑过再升级回来（屏幕列表和计数器都被 2.5 写盘丢掉）：新屏的号按时间往后排，不复用以前分过的")
     func serialsSurviveLostCounter() {
         let earlier = AppConfig.serialEpoch.addingTimeInterval(100 * 60)
