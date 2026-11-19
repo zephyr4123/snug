@@ -89,7 +89,7 @@ final class LeftBehindLedger {
     func repay(_ owed: Owed, window: WindowInfo, to original: CGRect) async {
         var entry = owed.entry
         if owed.record.zoom != 0 {
-            guard await windows.zoom(window.key, steps: -owed.record.zoom) else {
+            guard await windows.restoreZoom(window.key, appliedSteps: owed.record.zoom) else {
                 return Log.warn("\(window.label) 带着屏上的样子回来了，但字号缩不回（App 没响应），下一拍再试")
             }
             // 缩完先记账：挪的时候出事，下次不会再缩一遍

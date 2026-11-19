@@ -69,6 +69,8 @@ public final class VirtualDisplayService: VirtualDisplays {
 
     public func isOnline(_ id: DisplayID) -> Bool { Self.isOnline(id) }
 
+    public func isMirrored(_ id: DisplayID) -> Bool { CGDisplayIsInMirrorSet(id) != 0 }
+
     public func reshape(_ id: DisplayID, to fit: ScreenFit) async -> Bool {
         guard let display = displays[id] else {
             Log.warn("要换比例的屏 #\(id) 不是本进程建的")

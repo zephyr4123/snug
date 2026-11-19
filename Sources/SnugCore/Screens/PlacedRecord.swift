@@ -12,6 +12,8 @@ public struct PlacedRecord: Codable, Equatable, Sendable {
     public var label: String
     /// 原位（辅助功能坐标：左上原点）
     public var original: CGRect
+    /// 未设主屏时，记录原屏的原点。旧记录仍可按原来的全局坐标还原。
+    var originalDisplay: DisplayAnchor?
     public var wasFullScreen: Bool
     public var wasMinimized: Bool
     /// 比原来放大了几级

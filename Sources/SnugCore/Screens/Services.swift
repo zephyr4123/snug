@@ -17,6 +17,7 @@ public protocol VirtualDisplays: AnyObject {
     func retire(_ id: DisplayID) async -> Bool
     /// 这块屏还在不在线（撤掉的屏真下线了没有）
     func isOnline(_ id: DisplayID) -> Bool
+    func isMirrored(_ id: DisplayID) -> Bool
     /// 此刻是哪一档（2 倍模式的宽度，点）；不是 2 倍、或屏不在了返回 nil
     func width(_ id: DisplayID) -> Int?
     /// 换到这一档的 2 倍模式（高按这块屏现在的比例），等界面认到新尺寸再返回。换不成只记日志：窗口照样能用，只是没铺满
@@ -70,6 +71,8 @@ public protocol WindowControl: Sendable {
     /// 给窗口所在的 App 发 ⌘= / ⌘-（steps 为负就缩小）。找不到窗口就不发，返回 false
     @discardableResult
     func zoom(_ window: WindowKey, steps: Int) async -> Bool
+    /// 撤销 Snug 的字号调整。支持恢复文本大小菜单的 App 可以按自己的配置复原。
+    func restoreZoom(_ window: WindowKey, appliedSteps: Int) async -> Bool
     /// App 此刻在屏上的标准窗口。等新窗口出现时 0.1 秒问一次，只问当前桌面空间，一次不到 1 毫秒
     func shownWindows(of pid: Int32) async -> [WindowInfo]
     /// App 在问用户的那个窗口：挂着「要存储吗」的文档窗口，或单独的对话框（多个文稿没存时的「要先检查吗」）
