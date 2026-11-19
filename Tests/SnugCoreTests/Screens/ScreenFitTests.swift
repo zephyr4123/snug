@@ -138,6 +138,28 @@ struct ScreenFitTests {
         #expect(tall.size(width: tall.baseWidth) == CGSize(width: 1080, height: 1920))
     }
 
+    @Test("自定义横屏按设备比例铺满：16:9、21:9、32:9 和 4:1", arguments: [16.0 / 9, 21.0 / 9, 32.0 / 9, 4])
+    func wideLandscape(aspect: Double) throws {
+        let device = try #require(DeviceScreen.custom(Int((aspect * 1440).rounded()), 1440))
+        for kind in [DeviceKind.tablet, .computer] {
+            let fit = ScreenFit(device: device, kind: kind, orientation: .landscape)
+            for width in fit.widths {
+                #expect(abs(fit.size(width: width).height - Double(width) / aspect) <= 0.5)
+            }
+        }
+    }
+
+    @Test("超过横屏像素上限可容纳的比例时，最宽一档仍然够高，所有档位可用 2 倍")
+    func widestLandscape() throws {
+        let screen = try #require(DeviceScreen.custom(20000, 1))
+        for kind in DeviceKind.allCases {
+            let fit = ScreenFit(device: screen, kind: kind, orientation: .landscape)
+            let first = try #require(fit.registrationOrder.first)
+            #expect(fit.size(width: first) == CGSize(width: 3072, height: 640))
+            #expect(fit.size(width: fit.baseWidth).height >= CGFloat(ScreenFit.minShortSide))
+        }
+    }
+
     @Test("装得下就不换（App 取整差一两点也算装得下）")
     func fits() {
         #expect(fit.width(toFit: baseArea, in: baseArea, at: 540) == 540)

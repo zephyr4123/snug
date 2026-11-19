@@ -24,12 +24,12 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
     public static let step = 10
     /// 竖屏高宽比的范围：最方到正方形（折叠屏内屏扣掉工具栏后比这还方），最长到 2（像素上限按它定）
     public static let portraitRatios: ClosedRange<Double> = 1...2
-    /// 横屏高宽比的范围：实测 0.46（手机横）到 0.695（iPad）都能用，留出余量
-    public static let landscapeRatios: ClosedRange<Double> = 0.3...1
     /// 像素上限：竖屏框住 1080 宽、比例 2 的最宽一档（和 2.5 以前一样，换比例时屏幕身份不变、不多出 ICC 文件）；
     /// 横屏框得住 6K 的 3008×1692 的 2 倍（V5：新身份当场上线）
     public static let portraitPixels = CGSize(width: 2160, height: 4320)
     public static let landscapePixels = CGSize(width: 6144, height: 3840)
+    /// 横屏最宽到 24:5。第一档登记最宽尺寸，按已有的上线余量保留至少三分之一的像素高度（见 registrationOrder）。
+    public static let landscapeRatios: ClosedRange<Double> = (landscapePixels.height / 3 / landscapePixels.width)...1
     /// 手机竖屏画面上下各让出的高度（点）。UU 底部工具栏 17 Pro Max 实测约 268 像素（89 点）；取 91 让 17 Pro Max 正好是
     /// 真机上调好的 540×950（取 89 是 540×955），多出的 2 点当余量
     static let uuInset: Double = 91
@@ -47,7 +47,7 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
     public let ratio: Double
     /// 基准宽度：App 资源库、能铺满的窗口都用它
     public let baseWidth: Int
-    /// 登记的档位：基准宽度到最宽一档，每 10 点一档
+    /// 登记的档位：从基准宽度起每 10 点一档，像素上限截断最后一步时也登记上限
     public let widths: [Int]
 
     /// 登记给系统时的顺序：最宽的在前。系统按第一档判断这块屏能不能上线，第一档比像素上限小太多时屏建好了却一直不上线
@@ -104,7 +104,10 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
         let threshold = max(minWidth, Int(((Double(minHeight) - 0.5) / ratio).rounded(.up)))
         let base = min(max(wanted ?? threshold, threshold), limit)
         baseWidth = base
-        widths = Array(stride(from: base, through: min(base * 2, limit), by: Self.step))
+        var steps = Array(stride(from: base, through: min(base * 2, limit), by: Self.step))
+        // 到像素上限时也把最后不足 10 点的一步走完，否则最宽的横屏可能差一两点才够登记高度。
+        if limit <= base * 2, steps.last != limit { steps.append(limit) }
+        widths = steps
     }
 
     /// 这一档的逻辑尺寸（点）
