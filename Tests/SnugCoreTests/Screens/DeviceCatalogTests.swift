@@ -55,6 +55,8 @@ struct DeviceCatalogTests {
             #"{"phone":[{"name":"A","models":[{"name":"X","screen":[1080,2400]}]},{"name":"a","models":[{"name":"Y","screen":[1080,2400]}]}]}"#,
             #"{"phone":[{"name":"A","models":[]}]}"#,
             #"{"phone":[{"name":"A","models":[{"name":"X","year":2024,"screen":[0,2400]}]}]}"#,
+            #"{"phone":[{"name":"A","models":[{"name":"X","legacyNames":["Y"],"screen":[1,2]},{"name":"y","screen":[1,2]}]}]}"#,
+            #"{"phone":[{"name":"A","models":[{"name":"X","legacyNames":[""],"screen":[1,2]}]}]}"#,
             "不是 JSON",
         ]
         for json in bad {
@@ -162,6 +164,38 @@ struct DeviceCatalogTests {
         #expect(c.resolve(gone) == gone)
         let custom = DeviceChoice(model: nil, screen: DeviceScreen(width: 9, height: 20))
         #expect(c.resolve(custom) == custom)
+    }
+
+    @Test("2.5 的 iPad mini 6 和新版存成手机的旧型号按平板尺寸建屏")
+    func legacyIPadFit() throws {
+        let device = #""model":"Apple iPad mini (6th generation)","screen":{"width":1488,"height":2266,"points":744}"#
+        let portrait = #"{"phone":{\#(device)}}"#
+        let landscape = """
+        {"screens":[{"id":"ipad","name":"iPad","enabled":true,"orientation":"landscape","serials":[12],
+                     "device":{"kind":"phone",\(device)}}]}
+        """
+        let catalog = try DeviceCatalog(contentsOf: Self.bundled)
+        for (json, size) in [(portrait, CGSize(width: 600, height: 914)), (landscape, CGSize(width: 914, height: 600))] {
+            let config = try JSONDecoder().decode(AppConfig.self, from: Data(json.utf8))
+            var screen = try #require(config.screens.first)
+            screen.device = catalog.resolve(screen.device)
+            #expect(screen.device.model == "Apple iPad mini（第 6 代）")
+            #expect(screen.device.kind == .tablet)
+            let fit = ScreenPlan.fit(of: screen)
+            #expect(fit.size(width: fit.baseWidth) == size)
+        }
+    }
+
+    @Test("旧 iPad 按型号对回机型库，同分辨率的其他型号和自定义尺寸各自保留")
+    func resolvesIPadsByName() throws {
+        let catalog = try DeviceCatalog(contentsOf: Self.bundled)
+        let screen = DeviceScreen(width: 1488, height: 2266, points: 744)
+        let newer = DeviceChoice(model: "Apple iPad mini (A17 Pro)", screen: screen)
+        #expect(catalog.resolve(newer).model == "Apple iPad mini（A17 Pro）")
+        let unknown = DeviceChoice(model: "Apple iPad mini (unknown)", screen: screen)
+        let custom = DeviceChoice(model: nil, screen: screen)
+        #expect(catalog.resolve(unknown) == unknown)
+        #expect(catalog.resolve(custom) == custom)
     }
 }
 

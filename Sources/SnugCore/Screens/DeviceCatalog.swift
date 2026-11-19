@@ -2,7 +2,7 @@
 // 机型库 Assets/device-models.json 是唯一的数据源，加机型、改数值都只改它；这里只管解码、校验和查找。
 // 文件按类别分三段（手机、平板、电脑），类别写在段上，一条机型不会漏写类别。
 // 用户选的那一台连同屏幕数值和类别一起存进配置（DeviceChoice）：启动时按机型名跟机型库对一遍（resolve），数值改过的跟着改；
-// 机型库改名、删了这一条，就用存下的数值兜底
+// 改过名的型号可以用旧名对回，查不到的型号用配置里存下的数值兜底
 import Foundation
 
 public struct DeviceCatalog: Equatable, Sendable {
@@ -19,10 +19,15 @@ public struct DeviceCatalog: Equatable, Sendable {
 
     /// 按文件里的顺序：手机、平板、电脑
     public let brands: [Brand]
+    /// 包括配置里可能存着的旧名。2.5 的 iPad 型号是英文，若查不到就会一直按手机扣掉工具栏。
+    private let modelsByID: [String: DeviceModel]
 
-    public static let empty = DeviceCatalog(brands: [])
+    public static let empty = DeviceCatalog()
 
-    init(brands: [Brand]) { self.brands = brands }
+    private init() {
+        brands = []
+        modelsByID = [:]
+    }
 
     /// 解码并校验机型库。不合格的条目整份拒收，并写明是哪一条、错在哪：机型库是随 App 发的，错了要在测试里拦下来
     public init(json: Data) throws {
@@ -33,6 +38,7 @@ public struct DeviceCatalog: Equatable, Sendable {
             throw DeviceCatalogError("解不开：\(error)")
         }
         var seen = Set<String>()
+        var modelsByID: [String: DeviceModel] = [:]
         var brands: [Brand] = []
         for kind in DeviceKind.allCases {
             var seenBrands = Set<String>()
@@ -44,16 +50,22 @@ public struct DeviceCatalog: Equatable, Sendable {
                     guard entry.screen.count == 2 else { throw DeviceCatalogError("\(brand.name) \(entry.name)：screen 要写成 [短边, 长边]") }
                     let model = DeviceModel(brand: brand.name, name: entry.name, kind: kind,
                                             screen: DeviceScreen(width: entry.screen[0], height: entry.screen[1], points: entry.points, notch: entry.notch))
-                    guard !entry.name.isEmpty, model.screen.isValid else {
+                    guard model.screen.isValid else {
                         throw DeviceCatalogError("\(model.id)：分辨率要是正数、短边在前")
                     }
-                    guard seen.insert(Self.normalized(model.id)).inserted else { throw DeviceCatalogError("\(model.id)：重复了") }
+                    for name in [entry.name] + (entry.legacyNames ?? []) {
+                        guard !Self.normalized(name).isEmpty else { throw DeviceCatalogError("\(model.id)：型号名不能为空") }
+                        let id = "\(brand.name) \(name)"
+                        guard seen.insert(Self.normalized(id)).inserted else { throw DeviceCatalogError("\(id)：重复了") }
+                        modelsByID[id] = model
+                    }
                     return model
                 }
                 brands.append(Brand(name: brand.name, aliases: brand.aliases ?? [], kind: kind, models: models))
             }
         }
         self.brands = brands
+        self.modelsByID = modelsByID
     }
 
     public init(contentsOf url: URL) throws {
@@ -66,10 +78,10 @@ public struct DeviceCatalog: Equatable, Sendable {
     public func brands(in kinds: Set<DeviceKind>) -> [Brand] { brands.filter { kinds.contains($0.kind) } }
 
     public func model(id: String) -> DeviceModel? {
-        models.first { $0.id == id }
+        modelsByID[id]
     }
 
-    /// 配置里存的那台按机型库现在的数值来：机型库改过这台的分辨率就用新的；改名、删了就用存下的数值（自己填的原样返回）
+    /// 配置里的型号按当前或历史名称对回机型库。自己填的和已找不到的型号沿用原值。
     public func resolve(_ choice: DeviceChoice) -> DeviceChoice {
         guard let id = choice.model, let model = model(id: id) else { return choice }
         return DeviceChoice(model)
@@ -96,8 +108,8 @@ public struct DeviceCatalog: Equatable, Sendable {
     }
 
     /// 文件的样子：{"phone": [品牌…], "tablet": [品牌…], "computer": [品牌…]}，
-    /// 品牌是 {"name", "aliases"?, "models": [{"name", "screen": [短边, 长边], "points"?, "notch"?, "year"}]}。
-    /// year 只给整理机型库的人看（按它从新到旧排），代码不读
+    /// 品牌是 {"name", "aliases"?, "models": [{"name", "legacyNames"?, "screen": [短边, 长边], "points"?, "notch"?, "year"}]}。
+    /// legacyNames 是旧配置用过的型号名（不带品牌），year 只用于整理时排序
     private struct File: Decodable {
         struct Brand: Decodable {
             let name: String
@@ -107,6 +119,7 @@ public struct DeviceCatalog: Equatable, Sendable {
 
         struct Model: Decodable {
             let name: String
+            let legacyNames: [String]?
             let screen: [Int]
             let points: Int?
             let notch: Int?
