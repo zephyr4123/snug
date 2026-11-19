@@ -275,7 +275,7 @@ struct DeskTests {
         #expect(retired - created >= ScreenSpec.minimumLifetime)
     }
 
-    @Test("不要手机屏了（会话结束）：窗口放回原位、字号缩回，再撤屏；记录销账")
+    @Test("不要手机屏了（会话结束）：先缩回字号，撤屏后放回原位；记录销账")
     func teardown() async throws {
         let rig = try Rig()
         await rig.ready()
@@ -285,8 +285,8 @@ struct DeskTests {
         rig.desk.setWanted(false)
         await rig.desk.idle()
         #expect(rig.journal.all == [
-            "zoom 7 -2 ✎", "move 7 \(ghosttyHome.short) ✎",
-            "snapshot", "retire 101", "restore",
+            "zoom 7 -2 ✎", "snapshot", "retire 101", "restore except 7",
+            "move 7 \(ghosttyHome.short) ✎",
         ])
         #expect(rig.windows.window(ghostty.key)?.frame == ghosttyHome)
         #expect(rig.record == nil)

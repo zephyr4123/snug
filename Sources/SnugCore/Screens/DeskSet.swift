@@ -153,7 +153,7 @@ public final class DeskSet {
                 desk.start(ticket)
                 busy.append(desk)
             }
-            await desk.vacate()
+            if let display = screens.display(desk.id) { await desk.vacate(from: display) }
             await clear(desk.id)
         }
         for wish in target where screens.display(wish.id) != nil && screens.fit(wish.id) != wish.fit {
@@ -193,11 +193,14 @@ public final class DeskSet {
         guard !main.intersects(bounds) else {
             return Log.warn("撤屏（\(id)）前屏上还有 \(stranded.count) 个窗口，主屏就是这块、找不到原来的主屏，挪不走")
         }
+        var moved = 0
         for (key, frame) in stranded.sorted(by: { ($0.key.pid, $0.key.id) < ($1.key.pid, $1.key.id) }) {
+            guard !screens.isWaitingToReturn(key), !screens.wasOnDesktopBeforeMirroring(key) else { continue }
+            moved += 1
             let target = main.centered(frame.size)
             if await windows.move(key, to: target) == nil { Log.warn("撤屏前挪不走 pid \(key.pid) 的窗口 \(key.id)（\(frame.short)）") }
         }
-        Log.info("撤屏（\(id)）前把屏上剩下的 \(stranded.count) 个窗口挪到主屏")
+        if moved > 0 { Log.info("撤屏（\(id)）前把屏上剩下的 \(moved) 个窗口挪到主屏") }
     }
 
     // MARK: 屏上的意图
@@ -215,6 +218,7 @@ public final class DeskSet {
     /// 转到电脑屏先在原来那块屏上放回原位、缩回字号（电脑屏不调字号）。从电脑屏转走，原位记录同样跟着走。
     /// 这块屏上怎么放归 Desk.place
     private func place(_ window: WindowInfo, on desk: Desk, zoom: Bool = true) async {
+        guard !screens.isWaitingToReturn(window.key) else { return desk.setNotice(.screenNotReady) }
         if let lender = desks.values.first(where: { $0 !== desk && $0.state.brought.contains(window.key) }),
            let record = lender.broughtRecord(of: window.key) {
             Log.info("\(window.label) 从电脑屏（\(lender.id)）转到屏（\(desk.id)），原位记录跟着走")
@@ -596,7 +600,7 @@ public final class DeskSet {
             await desk.placeOnItsOwn(back.window)
             return
         }
-        await env.leftBehind.repay(back.owed, window: back.window, to: screens.currentFrame(back.owed.record.original))
+        await env.leftBehind.repay(back.owed, window: back.window, to: screens.currentFrame(back.owed.record))
     }
 
     /// 退出前：放回窗口、撤掉所有屏，做完才返回

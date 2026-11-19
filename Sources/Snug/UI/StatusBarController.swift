@@ -8,6 +8,8 @@ import SwiftUI
 @MainActor
 final class StatusBarController: NSObject, NSMenuDelegate {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    private let menu = NSMenu()
+    private var clickedScreen: NSScreen?
     private let state: AppState
     private let intents: any AppIntents
     private let navigation: any Navigation
@@ -17,12 +19,54 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         self.intents = intents
         self.navigation = navigation
         super.init()
-        let menu = NSMenu()
         menu.delegate = self
         menu.autoenablesItems = false
-        item.menu = menu
-        item.button?.image = Self.icon
+        if let button = item.button {
+            button.image = Self.icon
+            button.target = self
+            button.action = #selector(showMenu)
+            button.sendAction(on: [.leftMouseDown, .rightMouseDown])
+        }
         refreshButton()
+    }
+
+    @objc private func showMenu(_ button: NSStatusBarButton) {
+        guard let anchor = menuAnchor(for: button) else { return }
+        let screen = NSScreen.screens.first { $0.frame.contains(anchor) } ?? button.window?.screen
+        // 先取点击坐标，等按钮结束处理这次事件，再开始菜单的事件循环。
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            button.highlight(true)
+            self.clickedScreen = screen
+            defer {
+                self.clickedScreen = nil
+                button.highlight(false)
+            }
+            // 给图标和菜单留出间距，避免浮层盖住图标的下缘。
+            self.menu.popUp(positioning: nil, at: NSPoint(x: anchor.x, y: anchor.y - 4), in: nil)
+        }
+    }
+
+    private func menuAnchor(for button: NSStatusBarButton) -> NSPoint? {
+        if let event = NSApp.currentEvent, event.type == .leftMouseDown || event.type == .rightMouseDown {
+            // 切屏后的第一次点击可能仍带着旧的状态栏窗口原点。用实际的点击位置重算图标左下角。
+            let mouse = NSEvent.mouseLocation
+            if let window = button.window, event.window === window {
+                let local = button.convert(event.locationInWindow, from: nil)
+                let bounds = button.bounds
+                if bounds.contains(local) {
+                    let bottomOffset = button.isFlipped ? bounds.maxY - local.y : local.y - bounds.minY
+                    return NSPoint(x: mouse.x - (local.x - bounds.minX), y: mouse.y - bottomOffset)
+                }
+            }
+            // 副屏的菜单栏副本可能从另一个窗口转发事件，那时只用指针所在屏。
+            if let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) {
+                return NSPoint(x: mouse.x, y: screen.frame.maxY - NSStatusBar.system.thickness)
+            }
+        }
+        // 键盘或辅助功能打开时没有有效的鼠标事件。
+        guard let window = button.window else { return nil }
+        return window.convertToScreen(button.convert(button.bounds, to: nil)).origin
     }
 
     /// 菜单栏图标：SF Symbols，同原型（系统图标本身就是模板图，深色菜单栏自动反白）
@@ -88,8 +132,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
     @objc private func quit() { intents.quit() }
 
-    /// 点的是哪块屏的菜单栏：菜单栏图标跟着活动的那块屏走
-    private var clickedScreen: NSScreen? { item.button?.window?.screen }
 }
 
 struct MenuStatusView: View {

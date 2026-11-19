@@ -61,6 +61,27 @@ public final class ScreenSet {
     /// 撤掉了、还没真正下线的屏：下线那一刻 macOS 才挪窗口、拨别的屏。显示器睡着（Mac 锁屏）时释放的虚拟屏
     /// 要等唤醒才下线（实测，可能是几小时后），等它们都真下线了再按撤屏前的样子放回（settleDisplays）
     private var retiring: Retiring?
+    private var mirrorDisplays: Set<DisplayID> = []
+    private var desktopBeforeMirroring: Surroundings?
+    private var pendingReturns: [DisplayID: (window: WindowKey, restore: () async -> Void)] = [:]
+
+    func returnAfterRetirement(_ window: WindowKey, from display: DisplayID, restore: @escaping () async -> Void) {
+        pendingReturns[display] = (window, restore)
+    }
+
+    func isWaitingToReturn(_ window: WindowKey) -> Bool {
+        pendingReturns.values.contains { $0.window == window }
+    }
+
+    func wasOnDesktopBeforeMirroring(_ window: WindowKey) -> Bool {
+        desktopBeforeMirroring?.windows[window] != nil
+    }
+
+    private func finishReturns() async {
+        for id in pendingReturns.keys.sorted() where !displays.isOnline(id) {
+            if let pending = pendingReturns.removeValue(forKey: id) { await pending.restore() }
+        }
+    }
     /// 远程在不在进行（会话层的结论，含断开后等重连的那段）：这期间别的屏可能处在远程用的临时模式
     private var remote = false
     /// 远程中撤过屏：那时别的屏可能正处在远程用的临时模式，系统套用时连永久配置一起写了。
@@ -111,6 +132,7 @@ public final class ScreenSet {
         }
         if live.isEmpty, !create.isEmpty { homeMain = arrangement.origins().first { $0.value == .zero }?.key }
         var before = await surroundings(before: change)
+        let beforeAdding = before
         onTopologyChange?()
 
         var offline = true
@@ -121,7 +143,9 @@ public final class ScreenSet {
             if age < ScreenSpec.minimumLifetime { await timeline.sleep(ScreenSpec.minimumLifetime - age) }
             // 原本就在这块屏上的窗口交给系统安置：那块屏已经没了，放回原处只会落到屏幕外
             if let bounds = displays.bounds(display) {
-                before.windows = before.windows.filter { !bounds.contains(CGPoint(x: $0.value.midX, y: $0.value.midY)) }
+                before.windows = before.windows.filter { key, frame in
+                    wasOnDesktopBeforeMirroring(key) || !bounds.contains(CGPoint(x: frame.midX, y: frame.midY))
+                }
             }
             if await !displays.retire(display) { offline = false }
             // 设回没摆成的那块主屏撤掉了：系统按剩下这组屏记的排布摆回，坐标回到没设主屏时的样子
@@ -129,15 +153,23 @@ public final class ScreenSet {
             live[id] = nil
             states[id] = nil
             gone.append(display)
+            mirrorDisplays.remove(display)
             Log.info("已撤掉屏 #\(display)（\(id)）")
         }
 
+        let desktop = mirrorDisplays.isEmpty ? desktopBeforeMirroring : nil
+        if mirrorDisplays.isEmpty { desktopBeforeMirroring = nil }
         var created: [ScreenID: DisplayID] = [:]
         for wish in create {
             do {
                 let display = try await displays.create(wish.spec, wish.fit)
                 live[wish.id] = (display, timeline.now)
                 created[wish.id] = display
+                if displays.isMirrored(display) {
+                    mirrorDisplays.insert(display)
+                    if desktopBeforeMirroring == nil { desktopBeforeMirroring = desktop ?? beforeAdding }
+                    Log.info("屏 #\(display) 加入了镜像组，保留镜像前的桌面位置和尺寸")
+                }
                 failures[wish.id] = nil
                 Log.info("「\(wish.spec.name)」#\(display) 已建好（\(displays.width(display).map { "\($0) 宽" } ?? "不是 2 倍")）")
             } catch {
@@ -151,11 +183,11 @@ public final class ScreenSet {
         // 只设回本次登录，磁盘上那组屏幕记的还是旧模式（实测），所以连永久配置一起写回。
         // 加屏、远程中撤屏，之前可能是远程用的临时模式：只设回本次登录，远程结束后再写永久配置
         if !retire.isEmpty, remote { persistOwed = true }
-        let batch = Retiring(displays: gone, before: before, permanently: create.isEmpty && !remote)
+        let batch = Retiring(displays: gone, before: before, desktop: desktop, permanently: create.isEmpty && !remote)
         let pending = retiring.map { $0.joined(batch) } ?? batch
         retiring = nil
         if offline, !pending.displays.contains(where: displays.isOnline) {
-            await settle(pending.before, after: change, permanently: pending.permanently)
+            await settle(pending, after: change)
         } else {
             retiring = pending
             Log.info("撤掉的屏还没下线（显示器睡着时要等唤醒），下线后再放回窗口、设回别的屏")
@@ -216,6 +248,7 @@ public final class ScreenSet {
     private struct Retiring {
         var displays: [DisplayID]
         var before: Surroundings
+        var desktop: Surroundings?
         var permanently: Bool
 
         /// 上一批还没下线又撤了一批：一起等，都下线了按第一批之前的样子放回（屏没下线前系统不挪窗口，显示器睡着时也没人动）；
@@ -223,7 +256,7 @@ public final class ScreenSet {
         func joined(_ later: Retiring) -> Retiring {
             var before = before
             before.windows = before.windows.filter { later.before.windows[$0.key] != nil }
-            return Retiring(displays: displays + later.displays, before: before, permanently: permanently && later.permanently)
+            return Retiring(displays: displays + later.displays, before: before, desktop: desktop ?? later.desktop, permanently: permanently && later.permanently)
         }
     }
 
@@ -237,15 +270,18 @@ public final class ScreenSet {
 
     /// 屏幕组合换完（新屏上线、旧屏下线）后放回：先设回被拨动的屏（模式连分辨率一起变时会再挪窗口），
     /// 等系统挪完，再放回被挪动的窗口。这期间拔掉、新接上的屏不碰
-    private func settle(_ before: Surroundings, after change: String, permanently: Bool) async {
+    private func settle(_ batch: Retiring, after change: String) async {
+        let before = batch.before
         await timeline.sleep(Self.topologySettle)
         let now = Dictionary(displays.otherDisplays().map { ($0.id, $0.mode) }, uniquingKeysWith: { first, _ in first })
-        let drifted = before.others.compactMap { was in now[was.id].flatMap { $0.isSame(as: was.mode) ? nil : (was, $0) } }
+        let homeModes = Dictionary(uniqueKeysWithValues: (batch.desktop?.others ?? []).map { ($0.id, $0) })
+        let expected = before.others.map { homeModes[$0.id] ?? $0 }
+        let drifted = expected.compactMap { was in now[was.id].flatMap { $0.isSame(as: was.mode) ? nil : (was, $0) } }
         if !drifted.isEmpty {
             let detail = drifted.map { was, now in "\(was.name) \(was.mode) → \(now)" }.joined(separator: "、")
             Log.info("\(change)时 macOS 把别的屏拨成了它给这组屏幕记的模式（\(detail)），设回\(change)前的样子")
             onTopologyChange?()
-            for (was, _) in drifted { await displays.setMode(was.id, was.mode, permanently: permanently) }
+            for (was, _) in drifted { await displays.setMode(was.id, was.mode, permanently: batch.permanently) }
             await timeline.sleep(Self.topologySettle)
         }
         var was = Dictionary(before.others.map { ($0.id, $0.bounds) }, uniquingKeysWith: { first, _ in first })
@@ -254,7 +290,16 @@ public final class ScreenSet {
             was[display] = bounds
             at[display] = displays.bounds(display)
         }
-        await windows.restore(Self.following(before.windows, from: was, to: at), except: placedWindows())
+        if mirrorDisplays.isEmpty {
+            var targets = Self.following(before.windows, from: was, to: at)
+            if let desktop = batch.desktop {
+                let originalScreens = Dictionary(uniqueKeysWithValues: desktop.others.map { ($0.id, $0.bounds) })
+                let known = desktop.windows.filter { targets[$0.key] != nil }
+                targets.merge(Self.following(known, from: originalScreens, to: at)) { _, original in original }
+            }
+            await windows.restore(targets, except: placedWindows().union(pendingReturns.values.map(\.window)))
+        }
+        await finishReturns()
     }
 
     /// 窗口该在的位置：所在的屏被 macOS 挪了（Snug 的屏多了，它会把外接屏挪开让地方，撤屏后再挪回来），
@@ -279,7 +324,7 @@ public final class ScreenSet {
     }
 
     /// 有没有善后要做：撤掉的屏还没下线，或远程中撤过屏、永久配置要重写
-    var owesSettling: Bool { retiring != nil || persistOwed }
+    var owesSettling: Bool { retiring != nil || persistOwed || !pendingReturns.isEmpty }
 
     /// 撤掉的屏真下线了，就放回窗口、设回别的屏；远程中撤过屏的，远程结束、屏都醒着时把别的屏此刻的模式写进永久配置
     func settleDisplays() async {
@@ -287,8 +332,9 @@ public final class ScreenSet {
             guard !r.displays.contains(where: displays.isOnline) else { return }
             retiring = nil
             Log.info("撤掉的屏 \(r.displays.map { "#\($0)" }.joined(separator: "、")) 下线了")
-            await settle(r.before, after: "撤屏", permanently: r.permanently)
+            await settle(r, after: "撤屏")
         }
+        await finishReturns()
         guard persistOwed, !remote, live.isEmpty else { return }
         let others = displays.otherDisplays()
         guard !others.contains(where: \.asleep) else { return }
@@ -387,6 +433,24 @@ public final class ScreenSet {
             return frame.offsetBy(dx: -main.minX, dy: -main.minY)
         }
         return frame.offsetBy(dx: claimed.shift.dx, dy: claimed.shift.dy)
+    }
+
+    func savedDesktopFrame(for window: WindowKey) -> (CGRect, DisplayAnchor?)? {
+        guard let desktop = desktopBeforeMirroring, let frame = desktop.windows[window] else { return nil }
+        return (frame, DisplayAnchor(frame: frame, displays: desktop.others))
+    }
+
+    func displayAnchor(for frame: CGRect) -> DisplayAnchor? {
+        guard claimed == nil else { return nil }
+        return DisplayAnchor(frame: frame, displays: displays.otherDisplays())
+    }
+
+    func currentFrame(_ record: PlacedRecord) -> CGRect {
+        guard claimed == nil, let anchor = record.originalDisplay else { return currentFrame(record.original) }
+        if let screen = displays.otherDisplays().first(where: { $0.id == anchor.id }) {
+            return anchor.resolve(record.original, on: screen.bounds)
+        }
+        return mainArea()?.centered(record.original.size) ?? record.original
     }
 
     /// 按原位账放回时，换成此刻的坐标（homeFrame 反过来）：原位在原主屏上的放到新主屏同一处，还原排布时系统把它带回原主屏

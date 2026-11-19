@@ -102,6 +102,30 @@ public final class WindowService: WindowControl {
         }
     }
 
+    public func restoreZoom(_ window: WindowKey, appliedSteps: Int) async -> Bool {
+        guard appliedSteps != 0 else { return true }
+        guard NSRunningApplication(processIdentifier: window.pid)?.bundleIdentifier == "com.googlecode.iterm2" else {
+            return await zoom(window, steps: -appliedSteps)
+        }
+        return await run {
+            guard let element = AX.element(for: window) else { return false }
+            AX.raise(element)
+            let app = AX.application(window.pid)
+            guard let main = AX.attribute(app, kAXMainWindowAttribute), CFGetTypeID(main) == AXUIElementGetTypeID(),
+                  AX.windowID(main as! AXUIElement) == window.id,
+                  let menu = AX.menuCommands(pid: window.pid).first(where: {
+                      $0.command.key == "0" && $0.command.modifiers == 0 &&
+                          AX.string($0.element, kAXIdentifierAttribute) == "Make Text Normal Size"
+                  }),
+                  AX.flag(menu.element, kAXEnabledAttribute), AX.press(menu.element) else {
+                Log.warn("iTerm2 pid \(window.pid) 窗口 \(window.id) 未能执行「恢复文本大小」")
+                return false
+            }
+            Log.info("iTerm2 pid \(window.pid) 窗口 \(window.id) 已执行「恢复文本大小」")
+            return true
+        }
+    }
+
     public func snapshot() async -> [WindowKey: CGRect] {
         let pids = await MainActor.run { AppService.regular().map(\.processIdentifier) }
         return await run {

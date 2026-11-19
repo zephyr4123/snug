@@ -51,6 +51,7 @@ final class FakeDisplays: VirtualDisplays {
     private(set) var lingering: Set<DisplayID> = []
     /// 睡着的别的屏
     var asleep: Set<DisplayID> = []
+    var mirrors: Set<DisplayID> = []
 
     init(journal: Journal) { self.journal = journal }
 
@@ -99,6 +100,8 @@ final class FakeDisplays: VirtualDisplays {
     }
 
     func isOnline(_ id: DisplayID) -> Bool { widths[id] != nil || lingering.contains(id) }
+
+    func isMirrored(_ id: DisplayID) -> Bool { mirrors.contains(id) }
 
     func reshape(_ id: DisplayID, to fit: ScreenFit) async -> Bool {
         journal.add("reshape \(id) \(fit)")
@@ -372,6 +375,16 @@ final class FakeWindows: WindowControl {
         return true
     }
 
+    func restoreZoom(_ window: WindowKey, appliedSteps: Int) async -> Bool {
+        guard self.window(window)?.info?.bundleID == "com.googlecode.iterm2" else {
+            return await zoom(window, steps: -appliedSteps)
+        }
+        guard reachable, !zoomBlocked.withLock({ $0 }) else { return false }
+        journal.add("restore text \(window.id)\(mark)")
+        state.withLock { $0[window]?.zoom = 0 }
+        return true
+    }
+
     /// 和真的一样只问窗口服务器：最小化、藏起来的不在屏上，不算
     func windows(in area: CGRect) async -> [WindowKey: CGRect] {
         state.withLock { all in
@@ -387,6 +400,7 @@ final class FakeWindows: WindowControl {
 
     func restore(_ snapshot: [WindowKey: CGRect], except: Set<WindowKey>) async {
         journal.add("restore" + except.map { " except \($0.id)" }.sorted().joined())
+        guard !movesIgnored.withLock({ $0 }) else { return }
         for (key, frame) in snapshot where !except.contains(key) && self.window(key)?.frame != frame {
             setFrame(key, frame)
         }

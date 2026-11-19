@@ -5,7 +5,7 @@ import Testing
 @Suite("一块屏的调度：在手机上退出这块屏")
 @MainActor
 struct DeskDismissTests {
-    @Test("退出手机屏：窗口放回原位、字号缩回，再撤屏；这次远程不再加")
+    @Test("退出手机屏：先缩回字号，撤屏后放回原位；这次远程不再加")
     func dismiss() async throws {
         let rig = try Rig()
         await rig.ready()
@@ -15,8 +15,8 @@ struct DeskDismissTests {
         rig.desk.dismissScreen()
         await rig.desk.idle()
         #expect(rig.journal.all == [
-            "zoom 7 -2 ✎", "move 7 \(ghosttyHome.short) ✎",
-            "snapshot", "retire 101", "restore",
+            "zoom 7 -2 ✎", "snapshot", "retire 101", "restore except 7",
+            "move 7 \(ghosttyHome.short) ✎",
         ])
         #expect(rig.record == nil)
         #expect(rig.desk.state.screen == .off)

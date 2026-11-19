@@ -274,9 +274,12 @@ public final class Desk {
         let inherited = handover?.record
         let known = Set(await windows.shownWindows(of: window.key.pid).map(\.key)).subtracting([window.key])
         let owed = inherited == nil ? env.leftBehind.owed(by: window, frame: look.frame) : nil
-        let record = inherited ?? owed?.record ?? PlacedRecord(
-            window: window.key, app: window.app, label: window.label, original: env.originalFrame(look.frame),
+        var record = inherited ?? owed?.record ?? PlacedRecord(
+            window: window.key, app: window.app, label: window.label, original: look.frame,
             wasFullScreen: look.fullScreen, wasMinimized: look.minimized, bundleID: window.bundleID, title: window.title)
+        if inherited == nil, owed == nil {
+            env.rememberOriginal(look.frame, in: &record, useDesktopSnapshot: !look.fullScreen)
+        }
         var next = Placement(window: window, record: record, width: screenFit.baseWidth, known: known, asking: !zoom)
         guard write(next.record) else {
             state.notice = .recordUnwritable
@@ -292,7 +295,7 @@ public final class Desk {
             await windows.setFullScreen(window.key, false)
             // 退出全屏后的位置才是它平时的位置：放回时回到这里再进全屏
             if let windowed = await windows.look(window.key)?.frame, inherited == nil {
-                next.record.original = env.originalFrame(windowed)
+                env.rememberOriginal(windowed, in: &next.record, useDesktopSnapshot: false)
                 write(next.record)
             }
         }
@@ -327,8 +330,9 @@ public final class Desk {
         guard var look = await windows.look(window.key) else { return state.notice = await env.unreachable(window) }
         let kept = handover?.record ?? brought[window.key]
         var record = kept ?? PlacedRecord(
-            window: window.key, app: window.app, label: window.label, original: env.originalFrame(look.frame),
+            window: window.key, app: window.app, label: window.label, original: look.frame,
             wasFullScreen: look.fullScreen, wasMinimized: look.minimized, bundleID: window.bundleID, title: window.title)
+        if kept == nil { env.rememberOriginal(look.frame, in: &record, useDesktopSnapshot: !look.fullScreen) }
         guard write(record) else { return state.notice = .recordUnwritable }
         handover?.release()
         brought[window.key] = record
@@ -338,7 +342,7 @@ public final class Desk {
             look = await windows.look(window.key) ?? look
             // 退出全屏后的位置才是它平时的位置：放回时回到这里再进全屏
             if kept == nil {
-                record.original = env.originalFrame(look.frame)
+                env.rememberOriginal(look.frame, in: &record, useDesktopSnapshot: false)
                 write(record)
                 brought[window.key] = record
             }
@@ -503,8 +507,17 @@ public final class Desk {
     /// 屏要撤了：放回窗口，屏上不再算有窗口；放不回去的留着还原记录，下次放窗口或下次启动再放。
     /// 电脑屏上挪过来的还记着账的都放回（关了的 putBack 自己销账）。这时不按位置判断是不是被用户挪走了：
     /// 撤之前先设回原主屏，系统会把新主屏上的窗口整体搬回原主屏，看上去像挪走了；用户自己挪走的，定期核对时已经销了
-    func vacate() async {
-        if let p = placement { await putBack(p.record) }
+    func vacate(from display: DisplayID) async {
+        if let p = placement {
+            // 字号先缩回，尺寸和位置等屏幕下线、桌面显示模式稳定后再还。
+            let record = await undoZoom(p.record) ?? p.record
+            let id = id
+            screens.returnAfterRetirement(record.window, from: display) { [weak env] in
+                guard let env else { return }
+                let desk = Desk(id: id, behavior: .touchScreen, env: env)
+                await desk.putBack(record, verifyFrame: true)
+            }
+        }
         placement = nil
         for key in brought.keys.sorted(by: Self.order) {
             if let record = brought[key] { await putBack(record) }
@@ -514,22 +527,29 @@ public final class Desk {
         state.notice = nil
     }
 
+    private func undoZoom(_ record: PlacedRecord) async -> PlacedRecord? {
+        guard record.zoom != 0 else { return record }
+        guard await windows.restoreZoom(record.window, appliedSteps: record.zoom) else { return nil }
+        var updated = record
+        updated.zoom = 0
+        write(updated)
+        return updated
+    }
+
     /// 按记录放回：缩回字号（窗口还在屏上、还是它 App 的当前窗口；缩完马上记账）→ 挪回原位 →
     /// 原来全屏的恢复全屏、原来最小化的再最小化。放回了就销账、窗口确实没了就转成留下的账，返回 nil；
     /// 窗口还在却缩不回、挪不动（App 没响应、没有权限）就留着记录（下次放窗口或下次启动再放），返回留下的这条
     @discardableResult
-    func putBack(_ record: PlacedRecord, restoringState: Bool = true) async -> PlacedRecord? {
-        var record = record
+    func putBack(_ record: PlacedRecord, restoringState: Bool = true, verifyFrame: Bool = false) async -> PlacedRecord? {
         let zoom = record.zoom
-        if zoom != 0 {
-            // 缩不回就先不挪：挪回原位就销账了，多出来的字号再也没人缩
-            guard await windows.zoom(record.window, steps: -zoom) else { return await stuckOrGone(record, "缩不回字号") }
-            record.zoom = 0
-            write(record)
-        }
-        let target = env.screens.currentFrame(record.original)
+        guard let record = await undoZoom(record) else { return await stuckOrGone(record, "缩不回字号") }
+        let target = screens.currentFrame(record)
         guard let got = await windows.move(record.window, to: target) else {
             return await stuckOrGone(record, "挪不动")
+        }
+        if verifyFrame, !got.matches(target) {
+            Log.warn("\(record.label) 撤屏后放回没对上，保留还原记录：目标 \(target.short)，实际 \(got.short)")
+            return record
         }
         if restoringState, record.wasFullScreen {
             await timeline.sleep(Self.settleDelay)
@@ -552,6 +572,7 @@ public final class Desk {
     @discardableResult
     func putBackLeftover() async -> PlacedRecord? {
         guard placement == nil, let record = ledger.pending() else { return nil }
+        if screens.isWaitingToReturn(record.window) { return record }
         guard await windows.exists(record.window) else {
             Log.info("还原记录里的 \(record.label) 已经不在了（App 退出或窗口关了），等它回来再还")
             await leaveBehind(record)

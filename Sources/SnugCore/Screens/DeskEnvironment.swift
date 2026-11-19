@@ -41,6 +41,16 @@ final class DeskEnvironment {
         return screens.homeFrame(home.centered(frame.size))
     }
 
+    func rememberOriginal(_ frame: CGRect, in record: inout PlacedRecord, useDesktopSnapshot: Bool) {
+        if useDesktopSnapshot, let (saved, anchor) = screens.savedDesktopFrame(for: record.window) {
+            record.original = saved
+            record.originalDisplay = anchor
+        } else {
+            record.original = originalFrame(frame)
+            record.originalDisplay = screens.displayAnchor(for: record.original)
+        }
+    }
+
     /// 读不到、挪不动的窗口：是关了，还是 App 没响应
     func unreachable(_ window: WindowInfo) async -> Desk.Notice {
         await windows.exists(window.key) ? .windowUnresponsive(app: window.app) : .windowGone(app: window.app)
