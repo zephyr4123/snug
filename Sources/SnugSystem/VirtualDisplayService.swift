@@ -134,7 +134,10 @@ public final class VirtualDisplayService: VirtualDisplays {
     public func windowArea(_ id: DisplayID, withHomeBar: Bool) -> CGRect? {
         guard let screen = Screens.screen(for: id) else { return nil }
         var area = Screens.axRect(fromAppKit: screen.visibleFrame)
-        if withHomeBar { area.size.height -= ScreenFit.homeBarHeight(screen: screen.frame.size) }
+        if withHomeBar {
+            guard let fit = fits[id] else { return nil }
+            area.size.height -= ScreenFit.homeBarHeight(screen: screen.frame.size, style: fit.homeBarStyle)
+        }
         return area
     }
 

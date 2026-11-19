@@ -57,7 +57,7 @@ final class FakeDisplays: VirtualDisplays {
     /// 这一档的可放区域，和真的一样：整屏扣掉菜单栏和（跟着缩放的）底部小横条
     nonisolated static func area(width: Int, fit: ScreenFit = .standard) -> CGRect {
         let size = fit.size(width: width)
-        let bar = ScreenFit.homeBarHeight(screen: size)
+        let bar = ScreenFit.homeBarHeight(screen: size, style: fit.homeBarStyle)
         return CGRect(x: origin.x, y: origin.y + menuBar, width: size.width, height: size.height - menuBar - bar)
     }
 
@@ -135,7 +135,7 @@ final class FakeDisplays: VirtualDisplays {
         guard !areaUnavailable, let width = widths[id], let fit = fits[id] else { return nil }
         var area = Self.area(width: width, fit: fit)
         area.origin.x = origin(of: id).x
-        if !withHomeBar { area.size.height += ScreenFit.homeBarHeight(screen: fit.size(width: width)) }
+        if !withHomeBar { area.size.height += ScreenFit.homeBarHeight(screen: fit.size(width: width), style: fit.homeBarStyle) }
         return area
     }
 

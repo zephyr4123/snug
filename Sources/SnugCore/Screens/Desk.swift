@@ -15,6 +15,8 @@ public final class Desk {
         public var screen = ScreenSet.State.off
         /// 这块屏的行为（ScreenPlan 按型号的类别给）：界面按它决定有没有面板、手势翻不翻译
         public var behavior = ScreenBehavior.touchScreen
+        /// 面板和窗口使用实际建好的屏的底栏样式。换型号失败时仍按上一次生效的尺寸摆放。
+        public var homeBarStyle = ScreenFit.HomeBarStyle.phone
         /// 屏上的窗口
         public var placed: Placed?
         /// 电脑屏上 Snug 挪过来、还记着原处的窗口：资源库里可以一键还原
@@ -207,6 +209,7 @@ public final class Desk {
     /// 屏幕模块里这块屏的状态变了。新屏从干净的提示开始：没屏时轮到的动作（比如盯着的退出排进队的放对话框）会留下提示
     func screenChanged(_ screen: ScreenSet.State) {
         if screen.display != nil, state.display == nil { state.notice = nil }
+        if screen.display != nil { state.homeBarStyle = screenFit.homeBarStyle }
         state.screen = screen
     }
 
@@ -481,6 +484,7 @@ public final class Desk {
             state.notice = .reshapeFailed
             return
         }
+        state.homeBarStyle = screenFit.homeBarStyle
         state.notice = .reshaped
         guard var p = placement else { return }
         // 窗口要的档位按新比例从基准宽度重新找；忘掉上次挪完的样子，露出来时一定重新铺

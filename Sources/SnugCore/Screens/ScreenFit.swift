@@ -40,8 +40,14 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
     static let assumedTabletPoints: Double = 800
     /// 1 个 Mac 点约合 1.24 个平板点：V10 在 iPad 上的体感，字大、看着舒服
     static let tabletScale: Double = 1.24
-    /// 基准宽度下底部小横条的高度（点）
-    static let baseHomeBarHeight: CGFloat = 28
+    /// 设计短边 540 点时底部小横条的高度。平板按短边放大界面时，让窗口多留一点纵向空间。
+    public enum HomeBarStyle: CGFloat, Sendable {
+        case phone = 28
+        case tablet = 22
+        case hidden = 0
+    }
+
+    public private(set) var homeBarStyle = HomeBarStyle.phone
 
     /// 高宽比
     public let ratio: Double
@@ -78,6 +84,11 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
             self.init(ratio: (short - Double(device.notch ?? 0)) / long, orientation: .landscape, width: device.height)
         case (.computer, .portrait):
             self.init(ratio: long / short, orientation: .portrait, width: device.width)
+        }
+        homeBarStyle = switch kind {
+        case .phone: .phone
+        case .tablet: .tablet
+        case .computer: .hidden
         }
     }
 
@@ -139,8 +150,8 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
     }
 
     /// 底部小横条的高度（这一档的点）：跟着缩放，手指点着一样大。放上来的窗口让出这一条
-    public static func homeBarHeight(screen: CGSize) -> CGFloat {
-        (baseHomeBarHeight * scale(screen: screen)).rounded()
+    public static func homeBarHeight(screen: CGSize, style: HomeBarStyle = .phone) -> CGFloat {
+        (style.rawValue * scale(screen: screen)).rounded()
     }
 }
 

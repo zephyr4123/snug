@@ -59,6 +59,39 @@ struct DeskFitTests {
         #expect(rig.desk.state.listVisible == false)
     }
 
+    @Test("手机换成 iPad 后已放置的窗口让出更薄的底栏，换到更宽一档时仍与底栏贴齐", arguments: Orientation.allCases)
+    func tabletHomeBar(orientation: Orientation) async throws {
+        let phone = ScreenPlan.fit(.standard, orientation)
+        let mini = DeviceChoice(model: nil, screen: DeviceScreen(width: 1488, height: 2266, points: 744), kind: .tablet)
+        let tablet = ScreenPlan.fit(mini, orientation)
+        let rig = try Rig()
+        rig.desk.setFit(phone)
+        await rig.ready()
+        await rig.pull(finder)
+        func bottomGap(for window: WindowInfo) throws -> CGFloat {
+            let screen = try #require(rig.displays.bounds(101))
+            let frame = try #require(rig.windows.window(window.key)?.frame)
+            return screen.maxY - frame.maxY
+        }
+        #expect(try bottomGap(for: finder) == (orientation == .portrait ? 28 : 27))
+
+        rig.desk.setFit(tablet)
+        await rig.desk.idle()
+        #expect(rig.set.state.desks[.phone]?.homeBarStyle == .tablet)
+        #expect(try bottomGap(for: finder) == 24)
+
+        rig.windows.setMinSize(notes.key, width: CGFloat(tablet.baseWidth + 100))
+        await rig.pull(notes)
+        #expect(rig.displays.widths[101] == tablet.baseWidth + 100)
+        #expect(try bottomGap(for: notes) == (orientation == .portrait ? 29 : 27))
+
+        rig.displays.reshapeFails = true
+        rig.desk.setFit(phone)
+        await rig.desk.idle()
+        #expect(rig.set.state.desks[.phone]?.homeBarStyle == .tablet)
+        #expect(try bottomGap(for: notes) == (orientation == .portrait ? 29 : 27))
+    }
+
     @Test("窗口放着但露着列表时换：先不挪窗口，回到它时按新比例铺满")
     func windowBehindList() async throws {
         let rig = try Rig()

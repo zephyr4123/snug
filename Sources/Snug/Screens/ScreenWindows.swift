@@ -118,7 +118,8 @@ final class ScreenWindows {
         }
         guard let list, let homeBar else { return }
         list.setFrame(screen.frame, display: true)
-        homeBar.setFrame(homeBarFrame(on: screen), display: true)
+        let barFrame = homeBarFrame(on: screen, style: panel.homeBarStyle)
+        homeBar.setFrame(barFrame, display: true)
         homeBarView?.scale = ScreenFit.scale(screen: screen.frame.size)
         homeBarView?.showsCamera = state.config.screenshot
 
@@ -144,14 +145,14 @@ final class ScreenWindows {
         }
         let cropping = screenshot?.isCropping == true
         if panel.placed != nil, !showList, !cropping { homeBar.orderFrontRegardless() } else { homeBar.orderOut(nil) }
-        updateOverlay(on: screen, hidden: showList)
+        updateOverlay(on: screen, above: barFrame, hidden: showList)
         updateCrop(on: screen)
     }
 
     /// 截图后的浮层：缩略图靠左、正在相机键上方（点它进裁剪），提示居中（不拦点击）。
     /// 面板只有内容那么大，不挡窗口底部别的地方；回到 App 资源库、裁剪时不显示。
     /// 不显示时连面板一起拆掉：缩略图拿着解码后的整张截图，不留着占内存
-    private func updateOverlay(on screen: NSScreen, hidden: Bool) {
+    private func updateOverlay(on screen: NSScreen, above bar: NSRect, hidden: Bool) {
         guard !hidden, let shot = screenshot, !shot.isCropping else {
             overlay?.orderOut(nil)
             overlay = nil
@@ -174,7 +175,6 @@ final class ScreenWindows {
             panel.ignoresMouseEvents = !preview
         }
         let size = panel.contentView?.fittingSize ?? .zero
-        let bar = homeBarFrame(on: screen)
         let x = preview ? bar.minX + 12 * scale : bar.midX - size.width / 2
         panel.setFrame(NSRect(origin: CGPoint(x: x, y: bar.maxY + 8 * scale), size: size), display: true)
         panel.orderFrontRegardless()
@@ -226,10 +226,10 @@ final class ScreenWindows {
     }
 
     /// 可见区底部那一条：放上来的窗口正好让出这一条（高度跟着档位缩放，见 ScreenFit.homeBarHeight）
-    private func homeBarFrame(on screen: NSScreen) -> NSRect {
+    private func homeBarFrame(on screen: NSScreen, style: ScreenFit.HomeBarStyle) -> NSRect {
         let visible = screen.visibleFrame
         return NSRect(x: visible.minX, y: visible.minY, width: visible.width,
-                      height: ScreenFit.homeBarHeight(screen: screen.frame.size))
+                      height: ScreenFit.homeBarHeight(screen: screen.frame.size, style: style))
     }
 
     /// 浮层上显示的截图结果和当时的倍率：换了才重建视图
@@ -299,7 +299,8 @@ final class HomeBarView: NSView {
         updateIcons()
         grabber.contentTintColor = .secondaryLabelColor
         camera.contentTintColor = .secondaryLabelColor
-        camera.imageScaling = .scaleNone
+        camera.imageScaling = .scaleProportionallyDown
+        grabber.imageScaling = .scaleProportionallyDown
         camera.isHidden = true
         addSubview(camera)
         grabber.translatesAutoresizingMaskIntoConstraints = false
@@ -307,6 +308,7 @@ final class HomeBarView: NSView {
         NSLayoutConstraint.activate([
             grabber.centerXAnchor.constraint(equalTo: centerXAnchor),
             grabber.centerYAnchor.constraint(equalTo: centerYAnchor),
+            grabber.heightAnchor.constraint(lessThanOrEqualTo: heightAnchor),
         ])
     }
 
