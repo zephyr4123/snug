@@ -133,7 +133,7 @@ SNUG_WRITE_TOKENS=1 swift test --filter DesignTokensTests
 
 | 位置 | 内容 |
 | :--- | :--- |
-| `~/Library/Application Support/Snug/config.json` | 设置，含屏幕列表 `screens`、主屏 `mainScreen`；同时写旧的 `phoneScreen`、`phone`（取第一块竖屏手机屏的值），降级回 2.5 照样能读，过两个大版本再停写。降级的代价：2.5 写盘时丢掉它不认的 `screens`、`mainScreen`、`nextSerialBlock`，再升回来只剩那块手机屏 |
+| `~/Library/Application Support/Snug/config.json` | 设置，含屏幕列表 `screens`、主屏 `mainScreen`。兼容 2.5 的 `phoneScreen`、`phone` 取第一块竖屏手机，也支持沿用原先那块已识别为 iPad 的竖屏。旧字段过两个大版本再停写。降级后，2.5 写盘时会丢掉 `screens`、`mainScreen`、`nextSerialBlock`，再升级只保留旧字段记录的那块屏 |
 | `~/Library/Application Support/Snug/placed/<屏 id>.json` | 各块屏上窗口的还原记录；电脑屏挪过来的窗口一个一份，`placed/<屏 id>~<pid>-<窗口号>.json`。2.5 的 `phone-screen.json` 启动时挪成 `placed/phone.json` 再按它还原；手机屏已经有账时挪成 `placed/phone-2.5.json`，一样还 |
 | `~/Library/Application Support/Snug/zoom.json` | 各 App 记忆的字号级数 |
 | `~/Library/Application Support/Snug/left-behind.json` | 在 Snug 之外关闭的窗口待还原的位置与字号（保留两周） |

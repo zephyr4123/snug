@@ -68,6 +68,31 @@ struct ConfigModelTests {
         #expect(try decode(String(decoding: JSONEncoder().encode(c), as: UTF8.self)).screens.isEmpty)
     }
 
+    @Test("从旧版迁入的 iPad 仍可降级回读，单独新加的平板不会成为旧版的手机屏")
+    func legacyTabletFields() throws {
+        struct LegacyChoice: Decodable {
+            let model: String?
+            let screen: DeviceScreen
+        }
+        struct LegacyConfig: Decodable {
+            let phoneScreen: Bool
+            let phone: LegacyChoice
+        }
+        let tablet = DeviceChoice(model: "Apple iPad mini（第 6 代）", screen: DeviceScreen(width: 1488, height: 2266, points: 744), kind: .tablet)
+        var config = AppConfig()
+        config.screens[0].device = tablet
+        let encoder = JSONEncoder(), decoder = JSONDecoder()
+        let legacy = try decoder.decode(LegacyConfig.self, from: encoder.encode(config))
+        #expect(legacy.phoneScreen)
+        #expect(legacy.phone.model == tablet.model && legacy.phone.screen == tablet.screen)
+
+        config.removeScreen(.phone)
+        config.addScreen(orientation: .portrait, device: tablet)
+        let added = try decoder.decode(LegacyConfig.self, from: encoder.encode(config))
+        #expect(!added.phoneScreen)
+        #expect(added.phone.model == DeviceChoice.standard.model)
+    }
+
     @Test("加屏：序列号一段一段往后分，删掉的不回收；名字按型号和方向起")
     func addScreen() throws {
         var c = AppConfig()
