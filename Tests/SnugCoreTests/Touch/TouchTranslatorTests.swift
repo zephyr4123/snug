@@ -9,7 +9,7 @@ private let phone = TouchRegion(frame: CGRect(x: 0, y: 0, width: 540, height: 95
 private let elsewhere = TouchRegion(frame: CGRect(x: 2000, y: 0, width: 540, height: 950), scale: 1)
 /// 最宽一档（1080）的手机屏：阈值都是基准的 2 倍
 private let widest = TouchRegion(frame: CGRect(x: 0, y: 0, width: 1080, height: 1900), scale: 2)
-/// Codex 窗口的左缘右滑：只有这个范围里的按下会切换侧边栏
+/// Codex 窗口：左缘右滑展开、右缘左滑关闭
 private var sidebarPhone: TouchRegion {
     var region = phone
     region.sidebarSwipe = TouchTranslator.sidebarSwipe(from: phone.frame, scale: phone.scale, window: 7)
@@ -109,7 +109,7 @@ struct TouchTranslatorTests {
         #expect(!t.isCoasting)   // 停了一会儿才松手：不带惯性
     }
 
-    @Test("从 Codex 窗口左缘向右滑：滑过 32 点就切换一次侧边栏，抬手不重复")
+    @Test("从 Codex 窗口左缘向右滑：滑过 32 点就展开侧边栏，抬手不重复")
     func edgeSwipeTogglesSidebar() {
         var t = TouchTranslator()
         #expect(t.handle(input(.press, 2, 300, 0), in: sidebarPhone) == TouchResponse(passOriginal: false, commands: []))
@@ -122,10 +122,24 @@ struct TouchTranslatorTests {
         #expect(!t.isCoasting)
     }
 
-    @Test("左缘手势只认向右的横滑：向左、纵向、从中间开始都照常滚动")
+    @Test("从 Codex 窗口右缘向左滑：滑过 32 点就关闭侧边栏，抬手不重复")
+    func rightEdgeSwipeClosesSidebar() {
+        var t = TouchTranslator()
+        _ = t.handle(input(.press, 538, 300, 0), in: sidebarPhone)
+        #expect(t.handle(input(.drag, 520, 305, 0.05), in: sidebarPhone) == TouchResponse(passOriginal: false, commands: []))
+        #expect(t.handle(input(.drag, 505, 310, 0.1), in: sidebarPhone)
+                == TouchResponse(passOriginal: false, commands: [.toggleSidebar]))
+        #expect(t.handle(input(.drag, 480, 312, 0.15), in: sidebarPhone) == TouchResponse(passOriginal: false, commands: []))
+        #expect(t.handle(input(.release, 480, 312, 0.2), in: sidebarPhone)
+                == TouchResponse(passOriginal: false, commands: []))
+        #expect(!t.isCoasting)
+    }
+
+    @Test("边缘手势只认各自的方向：从中间开始、反方向和纵向都照常滚动")
     func edgeSwipeDoesNotTakeOtherSwipes() {
         let cases: [(from: CGPoint, to: CGPoint, name: String)] = [
-            (CGPoint(x: 40, y: 300), CGPoint(x: 2, y: 300), "向左"),
+            (CGPoint(x: 40, y: 300), CGPoint(x: 2, y: 300), "左缘向左"),
+            (CGPoint(x: 500, y: 300), CGPoint(x: 538, y: 300), "右缘向右"),
             (CGPoint(x: 2, y: 300), CGPoint(x: 2, y: 400), "纵向"),
             (CGPoint(x: 60, y: 300), CGPoint(x: 140, y: 300), "从中间开始"),
         ]
@@ -139,7 +153,7 @@ struct TouchTranslatorTests {
         }
     }
 
-    @Test("左缘原地短点仍是点击；向右拖得不够又松手，不切换也不误点")
+    @Test("边缘原地短点仍是点击；正确方向拖得不够又松手，不切换也不误点")
     func edgeSwipeNeedsDistance() {
         var tap = TouchTranslator()
         _ = tap.handle(input(.press, 2, 300, 0), in: sidebarPhone)
@@ -151,6 +165,20 @@ struct TouchTranslatorTests {
         #expect(short.handle(input(.drag, 20, 300, 0.05), in: sidebarPhone) == TouchResponse(passOriginal: false, commands: []))
         let release = short.handle(input(.release, 20, 300, 0.1), in: sidebarPhone)
         #expect(!release.commands.contains(.toggleSidebar))
+        #expect(release == TouchResponse(passOriginal: false, commands: []))
+    }
+
+    @Test("右缘原地短点仍是点击；向左拖得不够又松手，不关闭也不误点")
+    func rightEdgeSwipeNeedsDistance() {
+        var tap = TouchTranslator()
+        _ = tap.handle(input(.press, 538, 300, 0), in: sidebarPhone)
+        #expect(tap.handle(input(.release, 538, 300, 0.1), in: sidebarPhone)
+                == TouchResponse(passOriginal: false, commands: [.replayPress, .replayCurrent]))
+
+        var short = TouchTranslator()
+        _ = short.handle(input(.press, 538, 300, 0), in: sidebarPhone)
+        #expect(short.handle(input(.drag, 520, 300, 0.05), in: sidebarPhone) == TouchResponse(passOriginal: false, commands: []))
+        let release = short.handle(input(.release, 520, 300, 0.1), in: sidebarPhone)
         #expect(release == TouchResponse(passOriginal: false, commands: []))
     }
 
@@ -166,7 +194,7 @@ struct TouchTranslatorTests {
                 == TouchResponse(passOriginal: false, commands: []))
     }
 
-    @Test("宽档下左缘和滑动距离都按比例放大")
+    @Test("宽档下两侧边缘宽度和滑动距离都按比例放大")
     func sidebarSwipeScales() {
         var region = widest
         region.sidebarSwipe = TouchTranslator.sidebarSwipe(from: widest.frame, scale: widest.scale, window: 7)
@@ -176,6 +204,14 @@ struct TouchTranslatorTests {
         #expect(t.handle(input(.drag, 80, 600, 0.1), in: region)
                 == TouchResponse(passOriginal: false, commands: [.toggleSidebar]))
         #expect(t.handle(input(.release, 80, 600, 0.15), in: region)
+                == TouchResponse(passOriginal: false, commands: []))
+
+        var reverse = TouchTranslator()
+        _ = reverse.handle(input(.press, 1065, 600, 0), in: region)
+        _ = reverse.handle(input(.drag, 1030, 600, 0.05), in: region)
+        #expect(reverse.handle(input(.drag, 1000, 600, 0.1), in: region)
+                == TouchResponse(passOriginal: false, commands: [.toggleSidebar]))
+        #expect(reverse.handle(input(.release, 1000, 600, 0.15), in: region)
                 == TouchResponse(passOriginal: false, commands: []))
     }
 
