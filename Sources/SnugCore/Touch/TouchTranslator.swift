@@ -1,7 +1,7 @@
 // 手势翻译：手机、平板屏上，远控发来的单指操作按 iPhone 的习惯重新解释。
 //   点一下          → 点击（连击计数原样保留，双击照常）；惯性滚动时点一下只是停住，不点到内容
 //   单指滑动        → 滚动，松手带惯性
-//   在 Codex 窗口左缘右滑 → 展开侧边栏，在右缘左滑 → 关闭侧边栏
+//   在 Codex 窗口里向右横滑 → 展开侧边栏，向左横滑 → 关闭侧边栏
 //   按住 0.5 秒再拖 → 选择（照旧拖动）
 //   按住 0.5 秒松手 → 右键菜单（选区不丢，菜单里有拷贝、粘贴）
 //   点窗口自己的关闭按钮 → 不补发点击，交给 Snug 先把窗口放回原位再关（直接关，App 会存下屏上的大小和字号）
@@ -19,7 +19,7 @@ public struct TouchRegion: Equatable, Sendable {
     public var scale: Double
     /// 屏上那个窗口的关闭按钮；露着列表、没放窗口时为 nil
     public var closeButton: CloseButton?
-    /// 两侧边缘切换侧边栏的范围；不是 Codex 的窗口时为 nil
+    /// 横向滑动切换侧边栏；不是 Codex 的窗口时为 nil
     public var sidebarSwipe: SidebarSwipe?
 
     public init(frame: CGRect, scale: Double, closeButton: CloseButton? = nil, sidebarSwipe: SidebarSwipe? = nil) {
@@ -30,20 +30,14 @@ public struct TouchRegion: Equatable, Sendable {
     }
 }
 
-/// 在窗口左缘向右滑展开侧边栏、在右缘向左滑关闭侧边栏
+/// 横向滑动到位后切换侧边栏
 public struct SidebarSwipe: Equatable, Sendable {
-    /// 能开始展开手势的左缘（全局坐标）
-    public var leftEdge: CGRect
-    /// 能开始关闭手势的右缘（全局坐标）
-    public var rightEdge: CGRect
     /// 相对按下点至少要走多远
     public var distance: CGFloat
     /// 要切换侧边栏的窗口（CGWindowID）
     public var window: UInt32
 
-    public init(leftEdge: CGRect, rightEdge: CGRect, distance: CGFloat, window: UInt32) {
-        self.leftEdge = leftEdge
-        self.rightEdge = rightEdge
+    public init(distance: CGFloat, window: UInt32) {
         self.distance = distance
         self.window = window
     }
@@ -94,8 +88,10 @@ public enum TouchCommand: Equatable, Sendable {
     case replayCurrent
     case rightClick(at: CGPoint)
     case scroll(ScrollStep)
-    /// 切换窗口所在 App 的侧边栏
-    case toggleSidebar
+    /// 展开窗口所在 App 的侧边栏
+    case showSidebar
+    /// 关闭窗口所在 App 的侧边栏
+    case hideSidebar
     /// 点了窗口的关闭按钮：原来的按下、抬起先扣着。系统那半核对过按钮还在那里就交给 Snug 先放回原位再关，
     /// 对不上（窗口挪走、被盖住）就照常补发这次点击
     case closeWindow(at: CGPoint)
@@ -114,7 +110,7 @@ public struct TouchResponse: Equatable, Sendable {
 public struct TouchTranslator: Sendable {
     /// 基准宽度下移动不到这么多点算没动（约合手机上 8 点）
     public static let slop = 10.0
-    /// 左缘右滑要走过这么远才切换侧边栏，避免把从边缘开始的普通横滑误认成手势
+    /// Codex 里横向滑过这么远才切换侧边栏，避免把普通点按和小幅抖动误认成手势
     public static let sidebarSwipeDistance = 32.0
     /// 按住这么久算长按，和 iOS 一样
     public static let holdDuration: TimeInterval = 0.5
@@ -134,17 +130,6 @@ public struct TouchTranslator: Sendable {
         case selecting
     }
 
-    private enum SidebarEdge: Equatable {
-        case left
-        case right
-    }
-
-    private struct SidebarGesture: Equatable {
-        var edge: SidebarEdge
-        var distance: CGFloat
-        var window: UInt32
-    }
-
     private var phase = Phase.idle
     private var origin = CGPoint.zero
     private var last = CGPoint.zero
@@ -157,20 +142,17 @@ public struct TouchTranslator: Sendable {
     private var pressStoppedCoast = false
     /// 这次按在窗口的关闭按钮上
     private var pressOnClose = false
-    /// 这次按在哪一侧的侧边栏手势边缘
-    private var sidebar: SidebarGesture?
+    /// 这一次是 Codex 里可以横滑切换侧边栏的操作
+    private var sidebar: SidebarSwipe?
 
     public init() {}
 
     /// 惯性还在走：调用方按 Momentum.frameRate 定时调 momentumFrame()
     public var isCoasting: Bool { momentum != nil }
 
-    /// Codex 窗口左缘向右滑展开侧边栏，右缘向左滑关闭
-    public static func sidebarSwipe(from frame: CGRect, scale: Double, window: UInt32) -> SidebarSwipe {
-        let edgeWidth = slop * scale
-        return SidebarSwipe(leftEdge: CGRect(x: frame.minX, y: frame.minY, width: edgeWidth, height: frame.height),
-                            rightEdge: CGRect(x: frame.maxX - edgeWidth, y: frame.minY, width: edgeWidth, height: frame.height),
-                            distance: sidebarSwipeDistance * scale, window: window)
+    /// Codex 窗口里横向滑动切换侧边栏。不要求从系统边缘开始：iOS、UU 会优先接管贴边手势
+    public static func sidebarSwipe(scale: Double, window: UInt32) -> SidebarSwipe {
+        SidebarSwipe(distance: sidebarSwipeDistance * scale, window: window)
     }
 
     /// region：手势翻译管的范围（关掉时为 nil）。只看按下那一下落没落在里面
@@ -203,15 +185,7 @@ public struct TouchTranslator: Sendable {
         scale = region.scale
         pressStoppedCoast = !stop.isEmpty
         pressOnClose = region.closeButton?.frame.contains(input.location) ?? false
-        sidebar = region.sidebarSwipe.flatMap { swipe -> SidebarGesture? in
-            if swipe.leftEdge.contains(input.location) {
-                return SidebarGesture(edge: .left, distance: swipe.distance, window: swipe.window)
-            }
-            if swipe.rightEdge.contains(input.location) {
-                return SidebarGesture(edge: .right, distance: swipe.distance, window: swipe.window)
-            }
-            return nil
-        }
+        sidebar = region.sidebarSwipe
         phase = .pending(since: input.time)
         origin = input.location
         last = input.location
@@ -226,12 +200,19 @@ public struct TouchTranslator: Sendable {
             return .pass
         case .pending(let since):
             let moved = distance(input.location, origin)
+            let dx = input.location.x - origin.x
+            let dy = input.location.y - origin.y
             if let sidebar, moved < sidebar.distance {
-                if sidebarProgress(input.location, for: sidebar) != nil {
-                    // 边缘滑动的判定距离内：先扣着，不能先滚一下再切换
+                // 竖向明确占优时立即按滚动处理；其余先等横滑判定，避免 UU 转发首帧时斜率抖动
+                if abs(dy) >= Self.slop * scale,
+                   abs(dy) > abs(dx) * 1.5 {
+                    phase = .scrolling
+                    let began = wheel.step(dx: 0, dy: 0, phase: .began, momentum: .none, at: origin)
+                    return .swallow([.scroll(began), .scroll(scrollStep(to: input))])
+                }
+                if abs(dx) >= Self.slop * scale || moved < Self.slop * scale {
                     return .swallow()
                 }
-                if moved < Self.slop * scale { return .swallow() }
             }
             guard moved >= Self.slop * scale else { return .swallow() }
             if input.time - since >= Self.holdDuration {
@@ -239,13 +220,11 @@ public struct TouchTranslator: Sendable {
                 phase = .selecting
                 return .swallow([.replayPress, .replayCurrent])
             }
-            if let sidebar, let progress = sidebarProgress(input.location, for: sidebar) {
-                if progress >= sidebar.distance {
-                    phase = .sidebar
-                    return .swallow([.toggleSidebar])
-                }
-                // 还在边缘滑动的判定距离内：先扣着，不能先滚一下再切换
-                return .swallow()
+            if let sidebar,
+               abs(dx) >= sidebar.distance,
+               abs(dy) <= abs(dx) * 0.8 {
+                phase = .sidebar
+                return .swallow([dx > 0 ? .showSidebar : .hideSidebar])
             }
             phase = .scrolling
             let began = wheel.step(dx: 0, dy: 0, phase: .began, momentum: .none, at: origin)
@@ -267,14 +246,15 @@ public struct TouchTranslator: Sendable {
             if input.time - since >= Self.holdDuration {
                 return .swallow([.rightClick(at: origin)])
             }
-            if let sidebar, let progress = sidebarProgress(input.location, for: sidebar) {
-                if progress >= sidebar.distance {
-                    return .swallow([.toggleSidebar])
-                }
-                if progress >= Self.slop * scale {
-                    // 在边缘确实沿正确方向拖了，但没到切换距离：维持普通拖动的原行为，不补发点击
-                    return .swallow()
-                }
+            if let sidebar,
+               abs(input.location.x - origin.x) >= sidebar.distance,
+               abs(input.location.y - origin.y) <= abs(input.location.x - origin.x) * 0.8 {
+                return .swallow([input.location.x > origin.x ? .showSidebar : .hideSidebar])
+            }
+            if sidebar != nil,
+               abs(input.location.x - origin.x) >= Self.slop * scale {
+                // 在 Codex 里确实横拖了但没到切换距离：维持普通拖动的原行为，不补发点击
+                return .swallow()
             }
             // iPhone 上点一下正在滚的列表只是停住；补发点击会点到手指下还在移动的东西
             if pressStoppedCoast { return .swallow() }
@@ -321,13 +301,4 @@ public struct TouchTranslator: Sendable {
     }
 
     private func distance(_ a: CGPoint, _ b: CGPoint) -> Double { hypot(Double(a.x - b.x), Double(a.y - b.y)) }
-
-    /// 沿正确边缘方向、以横向为主的位移；方向不对或纵向占优时返回 nil
-    private func sidebarProgress(_ point: CGPoint, for gesture: SidebarGesture) -> CGFloat? {
-        let dx = point.x - origin.x
-        let dy = point.y - origin.y
-        let progress = gesture.edge == .left ? dx : -dx
-        guard progress > 0, abs(dy) < progress else { return nil }
-        return progress
-    }
 }

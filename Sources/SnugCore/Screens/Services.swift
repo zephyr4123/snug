@@ -70,9 +70,9 @@ public protocol WindowControl: Sendable {
     /// 给窗口所在的 App 发 ⌘= / ⌘-（steps 为负就缩小）。找不到窗口就不发，返回 false
     @discardableResult
     func zoom(_ window: WindowKey, steps: Int) async -> Bool
-    /// 给窗口所在的 App 发 ⌘B 切换侧边栏。找不到窗口就不发，返回 false
+    /// 把窗口所在的 Codex 侧边栏设成展开或关闭。已经是对应状态就不动；找不到窗口或侧边栏返回 false
     @discardableResult
-    func toggleSidebar(_ window: WindowKey) async -> Bool
+    func setSidebar(_ window: WindowKey, open: Bool) async -> Bool
     /// App 此刻在屏上的标准窗口。等新窗口出现时 0.1 秒问一次，只问当前桌面空间，一次不到 1 毫秒
     func shownWindows(of pid: Int32) async -> [WindowInfo]
     /// App 在问用户的那个窗口：挂着「要存储吗」的文档窗口，或单独的对话框（多个文稿没存时的「要先检查吗」）

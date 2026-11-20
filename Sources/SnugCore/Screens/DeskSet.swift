@@ -299,11 +299,11 @@ public final class DeskSet {
         lane.run { await desk.perform(ticket) { await desk.zoom(by: delta) } }
     }
 
-    /// 给铺在这块屏上的窗口发 ⌘B，切换它的侧边栏（Codex 左缘右滑）
+    /// 把铺在这块屏上的窗口侧边栏展开或关闭（Codex 横向滑动）
     @discardableResult
-    public func toggleSidebar(on id: ScreenID) async -> Bool {
+    public func setSidebar(on id: ScreenID, open: Bool) async -> Bool {
         guard let window = desks[id]?.placedWindow else { return false }
-        return await windows.toggleSidebar(window)
+        return await windows.setSidebar(window, open: open)
     }
 
     /// 设置里改了默认级数：以它为准，各 App 记住的级数一起清掉（不然改了看起来不起作用）

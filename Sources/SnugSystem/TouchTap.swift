@@ -16,8 +16,8 @@ public final class TouchTap {
     private let injectors: [InjectedEventSource]
     /// 手机上点了屏上那个窗口的关闭按钮（核对过、点击已经吞掉了），交回窗口编号：在主线程上调
     public var onCloseWindow: ((UInt32) -> Void)?
-    /// 在 Codex 窗口左缘右滑（事件已经吞掉），交回窗口编号：在主线程上给这个进程发 ⌘B
-    public var onToggleSidebar: ((UInt32) -> Void)?
+    /// 在 Codex 窗口横向滑动（事件已经吞掉），交回窗口编号和要展开还是关闭
+    public var onSetSidebar: ((UInt32, Bool) -> Void)?
 
     public init(injectors: [InjectedEventSource]) {
         self.injectors = injectors
@@ -43,8 +43,8 @@ public final class TouchTap {
             closeWindow: { [weak self] window in
                 DispatchQueue.main.async { MainActor.assumeIsolated { self?.onCloseWindow?(window) } }
             },
-            toggleSidebar: { [weak self] window in
-                DispatchQueue.main.async { MainActor.assumeIsolated { self?.onToggleSidebar?(window) } }
+            setSidebar: { [weak self] window, open in
+                DispatchQueue.main.async { MainActor.assumeIsolated { self?.onSetSidebar?(window, open) } }
             }
         )
         guard next.start() else {
@@ -68,7 +68,7 @@ public final class TouchTap {
 private final class TapSession: @unchecked Sendable {
     private let regions: OSAllocatedUnfairLock<[TouchRegion]>
     private let closeWindow: @Sendable (UInt32) -> Void
-    private let toggleSidebar: @Sendable (UInt32) -> Void
+    private let setSidebar: @Sendable (UInt32, Bool) -> Void
     /// 监听线程的 run loop：start 等它建好才返回，之后只读
     private var runLoop: CFRunLoop?
 
@@ -83,11 +83,11 @@ private final class TapSession: @unchecked Sendable {
 
     init(regions: OSAllocatedUnfairLock<[TouchRegion]>, injectors: [InjectedEventSource],
          closeWindow: @escaping @Sendable (UInt32) -> Void,
-         toggleSidebar: @escaping @Sendable (UInt32) -> Void) {
+         setSidebar: @escaping @Sendable (UInt32, Bool) -> Void) {
         self.regions = regions
         injected = InjectedEvents(injectors: injectors)
         self.closeWindow = closeWindow
-        self.toggleSidebar = toggleSidebar
+        self.setSidebar = setSidebar
     }
 
     func start() -> Bool {
@@ -177,9 +177,13 @@ private final class TapSession: @unchecked Sendable {
                 perform(.replayPress, current: current, region: region)
                 perform(.replayCurrent, current: current, region: region)
             }
-        case .toggleSidebar:
+        case .showSidebar, .hideSidebar:
             if let window = region?.sidebarSwipe?.window {
-                toggleSidebar(window)
+                let open = command == .showSidebar
+                Log.info("Codex 横向滑动达到阈值：\(open ? "展开" : "关闭")侧边栏（窗口 \(window)）")
+                setSidebar(window, open)
+            } else {
+                Log.warn("Codex 横向滑动已达到阈值，但手势范围里没有目标窗口")
             }
         }
     }

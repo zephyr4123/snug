@@ -15,8 +15,6 @@ public final class WindowService: WindowControl {
     /// kVK_ANSI_Equal、kVK_ANSI_Minus（不为两个常量引入 Carbon：它的 WindowKey 会和我们的重名）
     static let equalKey: CGKeyCode = 0x18
     static let minusKey: CGKeyCode = 0x1B
-    /// kVK_ANSI_B
-    static let bKey: CGKeyCode = 0x0B
     /// 别的桌面空间里的窗口隔这么久才整个重新试一遍（见 remoteWindows(pid:now:)）
     static let remoteRescanInterval: TimeInterval = 10
 
@@ -37,7 +35,7 @@ public final class WindowService: WindowControl {
     }
 
     public func look(_ window: WindowKey) async -> WindowLook? {
-        await run {
+        return await run {
             guard let element = AX.element(for: window), let frame = AX.frame(element) else { return nil }
             return WindowLook(frame: frame, fullScreen: AX.flag(element, AX.fullScreen), minimized: AX.flag(element, kAXMinimizedAttribute))
         }
@@ -104,17 +102,62 @@ public final class WindowService: WindowControl {
         }
     }
 
-    public func toggleSidebar(_ window: WindowKey) async -> Bool {
-        await run {
-            guard let element = AX.element(for: window) else { return false }
-            AX.raise(element)
-            for down in [true, false] {
-                guard let event = CGEvent(keyboardEventSource: nil, virtualKey: Self.bKey, keyDown: down) else { continue }
-                event.flags = .maskCommand
-                event.postToPid(window.pid)
-            }
-            return true
+    public func setSidebar(_ window: WindowKey, open: Bool) async -> Bool {
+        await MainActor.run {
+            _ = NSRunningApplication(processIdentifier: window.pid)?.activate()
         }
+        return await run {
+            guard let element = AX.element(for: window) else {
+                Log.warn("调整侧边栏：找不到 Codex 窗口 \(window)")
+                return false
+            }
+            AX.raise(element)
+            guard let state = Self.sidebarButton(in: element) else {
+                Log.warn("调整侧边栏：Codex 窗口里找不到「显示/隐藏侧边栏」按钮")
+                return false
+            }
+            Log.info("Codex 侧边栏当前\(state.open ? "展开" : "关闭")，目标\(open ? "展开" : "关闭")")
+            guard state.open != open else { return true }
+            guard AX.press(state.button) else {
+                Log.warn("调整侧边栏：按下 Codex 的侧边栏按钮失败")
+                return false
+            }
+            // 切换后等按钮标题真的变过来，不能只凭按键送出去就报成功
+            let deadline = ProcessInfo.processInfo.systemUptime + 2
+            repeat {
+                Thread.sleep(forTimeInterval: 0.05)
+                if Self.sidebarButton(in: element)?.open == open { return true }
+            } while ProcessInfo.processInfo.systemUptime < deadline
+            Log.warn("调整侧边栏：按下按钮后 2 秒内状态没有变成\(open ? "展开" : "关闭")")
+            return false
+        }
+    }
+
+    /// Codex 的侧边栏开关在网页辅助功能树里，按钮标题会随状态变成「显示侧边栏」或「隐藏侧边栏」。
+    /// Electron 默认不把整棵网页树交给辅助功能，先在其 WebArea 上开启。
+    private static func sidebarButton(in window: AXUIElement) -> (button: AXUIElement, open: Bool)? {
+        guard let web = descendant(of: window, where: { AX.string($0, kAXRoleAttribute) == "AXWebArea" }) else { return nil }
+        AX.set(web, "AXEnhancedUserInterface", kCFBooleanTrue)
+        AX.set(web, "AXManualAccessibility", kCFBooleanTrue)
+        for title in ["显示侧边栏", "Show sidebar"] {
+            if let button = descendant(of: web, where: { AX.string($0, kAXRoleAttribute) == "AXButton" && AX.string($0, kAXTitleAttribute) == title }) {
+                return (button, false)
+            }
+        }
+        for title in ["隐藏侧边栏", "Hide sidebar"] {
+            if let button = descendant(of: web, where: { AX.string($0, kAXRoleAttribute) == "AXButton" && AX.string($0, kAXTitleAttribute) == title }) {
+                return (button, true)
+            }
+        }
+        return nil
+    }
+
+    private static func descendant(of root: AXUIElement, where matches: (AXUIElement) -> Bool) -> AXUIElement? {
+        for child in AX.children(root) {
+            if matches(child) { return child }
+            if let found = descendant(of: child, where: matches) { return found }
+        }
+        return nil
     }
 
     public func snapshot() async -> [WindowKey: CGRect] {

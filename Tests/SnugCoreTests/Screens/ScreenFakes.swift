@@ -379,9 +379,9 @@ final class FakeWindows: WindowControl {
         return true
     }
 
-    func toggleSidebar(_ window: WindowKey) async -> Bool {
+    func setSidebar(_ window: WindowKey, open: Bool) async -> Bool {
         guard reachable, self.window(window) != nil else { return false }
-        journal.add("sidebar \(window.id)\(mark)")
+        journal.add("sidebar \(open ? "open" : "close") \(window.id)\(mark)")
         return true
     }
 
