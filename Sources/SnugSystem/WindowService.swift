@@ -133,23 +133,21 @@ public final class WindowService: WindowControl {
         }
     }
 
-    /// Codex 的侧边栏开关在网页辅助功能树里，按钮标题会随状态变成「显示侧边栏」或「隐藏侧边栏」。
+    /// Codex 的侧边栏开关在网页辅助功能树里，AXExpanded 是当前展开状态，AXLinkedUIElements
+    /// 关联到 app-shell-sidebar。按结构认，不依赖按钮的中文标题。
     /// Electron 默认不把整棵网页树交给辅助功能，先在其 WebArea 上开启。
     private static func sidebarButton(in window: AXUIElement) -> (button: AXUIElement, open: Bool)? {
         guard let web = descendant(of: window, where: { AX.string($0, kAXRoleAttribute) == "AXWebArea" }) else { return nil }
         AX.set(web, "AXEnhancedUserInterface", kCFBooleanTrue)
         AX.set(web, "AXManualAccessibility", kCFBooleanTrue)
-        for title in ["显示侧边栏", "Show sidebar"] {
-            if let button = descendant(of: web, where: { AX.string($0, kAXRoleAttribute) == "AXButton" && AX.string($0, kAXTitleAttribute) == title }) {
-                return (button, false)
-            }
-        }
-        for title in ["隐藏侧边栏", "Hide sidebar"] {
-            if let button = descendant(of: web, where: { AX.string($0, kAXRoleAttribute) == "AXButton" && AX.string($0, kAXTitleAttribute) == title }) {
-                return (button, true)
-            }
-        }
-        return nil
+        guard let button = descendant(of: web, where: isSidebarToggle) else { return nil }
+        return (button, AX.flag(button, "AXExpanded"))
+    }
+
+    private static func isSidebarToggle(_ element: AXUIElement) -> Bool {
+        guard AX.string(element, kAXRoleAttribute) == "AXButton",
+              let linked = AX.attribute(element, "AXLinkedUIElements") as? [AXUIElement] else { return false }
+        return linked.contains { AX.string($0, "AXDOMIdentifier") == "app-shell-sidebar" }
     }
 
     private static func descendant(of root: AXUIElement, where matches: (AXUIElement) -> Bool) -> AXUIElement? {
