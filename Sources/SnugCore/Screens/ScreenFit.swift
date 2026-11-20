@@ -144,8 +144,10 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
 
 extension TouchRegion {
     /// 手势翻译管整块屏，阈值按这一档比设计尺寸大几倍放大（和小横条一样，在手机上划着手感不变）。
-    /// closeButton：屏上那个窗口的关闭按钮，点它时交给 Snug 先放回原位再关
-    public init(screen bounds: CGRect, closeButton: CloseButton? = nil) {
-        self.init(frame: bounds, scale: ScreenFit.scale(screen: bounds.size), closeButton: closeButton)
+    /// closeButton：屏上那个窗口的关闭按钮，点它时交给 Snug 先放回原位再关；
+    /// sidebarSwipe：Codex 窗口左缘右滑切换侧边栏
+    public init(screen bounds: CGRect, closeButton: CloseButton? = nil, sidebarSwipe: SidebarSwipe? = nil) {
+        self.init(frame: bounds, scale: ScreenFit.scale(screen: bounds.size),
+                  closeButton: closeButton, sidebarSwipe: sidebarSwipe)
     }
 }

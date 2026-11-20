@@ -1,6 +1,7 @@
 // 手势翻译：手机、平板屏上，远控发来的单指操作按 iPhone 的习惯重新解释。
 //   点一下          → 点击（连击计数原样保留，双击照常）；惯性滚动时点一下只是停住，不点到内容
 //   单指滑动        → 滚动，松手带惯性
+//   在 Codex 窗口左缘右滑 → 切换侧边栏
 //   按住 0.5 秒再拖 → 选择（照旧拖动）
 //   按住 0.5 秒松手 → 右键菜单（选区不丢，菜单里有拷贝、粘贴）
 //   点窗口自己的关闭按钮 → 不补发点击，交给 Snug 先把窗口放回原位再关（直接关，App 会存下屏上的大小和字号）
@@ -18,11 +19,30 @@ public struct TouchRegion: Equatable, Sendable {
     public var scale: Double
     /// 屏上那个窗口的关闭按钮；露着列表、没放窗口时为 nil
     public var closeButton: CloseButton?
+    /// 左缘右滑切换侧边栏的范围；不是 Codex 的窗口时为 nil
+    public var sidebarSwipe: SidebarSwipe?
 
-    public init(frame: CGRect, scale: Double, closeButton: CloseButton? = nil) {
+    public init(frame: CGRect, scale: Double, closeButton: CloseButton? = nil, sidebarSwipe: SidebarSwipe? = nil) {
         self.frame = frame
         self.scale = scale
         self.closeButton = closeButton
+        self.sidebarSwipe = sidebarSwipe
+    }
+}
+
+/// 在窗口左缘按下、向右滑过这段距离，就切换侧边栏
+public struct SidebarSwipe: Equatable, Sendable {
+    /// 能开始手势的左缘宽度（全局坐标）
+    public var edge: CGRect
+    /// 相对按下点至少要向右走多远
+    public var distance: CGFloat
+    /// 要切换侧边栏的窗口（CGWindowID）
+    public var window: UInt32
+
+    public init(edge: CGRect, distance: CGFloat, window: UInt32) {
+        self.edge = edge
+        self.distance = distance
+        self.window = window
     }
 }
 
@@ -71,6 +91,8 @@ public enum TouchCommand: Equatable, Sendable {
     case replayCurrent
     case rightClick(at: CGPoint)
     case scroll(ScrollStep)
+    /// 切换窗口所在 App 的侧边栏
+    case toggleSidebar
     /// 点了窗口的关闭按钮：原来的按下、抬起先扣着。系统那半核对过按钮还在那里就交给 Snug 先放回原位再关，
     /// 对不上（窗口挪走、被盖住）就照常补发这次点击
     case closeWindow(at: CGPoint)
@@ -89,6 +111,8 @@ public struct TouchResponse: Equatable, Sendable {
 public struct TouchTranslator: Sendable {
     /// 基准宽度下移动不到这么多点算没动（约合手机上 8 点）
     public static let slop = 10.0
+    /// 左缘右滑要走过这么远才切换侧边栏，避免把从边缘开始的普通横滑误认成手势
+    public static let sidebarSwipeDistance = 32.0
     /// 按住这么久算长按，和 iOS 一样
     public static let holdDuration: TimeInterval = 0.5
     /// 用松手前这段时间的位移估算甩出去的速度
@@ -103,6 +127,7 @@ public struct TouchTranslator: Sendable {
         /// 按下了，还看不出是点、滑还是长按（按下事件先扣着）
         case pending(since: TimeInterval)
         case scrolling
+        case sidebar
         case selecting
     }
 
@@ -118,11 +143,20 @@ public struct TouchTranslator: Sendable {
     private var pressStoppedCoast = false
     /// 这次按在窗口的关闭按钮上
     private var pressOnClose = false
+    /// 这次按在能切换侧边栏的左缘
+    private var sidebar: SidebarSwipe?
 
     public init() {}
 
     /// 惯性还在走：调用方按 Momentum.frameRate 定时调 momentumFrame()
     public var isCoasting: Bool { momentum != nil }
+
+    /// 从 Codex 窗口左缘开始、横向为主地向右滑，才能切换侧边栏
+    public static func sidebarSwipe(from frame: CGRect, scale: Double, window: UInt32) -> SidebarSwipe {
+        let edgeWidth = slop * scale
+        return SidebarSwipe(edge: CGRect(x: frame.minX, y: frame.minY, width: edgeWidth, height: frame.height),
+                            distance: sidebarSwipeDistance * scale, window: window)
+    }
 
     /// region：手势翻译管的范围（关掉时为 nil）。只看按下那一下落没落在里面
     public mutating func handle(_ input: TouchInput, in region: TouchRegion?) -> TouchResponse {
@@ -154,6 +188,7 @@ public struct TouchTranslator: Sendable {
         scale = region.scale
         pressStoppedCoast = !stop.isEmpty
         pressOnClose = region.closeButton?.frame.contains(input.location) ?? false
+        sidebar = region.sidebarSwipe.flatMap { $0.edge.contains(input.location) ? $0 : nil }
         phase = .pending(since: input.time)
         origin = input.location
         last = input.location
@@ -167,17 +202,37 @@ public struct TouchTranslator: Sendable {
         case .idle, .selecting:
             return .pass
         case .pending(let since):
-            guard distance(input.location, origin) >= Self.slop * scale else { return .swallow() }
+            let moved = distance(input.location, origin)
+            if let sidebar, moved < sidebar.distance {
+                if input.location.x > origin.x,
+                   abs(input.location.y - origin.y) < input.location.x - origin.x {
+                    // 左缘右滑的判定距离内：先扣着，不能先滚一下再切换
+                    return .swallow()
+                }
+                if moved < Self.slop * scale { return .swallow() }
+            }
+            guard moved >= Self.slop * scale else { return .swallow() }
             if input.time - since >= Self.holdDuration {
                 // 按住后再拖：补发按下，接下来照旧拖动，就是原来的选择
                 phase = .selecting
                 return .swallow([.replayPress, .replayCurrent])
+            }
+            if let sidebar, input.location.x > origin.x,
+               abs(input.location.y - origin.y) < input.location.x - origin.x {
+                if input.location.x - origin.x >= sidebar.distance {
+                    phase = .sidebar
+                    return .swallow([.toggleSidebar])
+                }
+                // 还在左缘右滑的判定距离内：先扣着，不能先滚一下再切换
+                return .swallow()
             }
             phase = .scrolling
             let began = wheel.step(dx: 0, dy: 0, phase: .began, momentum: .none, at: origin)
             return .swallow([.scroll(began), .scroll(scrollStep(to: input))])
         case .scrolling:
             return .swallow([.scroll(scrollStep(to: input))])
+        case .sidebar:
+            return .swallow()
         }
     }
 
@@ -191,6 +246,14 @@ public struct TouchTranslator: Sendable {
             if input.time - since >= Self.holdDuration {
                 return .swallow([.rightClick(at: origin)])
             }
+            if let sidebar, abs(input.location.y - origin.y) < input.location.x - origin.x,
+               input.location.x - origin.x >= sidebar.distance {
+                return .swallow([.toggleSidebar])
+            }
+            if sidebar != nil, input.location.x - origin.x >= Self.slop * scale {
+                // 在左缘确实向右拖了，但没到切换距离：维持普通拖动的原行为，不补发点击
+                return .swallow()
+            }
             // iPhone 上点一下正在滚的列表只是停住；补发点击会点到手指下还在移动的东西
             if pressStoppedCoast { return .swallow() }
             return pressOnClose ? .swallow([.closeWindow(at: origin)]) : .swallow([.replayPress, .replayCurrent])
@@ -199,6 +262,9 @@ public struct TouchTranslator: Sendable {
             let ended = wheel.step(dx: 0, dy: 0, phase: .ended, momentum: .none, at: origin)
             momentum = Momentum(velocity: flingVelocity(at: input.time), scale: scale)
             return .swallow([.scroll(ended)])
+        case .sidebar:
+            phase = .idle
+            return .swallow()
         }
     }
 

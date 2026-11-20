@@ -15,6 +15,8 @@ public final class WindowService: WindowControl {
     /// kVK_ANSI_Equal、kVK_ANSI_Minus（不为两个常量引入 Carbon：它的 WindowKey 会和我们的重名）
     static let equalKey: CGKeyCode = 0x18
     static let minusKey: CGKeyCode = 0x1B
+    /// kVK_ANSI_B
+    static let bKey: CGKeyCode = 0x0B
     /// 别的桌面空间里的窗口隔这么久才整个重新试一遍（见 remoteWindows(pid:now:)）
     static let remoteRescanInterval: TimeInterval = 10
 
@@ -97,6 +99,19 @@ public final class WindowService: WindowControl {
                     event.postToPid(window.pid)
                 }
                 Thread.sleep(forTimeInterval: 0.08)
+            }
+            return true
+        }
+    }
+
+    public func toggleSidebar(_ window: WindowKey) async -> Bool {
+        await run {
+            guard let element = AX.element(for: window) else { return false }
+            AX.raise(element)
+            for down in [true, false] {
+                guard let event = CGEvent(keyboardEventSource: nil, virtualKey: Self.bKey, keyDown: down) else { continue }
+                event.flags = .maskCommand
+                event.postToPid(window.pid)
             }
             return true
         }

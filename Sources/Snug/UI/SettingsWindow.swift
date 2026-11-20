@@ -269,7 +269,7 @@ struct TouchPage: View {
         Form {
             Section {
                 Toggle(isOn: Binding(get: { state.config.gestures }, set: { intents.setGestures($0) })) {
-                    SettingLabel("触控手势", detail: "单指滚动 · 长按选择 · 长按松开右键", tile: MacTokens.IconTile.gestures)
+                    SettingLabel("触控手势", detail: "单指滚动 · 长按右键 · Codex 左缘右滑", tile: MacTokens.IconTile.gestures)
                 }
                 LabeledContent {
                     ZoomSlider(steps: Binding(get: { state.config.zoomSteps }, set: { intents.setZoomSteps($0) }))

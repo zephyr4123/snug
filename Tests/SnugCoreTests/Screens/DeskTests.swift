@@ -45,6 +45,21 @@ struct DeskTests {
                                                           window: ghostty.key.id, windowFrame: phoneArea))
     }
 
+    @Test("给摆在手机屏上的窗口切换侧边栏；没摆窗口时不发")
+    func toggleSidebarForPlacedWindow() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        #expect(!(await rig.desk.toggleSidebar()))
+        await rig.pull(ghostty)
+        #expect(await rig.desk.toggleSidebar())
+        #expect(rig.journal.all.last == "sidebar 7 ✎")
+        rig.desk.putBack()
+        await rig.desk.idle()
+        let before = rig.journal.all.count
+        #expect(!(await rig.desk.toggleSidebar()))
+        #expect(rig.journal.all.count == before)
+    }
+
     @Test("不在调字号名单里的 App 不发 ⌘=")
     func noZoomForOtherApps() async throws {
         let rig = try Rig()

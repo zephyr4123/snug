@@ -66,6 +66,7 @@ UU Remote's mobile client follows trackpad gesture conventions. On phone and tab
 | Touch | UU Remote alone | Snug |
 | :--- | :--- | :--- |
 | One-finger swipe | Mouse drag, prone to accidental text selection | Scrolling, with momentum |
+| Swipe right from the left screen edge | Mouse drag | Toggle the sidebar in a Codex window |
 | Long-press, then drag | Mouse drag | Text selection |
 | Long-press, then release | Regular click | Context menu |
 

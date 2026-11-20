@@ -145,6 +145,7 @@ final class OneScreen {
     func returnToPlaced() { desks.returnToPlaced(on: id) }
     func putBack() { desks.putBack(on: id) }
     func zoom(by delta: Int) { desks.zoom(by: delta, on: id) }
+    func toggleSidebar() async -> Bool { await desks.toggleSidebar(on: id) }
     func dismissScreen() { desks.dismissScreen(id) }
     func setDefaultZoom(_ steps: Int) { desks.setDefaultZoom(steps) }
     func displaysChanged() { desks.displaysChanged() }

@@ -16,6 +16,8 @@ public final class TouchTap {
     private let injectors: [InjectedEventSource]
     /// 手机上点了屏上那个窗口的关闭按钮（核对过、点击已经吞掉了），交回窗口编号：在主线程上调
     public var onCloseWindow: ((UInt32) -> Void)?
+    /// 在 Codex 窗口左缘右滑（事件已经吞掉），交回窗口编号：在主线程上给这个进程发 ⌘B
+    public var onToggleSidebar: ((UInt32) -> Void)?
 
     public init(injectors: [InjectedEventSource]) {
         self.injectors = injectors
@@ -35,9 +37,16 @@ public final class TouchTap {
     /// 起监听线程，等它报告监听建没建成
     private func start() -> Bool {
         guard session == nil else { return true }
-        let next = TapSession(regions: regions, injectors: injectors) { [weak self] window in
-            DispatchQueue.main.async { MainActor.assumeIsolated { self?.onCloseWindow?(window) } }
-        }
+        let next = TapSession(
+            regions: regions,
+            injectors: injectors,
+            closeWindow: { [weak self] window in
+                DispatchQueue.main.async { MainActor.assumeIsolated { self?.onCloseWindow?(window) } }
+            },
+            toggleSidebar: { [weak self] window in
+                DispatchQueue.main.async { MainActor.assumeIsolated { self?.onToggleSidebar?(window) } }
+            }
+        )
         guard next.start() else {
             Log.error("手势翻译开不起来：建事件监听失败（多半是没有辅助功能权限）")
             return false
@@ -59,6 +68,7 @@ public final class TouchTap {
 private final class TapSession: @unchecked Sendable {
     private let regions: OSAllocatedUnfairLock<[TouchRegion]>
     private let closeWindow: @Sendable (UInt32) -> Void
+    private let toggleSidebar: @Sendable (UInt32) -> Void
     /// 监听线程的 run loop：start 等它建好才返回，之后只读
     private var runLoop: CFRunLoop?
 
@@ -71,10 +81,13 @@ private final class TapSession: @unchecked Sendable {
     /// 这一下按在哪块范围里：之后的拖动、抬起跟着这一下走，手指滑出范围也一样
     private var pressed: TouchRegion?
 
-    init(regions: OSAllocatedUnfairLock<[TouchRegion]>, injectors: [InjectedEventSource], closeWindow: @escaping @Sendable (UInt32) -> Void) {
+    init(regions: OSAllocatedUnfairLock<[TouchRegion]>, injectors: [InjectedEventSource],
+         closeWindow: @escaping @Sendable (UInt32) -> Void,
+         toggleSidebar: @escaping @Sendable (UInt32) -> Void) {
         self.regions = regions
         injected = InjectedEvents(injectors: injectors)
         self.closeWindow = closeWindow
+        self.toggleSidebar = toggleSidebar
     }
 
     func start() -> Bool {
@@ -163,6 +176,10 @@ private final class TapSession: @unchecked Sendable {
                 Log.info("点在屏上那个窗口原来的关闭按钮处，但那里已经不是它的关闭按钮（挪走、被盖住或全屏了），照常点击")
                 perform(.replayPress, current: current, region: region)
                 perform(.replayCurrent, current: current, region: region)
+            }
+        case .toggleSidebar:
+            if let window = region?.sidebarSwipe?.window {
+                toggleSidebar(window)
             }
         }
     }

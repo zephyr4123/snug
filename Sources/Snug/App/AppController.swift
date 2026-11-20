@@ -96,6 +96,21 @@ final class AppController: Sendable {
         desks.onChange = { [weak self] desks in self?.desksChanged(desks) }
         desks.onGone = { [weak self] gone in self?.catalog.forget(gone) }
         touch.onCloseWindow = { [weak self] window in self?.desks.closePlaced(window: window) }
+        touch.onToggleSidebar = { [weak self] window in
+            guard let self else { return }
+            guard let id = self.state.desks.desks.first(where: { $0.value.placed?.window.key.id == window })?.key,
+                  self.state.desks.desks[id]?.placed?.window.bundleID == Self.codexBundleID else {
+                Log.warn("要切换侧边栏的 Codex 窗口 \(window) 已经不在这块屏上")
+                return
+            }
+            Task {
+                guard await self.desks.toggleSidebar(on: id) else {
+                    Log.warn("给屏（\(id)）上的 Codex 发 ⌘B 没成功")
+                    return
+                }
+                Log.info("在 Codex 窗口左缘右滑：切换侧边栏")
+            }
+        }
         screenshots.onChange = { [weak self] overlay in self?.screenshotChanged(overlay) }
         desks.onTopologyChange = { [weak self] in
             guard let self else { return }
@@ -225,13 +240,20 @@ final class AppController: Sendable {
     }
 
     /// 手势翻译只在要翻译手势的屏在、开着手势时运行；正在裁剪截图的那块屏除外（拖动是在画选区，不能翻译成滚动）。
-    /// 每块屏一块范围，跟着那块屏走（换档、屏幕重排时 DisplayWatcher 也会调到这里）
+    /// 每块屏一块范围，跟着那块屏走（换档、屏幕重排时 DisplayWatcher 也会调到这里）。
+    /// Codex 窗口铺满屏时，左缘右滑映射为它的 ⌘B 切换侧边栏
     func syncGestures() {
         let cropping = state.screenshotOverlay?.isCropping == true ? state.screenshotScreen : nil
-        let covered: [(id: ScreenID, region: TouchRegion)] = store.config.gestures ? state.desks.desks.compactMap { id, desk in
+        let covered: [(id: ScreenID, region: TouchRegion)] = store.config.gestures ? state.desks.desks.compactMap { id, desk -> (id: ScreenID, region: TouchRegion)? in
             guard id != cropping, desk.behavior.touch, let display = desk.display else { return nil }
             // 窗口露着时才拦它的关闭按钮：列表盖着时那个位置是列表
-            return (id, TouchRegion(screen: CGDisplayBounds(display), closeButton: desk.listVisible ? nil : desk.closeButton))
+            let bounds = CGDisplayBounds(display)
+            let scale = ScreenFit.scale(screen: bounds.size)
+            let sidebar = desk.listVisible ? nil : desk.placed.flatMap { placed -> SidebarSwipe? in
+                guard placed.window.bundleID == Self.codexBundleID else { return nil }
+                return TouchTranslator.sidebarSwipe(from: bounds, scale: scale, window: placed.window.key.id)
+            }
+            return (id, TouchRegion(screen: bounds, closeButton: desk.listVisible ? nil : desk.closeButton, sidebarSwipe: sidebar))
         } : []
         let ids = Set(covered.map(\.id))
         if ids != gestureScreens {
@@ -242,6 +264,9 @@ final class AppController: Sendable {
         }
         state.update(\.gesturesFailed, !touch.setRegions(covered.map(\.region)))
     }
+
+    /// Codex 的 macOS 版在「ChatGPT」App 里
+    static let codexBundleID = "com.openai.codex"
 
     private func screenName(_ id: ScreenID) -> String {
         store.config.screens.first { $0.id == id }?.name ?? id.rawValue

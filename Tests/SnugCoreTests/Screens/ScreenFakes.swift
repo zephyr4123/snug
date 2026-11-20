@@ -379,6 +379,12 @@ final class FakeWindows: WindowControl {
         return true
     }
 
+    func toggleSidebar(_ window: WindowKey) async -> Bool {
+        guard reachable, self.window(window) != nil else { return false }
+        journal.add("sidebar \(window.id)\(mark)")
+        return true
+    }
+
     /// 和真的一样只问窗口服务器：最小化、藏起来的不在屏上，不算
     func windows(in area: CGRect) async -> [WindowKey: CGRect] {
         state.withLock { all in

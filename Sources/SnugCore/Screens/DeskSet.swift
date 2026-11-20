@@ -299,6 +299,13 @@ public final class DeskSet {
         lane.run { await desk.perform(ticket) { await desk.zoom(by: delta) } }
     }
 
+    /// 给铺在这块屏上的窗口发 ⌘B，切换它的侧边栏（Codex 左缘右滑）
+    @discardableResult
+    public func toggleSidebar(on id: ScreenID) async -> Bool {
+        guard let window = desks[id]?.placedWindow else { return false }
+        return await windows.toggleSidebar(window)
+    }
+
     /// 设置里改了默认级数：以它为准，各 App 记住的级数一起清掉（不然改了看起来不起作用）
     public func setDefaultZoom(_ steps: Int) {
         env.defaultZoom = steps
