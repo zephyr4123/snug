@@ -3,7 +3,7 @@
 // 远端的人看不见别的屏、拖不了窗口，靠这里一键拉过来。
 // 左栏「运行中 / 全部 App」；每个窗口标出现在在哪块屏，「放到这块屏」交给这块屏的意图（电脑屏只挪过来居中，不铺满、不调字号），
 // 挪过来的「还原」放回原处（远端的人一样拖不回去）。
-// 数据和屏上的资源库共用 AppCatalog，窗口在哪块屏（WindowSpot）也从那里读；UU 在推这块屏、窗口没最小化时才要它刷新
+// 数据和屏上的资源库共用 AppCatalog，窗口在哪块屏（WindowSpot）也从那里读；窗口没最小化时才要它刷新
 import AppKit
 import SnugCore
 import SnugSystem
@@ -279,8 +279,7 @@ final class LibraryWindowController: NSObject, NSWindowDelegate {
     }
 
     /// 那块屏撤掉了（远程结束、关了开关）：窗口会被系统挪到别的屏上，在那里用不到，跟着关掉。
-    /// 还在（常驻的主屏远程结束也还在）就看要不要资源库的数据：手机在看这块屏（AppState.watching）、窗口没最小化才要，
-    /// 不然不为它刷
+    /// 主动打开的窗口也能在本机使用，刷新只取决于窗口是否最小化。
     private func update() {
         guard let target = model.target, state.desks.desks[target]?.display != nil else {
             Log.info("App 资源库要放的那块屏（\(model.target.map { "\($0)" } ?? "没有")）撤掉了，关掉资源库窗口")
@@ -290,7 +289,7 @@ final class LibraryWindowController: NSObject, NSWindowDelegate {
             return
         }
         let source = model.source
-        if state.watching(target), window?.isMiniaturized == false {
+        if window?.isMiniaturized == false {
             // 这块屏正在放窗口、打开 App：同屏上的面板，这时不为它刷（和搬窗口排同一条队）
             catalog.want(Self.owner, busy: state.desks.desks[target]?.work != nil, spots: source == .running)
         } else {
