@@ -50,7 +50,7 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
     public let baseWidth: Int
     /// 自动适配窗口的档位：基准宽度到最宽一档，每 10 点一档
     public let widths: [Int]
-    public let manualMode: CGSize?
+    private let manualMode: CGSize?
 
     /// 登记给系统时的顺序：最宽的在前。系统按第一档判断这块屏能不能上线，第一档比像素上限小太多时屏建好了却一直不上线
     /// （11-17 实测：上限 6144×3840 时，2 倍高 1050 像素的不上线、1120 的上线）。手机横屏的基准档 957×525 就是这样；
@@ -64,7 +64,7 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
     public static let standard = ScreenFit(device: DeviceChoice.standard.screen, kind: .phone, orientation: .portrait)
 
     /// 按型号、类别和这块屏的方向算
-    public init(device: DeviceScreen, kind: DeviceKind, orientation: Orientation, resolutionWidth: Int? = nil) {
+    public init(device: DeviceScreen, kind: DeviceKind, orientation: Orientation) {
         let short = Double(device.width), long = Double(device.height)
         switch (kind, orientation) {
         case (.phone, .portrait):
@@ -84,7 +84,7 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
             let manualMode = device.width == 982 && device.height == 1512 && device.notch == 33
                 ? CGSize(width: 1800, height: 1169) : nil
             self.init(ratio: (short - Double(device.notch ?? 0)) / long, orientation: .landscape,
-                      width: device.height, manualMode: manualMode, resolutionWidth: resolutionWidth)
+                      width: device.height, manualMode: manualMode)
         case (.computer, .portrait):
             self.init(ratio: long / short, orientation: .portrait, width: device.width)
         }
@@ -103,7 +103,7 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
     }
 
     /// 别的屏：width 是想要的基准宽度（nil 就取门槛里最窄的一档），不够 2 倍门槛就加宽到够；最宽到基准的 2 倍，不超过像素上限
-    init(ratio: Double, orientation: Orientation, width wanted: Int?, manualMode: CGSize? = nil, resolutionWidth: Int? = nil) {
+    init(ratio: Double, orientation: Orientation, width wanted: Int?, manualMode: CGSize? = nil) {
         let ratio = ratio.clamped(to: orientation == .portrait ? Self.portraitRatios : Self.landscapeRatios)
         self.ratio = ratio
         self.manualMode = manualMode
@@ -114,11 +114,7 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
         let (minWidth, minHeight) = orientation == .portrait ? (Self.minShortSide, Self.minLongSide) : (Self.minLongSide, Self.minShortSide)
         let threshold = max(minWidth, Int(((Double(minHeight) - 0.5) / ratio).rounded(.up)))
         let base = min(max(wanted ?? threshold, threshold), limit)
-        if let manualMode, resolutionWidth == Int(manualMode.width) {
-            baseWidth = Int(manualMode.width)
-        } else {
-            baseWidth = base
-        }
+        baseWidth = base
         widths = Array(stride(from: base, through: min(base * 2, limit), by: Self.step))
     }
 
