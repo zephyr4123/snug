@@ -8,7 +8,7 @@
 // （UU 进程启动时会成批试探编码参数）。
 // 顺带记下「UU 在推哪块屏」：推流开始前最后一次被描述的那块屏（UU 先枚举全部屏幕，再为要推的那块建过滤器、开推）。
 // UU 一次远程开头会先后起两路推流：第一路是画面，推用户在看的那块；紧跟着（中间没有终止）再起一路常驻的，
-// 开推前描述的总是主屏，一直推到远程结束。这第二路不能盖掉第一路的屏——
+// 开推前描述的是主屏。这第二路不能盖掉第一路的屏——
 // 22:57:12.969 先为 79（手机屏）开推，13.023 又为 1 开推，画面一直在 79 上
 import Foundation
 import SnugCore
@@ -21,6 +21,7 @@ package struct CaptureSessionState: Sendable {
     private var pendingEndAt: Date?
     private var lastDescribed: DisplayID?
     private var captured: DisplayID?
+    private var streams: [(address: UInt64, display: DisplayID?)] = []
     /// 上次推流开始之后见过终止：没见过就是紧跟着起的第二路，不改 captured
     private var stoppedSinceStart = true
 
@@ -32,15 +33,31 @@ package struct CaptureSessionState: Sendable {
         case .displayDescribed(let id):
             lastDescribed = id
         case .captureStarted:
+            if let address = record.streamAddress, !streams.contains(where: { $0.address == address }) {
+                streams.append((address, lastDescribed))
+            }
             if !active || stoppedSinceStart { captured = lastDescribed }
             stoppedSinceStart = false
             active = true
             pendingEndAt = nil
         case .encoderCreated:
             pendingEndAt = nil
-        case .captureStopped, .encoderEnded:
-            stoppedSinceStart = true
-            if active, pendingEndAt == nil { pendingEndAt = record.date }
+        case .captureStopped:
+            if let address = record.streamAddress {
+                guard let index = streams.firstIndex(where: { $0.address == address }) else { return }
+                streams.remove(at: index)
+                if let next = streams.first {
+                    if index == 0 { captured = next.display }
+                    return
+                }
+            } else if !streams.isEmpty {
+                // frameStatus 日志没有流地址，实际停止紧接着会由带地址的日志确认。
+                return
+            }
+            noteEnd(at: record.date)
+        case .encoderEnded:
+            // 编码器会在切屏和调整画质时更换，不能用它结束仍有抓屏流的会话。
+            if streams.isEmpty { noteEnd(at: record.date) }
         case .encoderProbeEnded:
             break
         }
@@ -67,6 +84,11 @@ package struct CaptureSessionState: Sendable {
         let after = history.last?.date ?? .distantPast
         for r in live where r.date > after { state.apply(r) }
         return state
+    }
+
+    private mutating func noteEnd(at date: Date) {
+        stoppedSinceStart = true
+        if active, pendingEndAt == nil { pendingEndAt = date }
     }
 
     /// 宽限已过的终止先落定，免得之后来的事件把一段早已结束的推流续上

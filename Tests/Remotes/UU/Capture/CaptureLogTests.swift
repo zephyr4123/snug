@@ -67,6 +67,28 @@ struct CaptureLogTests {
         #expect(p.parse(line: message("CGSDisplayNotifyProc: got notification kCGSDisplayWillReconfigure")) == nil)
     }
 
+    @Test("切屏先开新流再停旧流：保留新屏，最后一路停止才进入宽限")
+    func overlappingCaptureSwitch() {
+        let parser = CaptureLogParser()
+        var state = CaptureSessionState()
+        let lines = [
+            ("19:06:51.000", scDisplay(3)),
+            ("19:06:51.100", startCapture),
+            ("19:06:57.300", scDisplay(152)),
+            ("19:06:57.382", startCapture.replacingOccurrences(of: "0x1", with: "0x2")),
+            ("19:07:02.516", stopCapture),
+        ]
+        for (time, text) in lines {
+            if let record = parser.parse(line: message(text, at: time)) { state.apply(record) }
+        }
+        #expect(state.streamingDisplay(at: ts("19:07:06.786")) == 152)
+
+        let stopNew = stopCapture.replacingOccurrences(of: "0x1", with: "0x2")
+        if let record = parser.parse(line: message(stopNew, at: "19:07:10.000")) { state.apply(record) }
+        #expect(state.isActive(at: ts("19:07:12.999")))
+        #expect(!state.isActive(at: ts("19:07:13.001")))
+    }
+
     @Test("时间戳按日志自带的时区解析")
     func timestamp() {
         let r = CaptureLogParser().parse(line: message(" [INFO] -[SCStream startCaptureWithCompletionHandler:]:939 0x1"))

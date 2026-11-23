@@ -26,10 +26,14 @@ package struct CaptureLogRecord: Equatable, Sendable {
     /// 打这条日志的 UURemoteServer 进程号；读不到为 nil
     package let processID: pid_t?
 
-    package init(date: Date, event: CaptureLogEvent, processID: pid_t? = nil) {
+    /// streamID 常被系统隐去，但同一进程内的 SCStream 对象地址仍可用于配对。
+    let streamAddress: UInt64?
+
+    package init(date: Date, event: CaptureLogEvent, processID: pid_t? = nil, streamAddress: UInt64? = nil) {
         self.date = date
         self.event = event
         self.processID = processID
+        self.streamAddress = streamAddress
     }
 }
 
@@ -58,7 +62,17 @@ package struct CaptureLogParser {
               let date = formatter.date(from: stamp) else { return nil }
         if let process = object["processImagePath"] as? String, !process.hasSuffix("/" + UURemote.serverProcess) { return nil }
         let processID = (object["processID"] as? Int).flatMap(pid_t.init(exactly:))
-        return Self.classify(message).map { CaptureLogRecord(date: date, event: $0, processID: processID) }
+        guard let event = Self.classify(message) else { return nil }
+        let streamAddress: UInt64?
+        switch event {
+        case .captureStarted, .captureStopped:
+            streamAddress = message.range(of: " 0x").flatMap { address in
+                UInt64(message[address.upperBound...].prefix(while: \.isHexDigit), radix: 16)
+            }
+        default:
+            streamAddress = nil
+        }
+        return CaptureLogRecord(date: date, event: event, processID: processID, streamAddress: streamAddress)
     }
 
     static func classify(_ message: String) -> CaptureLogEvent? {
