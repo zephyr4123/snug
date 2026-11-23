@@ -140,6 +140,15 @@ struct ScreenFitTests {
         #expect(tall.size(width: tall.baseWidth) == CGSize(width: 1080, height: 1920))
     }
 
+    @Test("MBP14 保留扣刘海的基准档，并登记 1800×1169")
+    func macBookPro14() {
+        let fit = ScreenFit(device: DeviceScreen(width: 982, height: 1512, notch: 33), kind: .computer, orientation: .landscape)
+        #expect(fit.size(width: fit.baseWidth) == CGSize(width: 1512, height: 949))
+        #expect(fit.registrationOrder.contains(1800))
+        #expect(fit.size(width: 1800) == CGSize(width: 1800, height: 1169))
+        #expect(fit.size(width: 1862) == CGSize(width: 1862, height: 1169))
+    }
+
     @Test("装得下就不换（App 取整差一两点也算装得下）")
     func fits() {
         #expect(fit.width(toFit: baseArea, in: baseArea, at: 540) == 540)
