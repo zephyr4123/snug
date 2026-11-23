@@ -1,3 +1,5 @@
+import CoreGraphics
+import Foundation
 import Testing
 @testable import SnugCore
 
@@ -24,6 +26,25 @@ struct ScreenPlanTests {
         #expect(wishes.map(\.id) == [.phone, c.screens[1].id])
         #expect(wishes[0].spec == ScreenPlan.spec(of: c.screens[0]))
         #expect(wishes[1].fit == ScreenPlan.fit(of: c.screens[1]))
+    }
+
+    @Test("MBP14 分辨率偏好保存后用于建屏，旧配置仍用默认档")
+    func macBookProResolution() throws {
+        let device = DeviceChoice(model: "Apple MacBook Pro 14 英寸（M4）",
+                                  screen: DeviceScreen(width: 982, height: 1512, notch: 33), kind: .computer)
+        var config = AppConfig()
+        let added = config.addScreen(orientation: .landscape, device: device)
+        let screen = try #require(added)
+        #expect(ScreenPlan.fit(of: screen).baseWidth == 1512)
+        let data = try JSONEncoder().encode(screen)
+        var fields = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        fields["resolutionWidth"] = 1800
+        config.screens[1] = try JSONDecoder().decode(ScreenConfig.self, from: JSONSerialization.data(withJSONObject: fields))
+        let restored = try JSONDecoder().decode(AppConfig.self, from: JSONEncoder().encode(config))
+        let wish = try #require(ScreenPlan.wishes(config: restored, remote: true, trusted: true).first { $0.id == screen.id })
+        #expect(wish.fit.baseWidth == 1800)
+        #expect(wish.fit.size(width: wish.fit.baseWidth).height == 1169)
+        #expect(wish.spec == ScreenPlan.spec(of: screen))
     }
 
     @Test("不在远程（没设主屏）、没有辅助功能权限：一块都不要；预览模式不等远程")

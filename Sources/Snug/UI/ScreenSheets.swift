@@ -139,6 +139,17 @@ struct ScreenDetailSheet: View {
                             intents.setScreenDevice(id, $0)
                         }
                     }
+                    let defaultFit = ScreenPlan.fit(screen.device, screen.orientation)
+                    if let mode = defaultFit.manualMode {
+                        let width = Int(mode.width)
+                        Picker("分辨率", selection: Binding<Int?>(
+                            get: { screen.resolutionWidth == width ? width : nil },
+                            set: { intents.setScreenResolution(id, width: $0) }
+                        )) {
+                            Text("默认（\(defaultFit.baseWidth) × \(Int(defaultFit.size(width: defaultFit.baseWidth).height))）").tag(Int?.none)
+                            Text("\(width) × \(Int(mode.height))").tag(Int?.some(width))
+                        }
+                    }
                     LabeledContent("方向") {
                         HStack(spacing: MacTokens.Space.m) {
                             Text("\(screen.orientation.title)屏").foregroundStyle(.secondary)

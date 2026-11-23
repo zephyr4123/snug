@@ -33,7 +33,18 @@ extension AppController: AppIntents {
 
     func setScreenDevice(_ id: ScreenID, _ device: DeviceChoice) {
         let fit = ScreenPlan.fit(device, state.screen(id)?.orientation ?? .portrait)
-        editScreen(id, "型号 → \(device.title)（\(fit)）") { $0.device = device }
+        editScreen(id, "型号 → \(device.title)（\(fit)）") {
+            $0.device = device
+            if $0.resolutionWidth != fit.manualMode.map({ Int($0.width) }) { $0.resolutionWidth = nil }
+        }
+    }
+
+    func setScreenResolution(_ id: ScreenID, width: Int?) {
+        guard let screen = state.screen(id) else { return }
+        let fit = ScreenPlan.fit(screen.device, screen.orientation)
+        guard width == nil || width == fit.manualMode.map({ Int($0.width) }) else { return }
+        let size = fit.size(width: width ?? fit.baseWidth)
+        editScreen(id, "分辨率 → \(Int(size.width))×\(Int(size.height))") { $0.resolutionWidth = width }
     }
 
     /// 改名下次建屏时生效：正在用的屏中途改名要撤了重建，远控里也得重选屏

@@ -10,6 +10,8 @@ public struct ScreenConfig: Codable, Equatable, Sendable, Identifiable {
     public var device: DeviceChoice
     public var enabled: Bool
     public var name: String
+    /// 手选分辨率的逻辑宽度；nil 使用机型默认档。
+    public var resolutionWidth: Int? = nil
     /// 主序列号加两个备用的（建了不上线就依次换）
     public var serials: [UInt32]
 

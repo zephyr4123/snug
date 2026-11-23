@@ -27,7 +27,10 @@ public enum ScreenPlan {
     }
 
     /// 配置里的一项 → 比例和档位
-    public static func fit(of screen: ScreenConfig) -> ScreenFit { fit(screen.device, screen.orientation) }
+    public static func fit(of screen: ScreenConfig) -> ScreenFit {
+        ScreenFit(device: screen.device.screen, kind: screen.device.kind, orientation: screen.orientation,
+                  resolutionWidth: screen.resolutionWidth)
+    }
 
     /// 这台设备、这个方向的比例和档位（换型号时先算出来记日志）
     public static func fit(_ device: DeviceChoice, _ orientation: Orientation) -> ScreenFit {
