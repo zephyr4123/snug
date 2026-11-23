@@ -48,17 +48,13 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
     public let ratio: Double
     /// 基准宽度：App 资源库、能铺满的窗口都用它
     public let baseWidth: Int
-    /// 自动适配窗口的档位：基准宽度到最宽一档，每 10 点一档
+    /// 登记的档位：基准宽度到最宽一档，每 10 点一档
     public let widths: [Int]
-    private let manualMode: CGSize?
 
     /// 登记给系统时的顺序：最宽的在前。系统按第一档判断这块屏能不能上线，第一档比像素上限小太多时屏建好了却一直不上线
     /// （11-17 实测：上限 6144×3840 时，2 倍高 1050 像素的不上线、1120 的上线）。手机横屏的基准档 957×525 就是这样；
     /// 最宽一档在前当场上线，窄的档照样列出、能切
-    public var registrationOrder: [Int] {
-        guard let manualMode else { return widths.reversed() }
-        return (widths + [Int(manualMode.width)]).sorted(by: >)
-    }
+    public var registrationOrder: [Int] { widths.reversed() }
 
     /// 没选过型号时的比例（17 Pro Max 竖屏，540×950）
     public static let standard = ScreenFit(device: DeviceChoice.standard.screen, kind: .phone, orientation: .portrait)
@@ -80,11 +76,7 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
             self.init(ratio: ratio, orientation: orientation, width: Int((across / Self.tabletScale).rounded()))
         case (.computer, .landscape):
             // 电脑的分辨率本来就是点（系统设置「显示器」里的那一档），照搬，和它本机看着一样大
-            // MBP14 的手选档按原屏比例，自动适配仍用扣刘海后的比例。
-            let manualMode = device.width == 982 && device.height == 1512 && device.notch == 33
-                ? CGSize(width: 1800, height: 1169) : nil
-            self.init(ratio: (short - Double(device.notch ?? 0)) / long, orientation: .landscape,
-                      width: device.height, manualMode: manualMode)
+            self.init(ratio: (short - Double(device.notch ?? 0)) / long, orientation: .landscape, width: device.height)
         case (.computer, .portrait):
             self.init(ratio: long / short, orientation: .portrait, width: device.width)
         }
@@ -94,7 +86,6 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
     init(ratio: Double) {
         let ratio = ratio.clamped(to: Self.portraitRatios)
         self.ratio = ratio
-        manualMode = nil
         // 矮的屏 540 宽时高不到 800，没有 2 倍：基准加宽到够高的最窄一档（比例不小于 1，800 宽一定够）
         let maxWidth = Int(Self.portraitPixels.width) / 2
         let all = stride(from: Self.minPhoneWidth, through: maxWidth, by: Self.step)
@@ -103,10 +94,9 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
     }
 
     /// 别的屏：width 是想要的基准宽度（nil 就取门槛里最窄的一档），不够 2 倍门槛就加宽到够；最宽到基准的 2 倍，不超过像素上限
-    init(ratio: Double, orientation: Orientation, width wanted: Int?, manualMode: CGSize? = nil) {
+    init(ratio: Double, orientation: Orientation, width wanted: Int?) {
         let ratio = ratio.clamped(to: orientation == .portrait ? Self.portraitRatios : Self.landscapeRatios)
         self.ratio = ratio
-        self.manualMode = manualMode
         let pixels = orientation == .portrait ? Self.portraitPixels : Self.landscapePixels
         // 像素上限给的最宽一档：宽、高的 2 倍都要框得住
         let limit = Int(min(pixels.width / 2, (pixels.height / 2 / ratio).rounded(.down)))
@@ -120,8 +110,7 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
 
     /// 这一档的逻辑尺寸（点）
     public func size(width: Int) -> CGSize {
-        if let manualMode, manualMode.width == CGFloat(width) { return manualMode }
-        return CGSize(width: CGFloat(width), height: (Double(width) * ratio).rounded())
+        CGSize(width: CGFloat(width), height: (Double(width) * ratio).rounded())
     }
 
     /// 日志里的样子：基准尺寸
