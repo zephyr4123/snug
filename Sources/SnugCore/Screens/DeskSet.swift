@@ -222,6 +222,21 @@ public final class DeskSet {
 
     // MARK: 屏上的意图
 
+    /// 电脑屏上的窗口切换只激活窗口，不改位置或全屏状态。
+    public func focus(_ window: WindowInfo, on id: ScreenID) {
+        lane.run {
+            guard let desk = self.desks[id], let display = desk.readyDisplay(for: "切换到 \(window.label)"),
+                  !self.state.quitting.contains(window.key.pid), !self.state.closing.contains(window.key) else { return }
+            guard let look = await self.windows.look(window.key),
+                  let bounds = self.screens.bounds(id),
+                  bounds.contains(CGPoint(x: look.frame.midX, y: look.frame.midY)) else {
+                Log.info("切换到 \(window.label)：窗口已离开屏 #\(display)")
+                return
+            }
+            await self.windows.focus(window.key)
+        }
+    }
+
     /// 把这个窗口放上这块屏（原来那个先放回原位）。正在退出的 App 的窗口不放：它退完会记住屏上那个窄位置。
     /// 窗口正放在别的屏上就转过来；电脑屏只把窗口挪过来，不铺满、不调字号
     public func pull(_ window: WindowInfo, on id: ScreenID) {

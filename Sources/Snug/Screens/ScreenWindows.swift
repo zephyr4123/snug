@@ -1,4 +1,4 @@
-// 手机、平板屏上 Snug 自己的面板，每块屏一组（ScreenPanels 跟着屏幕列表建、拆；电脑屏没有面板，资源库从菜单栏打开）：
+// 手机、平板屏上 Snug 自己的面板，每块屏一组（ScreenPanels 跟着屏幕列表建、拆）：
 // 盖满整块屏的 App 资源库，窗口放上来后底部的小横条；开着截图键时还有截图后浮在小横条上方的缩略图或提示，
 // 以及裁剪时盖满整块屏的裁剪界面。
 // 跟着这块屏的 Desk 状态走：屏在才建，列表该露就露、该收就收，屏幕一变（含换档）就重新摆位置。
@@ -9,18 +9,27 @@ import SnugCore
 import SnugSystem
 import SwiftUI
 
-/// 各块手机、平板屏的面板：屏就绪（有 Desk、是触屏）就建一组，屏没了就拆。一块屏都没有时清空资源库，下次从头读
+/// 跟着 Desk 管理手机、平板的面板和电脑屏的切换器。
 @MainActor
 final class ScreenPanels {
     private let state: AppState
     private let catalog: AppCatalog
     private let intents: (ScreenID) -> any TouchIntents
     private var panels: [ScreenID: ScreenWindows] = [:]
+    private let focus: (ScreenID, WindowInfo) -> Void
+    private var desktop: [ScreenID: DesktopSwitcher] = [:]
+    private var screenObserver: (any NSObjectProtocol)?
 
-    init(state: AppState, catalog: AppCatalog, intents: @escaping (ScreenID) -> any TouchIntents) {
+    init(state: AppState, catalog: AppCatalog, focus: @escaping (ScreenID, WindowInfo) -> Void,
+         intents: @escaping (ScreenID) -> any TouchIntents) {
         self.state = state
         self.catalog = catalog
         self.intents = intents
+        self.focus = focus
+        screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateDesktop() }
+        }
         follow()
     }
 
@@ -40,7 +49,30 @@ final class ScreenPanels {
         for id in touch where panels[id] == nil {
             panels[id] = ScreenWindows(id: id, state: state, catalog: catalog, intents: intents(id))
         }
+        updateDesktop()
         if state.desks.desks.isEmpty { catalog.reset() }
+    }
+
+    private func updateDesktop() {
+        let active = state.screensInUse && state.accessibilityTrusted
+            ? state.libraryScreens : []
+        let ids = Set(active)
+        for id in desktop.keys where !ids.contains(id) {
+            desktop.removeValue(forKey: id)?.close()
+        }
+        for id in active {
+            guard let display = state.desks.desks[id]?.display, let screen = Screens.screen(for: display) else {
+                desktop.removeValue(forKey: id)?.close()
+                continue
+            }
+            if desktop[id]?.display != display {
+                desktop.removeValue(forKey: id)?.close()
+                desktop[id] = DesktopSwitcher(id: id, display: display, catalog: catalog, intents: intents(id)) { [focus] in
+                    focus(id, $0)
+                }
+            }
+            desktop[id]?.layout(on: screen)
+        }
     }
 }
 

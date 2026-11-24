@@ -31,7 +31,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             + "辅助功能权限：\(controller.state.accessibilityTrusted ? "已授权" : "未授权")")
         statusBar = StatusBarController(state: controller.state, intents: controller, navigation: router)
         let controller = controller
-        panels = ScreenPanels(state: controller.state, catalog: controller.catalog) { ScreenIntents(id: $0, app: controller) }
+        panels = ScreenPanels(state: controller.state, catalog: controller.catalog, focus: { id, window in
+            controller.desks.focus(window, on: id)
+        }) { ScreenIntents(id: $0, app: controller) }
         handleSIGTERM()
         controller.updater.onNewVersion = { [weak self] userInitiated in self?.router.showUpdate(activating: userInitiated) }
         controller.updater.onInstalled = { [weak self] in self?.quitFlow.userQuit() }

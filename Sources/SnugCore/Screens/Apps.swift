@@ -170,6 +170,39 @@ public enum AppList {
         return SearchResult(apps: apps, windows: windows)
     }
 
+    public struct DesktopGroups {
+        public var current: [WindowInfo] = []
+        public var other: [WindowInfo] = []
+        public var windowless: [AppInfo] = []
+        public var unopened: [AppInfo] = []
+    }
+
+    public static func desktopGroups(on display: DisplayID, query: String, running: [RunningApp],
+                                     installed: [InstalledApp], spots: [WindowKey: WindowSpot]) -> DesktopGroups {
+        var groups = DesktopGroups()
+        let matches = query.isEmpty ? nil : search(query, installed: installed, running: running)
+        let appIDs = matches.map { Set($0.apps.map(\.bundleID)) }
+        let windowKeys = Set(matches?.windows.map(\.key) ?? [])
+        let runningIDs = Set(running.map { $0.app.bundleID })
+
+        for entry in running {
+            let appMatches = appIDs?.contains(entry.app.bundleID) ?? true
+            if entry.windows.isEmpty, appMatches { groups.windowless.append(entry.app) }
+            for window in entry.windows where appMatches || windowKeys.contains(window.key) {
+                let spot = spots[window.key]
+                if spot == .shown(display) || spot == .fullScreen(display) {
+                    groups.current.append(window)
+                } else {
+                    groups.other.append(window)
+                }
+            }
+        }
+        groups.unopened = installed.map(\.app).filter {
+            !runningIDs.contains($0.bundleID) && (appIDs?.contains($0.bundleID) ?? true)
+        }
+        return groups
+    }
+
     /// 点一个 App（App 行、全部页里的图标、搜索结果）做什么：同点 Dock 图标，但窗口落在这块屏上。
     /// 在跑且有窗口 → 放最近用过的那个；在跑但没窗口、没在跑 → 打开它，等新窗口出来再放
     public enum Action: Equatable, Sendable {

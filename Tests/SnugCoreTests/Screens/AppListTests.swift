@@ -22,6 +22,26 @@ private let onePassword = installed("com.1password.1password", "1Password")
 
 @Suite("App 资源库 AppList")
 struct AppListTests {
+    @Test("电脑切换器按窗口位置分组，同一 App 的窗口可在不同组")
+    func desktopGroups() {
+        let here = window(1, 1, "本屏文档")
+        let fullScreen = window(1, 2, "全屏")
+        let elsewhere = window(1, 3, "构建日志")
+        let unknown = window(4, 4, "位置未知")
+        let windowless = running(2, [], bundle: notesApp.id)
+        let apps = [running(1, [here, elsewhere, fullScreen]), windowless, running(4, [unknown])]
+        let spots: [WindowKey: WindowSpot] = [here.key: .shown(9), fullScreen.key: .fullScreen(9), elsewhere.key: .shown(10)]
+        let groups = AppList.desktopGroups(on: 9, query: "", running: apps, installed: [notesApp, code], spots: spots)
+        #expect(groups.current == [here, fullScreen])
+        #expect(groups.other == [elsewhere, unknown])
+        #expect(groups.windowless == [windowless.app])
+        #expect(groups.unopened == [code.app])
+
+        let filtered = AppList.desktopGroups(on: 9, query: "构建", running: apps, installed: [notesApp, code], spots: spots)
+        #expect(filtered.current.isEmpty && filtered.other == [elsewhere])
+        #expect(filtered.windowless.isEmpty && filtered.unopened.isEmpty)
+    }
+
     @Test("拼写：中文转全拼、首字母；英文名就是它自己")
     func keys() {
         #expect(notesApp.keys.sortKey == "bei wang lu")

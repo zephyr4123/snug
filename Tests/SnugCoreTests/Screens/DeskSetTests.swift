@@ -520,6 +520,30 @@ struct DeskSetTests {
         #expect(rig.arrangement.main == 1)
     }
 
+    @Test("电脑屏切换只激活本屏窗口，窗口已移走时跳过")
+    func desktopFocusPreservesWindow() async throws {
+        let rig = try Rig()
+        let wish = rig.secondWish(computer)
+        rig.set.setWishes([wish])
+        await rig.set.idle()
+        let bounds = try #require(rig.displays.bounds(101))
+        rig.windows.add(safari.key, frame: bounds, fullScreen: true, info: safari)
+        rig.journal.clear()
+
+        rig.set.focus(safari, on: wish.id)
+        await rig.set.idle()
+        #expect(rig.journal.all == ["focus \(safari.key.id)"])
+        #expect(rig.windows.window(safari.key)?.frame == bounds)
+        #expect(rig.windows.window(safari.key)?.fullScreen == true)
+
+        let outside = bounds.offsetBy(dx: bounds.width, dy: 0)
+        rig.windows.setFrame(safari.key, outside)
+        rig.journal.clear()
+        rig.set.focus(safari, on: wish.id)
+        await rig.set.idle()
+        #expect(rig.journal.all.isEmpty)
+    }
+
     @Test("系统按这组屏幕记的排布已经把 Snug 的屏设成主屏（上次设了主屏没设回就崩了，同一次登录里再建）：原来的排布按 Snug 的屏出现前的主屏记，不再当主屏时还给它")
     func claimsMainAlreadyMadeBySystem() async throws {
         let rig = try Rig()

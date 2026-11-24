@@ -57,7 +57,7 @@ struct LibraryView: View {
 
     private var query: String { model.query.trimmingCharacters(in: .whitespaces) }
 
-    /// 电脑屏没有面板：这块屏正在做的事、出的问题（放不过来、屏没好）写在列表上面，下一个动作开始时清掉
+    /// 这块屏正在做的事、出的问题（放不过来、屏没好）写在列表上面，下一个动作开始时清掉
     @ViewBuilder private var banner: some View {
         let desk = model.target.flatMap { state.desks.desks[$0] }
         if let work = desk?.work {

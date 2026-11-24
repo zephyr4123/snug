@@ -478,7 +478,13 @@ enum RenderSamples {
             return AnyView(LibraryView(state: s, catalog: AppCatalog(sample: running, installed: installed), model: model,
                                        place: { _ in }, putBack: { _ in }, open: { _ in }))
         }
-        return [notice] + [false, true].flatMap { dark in
+        let switcher = RenderSample(name: "library-desktop-switcher", size: CGSize(width: 340, height: 600), inWindow: true) {
+            let spots: [WindowKey: WindowSpot] = [windows[0].key: .shown(22), windows[1].key: .fullScreen(22)]
+            let catalog = AppCatalog(sample: running, installed: installed, spots: spots)
+            return AnyView(DesktopSwitcherView(catalog: catalog, display: 22, focus: { _ in }, move: { _ in },
+                                               open: { _ in }, dismiss: {}))
+        }
+        return [notice, switcher] + [false, true].flatMap { dark in
             [LibraryModel.Source.running, .all].map { source in
                 RenderSample(name: "library-\(source == .running ? "running" : "all")\(dark ? "-dark" : "")", dark: dark,
                              size: CGSize(width: MacTokens.Size.LibraryWindow.width, height: MacTokens.Size.LibraryWindow.height), inWindow: true) {

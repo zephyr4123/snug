@@ -42,7 +42,7 @@ public struct ScreenSpec: Equatable, Sendable {
 /// 一块屏上的行为，ScreenPlan 按型号的类别给；下游只认它，不认类别
 public struct ScreenBehavior: Equatable, Sendable {
     /// 触屏用的屏（手机、平板）：屏上有 App 资源库和小横条，翻译手势（设置里开着时），放上来的窗口铺满整块屏、
-    /// 按窗口换档、放大字号。电脑屏没有面板，App 资源库从菜单栏打开，窗口只挪过来，大小、字号不动
+    /// 按窗口换档、放大字号。电脑屏用左侧切换器或菜单栏资源库，窗口只挪过来，大小、字号不动
     public var touch: Bool
 
     public init(touch: Bool) {
