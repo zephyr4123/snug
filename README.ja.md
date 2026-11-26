@@ -10,7 +10,7 @@
 
 リモート Mac の表示とタッチを強化<br>デバイスごとに専用の画面 · ネイティブなタッチジェスチャー · App ライブラリ
 
-<p>対応リモートアプリ<br><a href="https://uuyc.163.com/"><img src="https://dl.zephyrxiang.com/snug/media/remote-uu.7b92201d.png" width="40" align="absmiddle" alt=""> <b>UU远程</b></a>&emsp;&emsp;<a href="https://github.com/kunkundi/crossdesk"><img src="https://dl.zephyrxiang.com/snug/media/remote-crossdesk.0ffdb226.png" width="40" align="absmiddle" alt=""> <b>CrossDesk</b></a>&emsp;&emsp;<a href="https://github.com/skyvense/snug-sunlogin"><img src="https://dl.zephyrxiang.com/snug/media/remote-sunlogin.2d91a469.png" width="40" align="absmiddle" alt=""> <b>向日葵</b></a><sup>公式対応版</sup></p>
+<p>対応リモートアプリ<br><a href="https://uuyc.163.com/"><img src="https://dl.zephyrxiang.com/snug/media/remote-uu.7b92201d.png" width="40" align="absmiddle" alt=""> <b>UU远程</b></a>&emsp;&emsp;<a href="https://github.com/kunkundi/crossdesk"><img src="https://dl.zephyrxiang.com/snug/media/remote-crossdesk.0ffdb226.png" width="40" align="absmiddle" alt=""> <b>CrossDesk</b></a>&emsp;&emsp;<a href="https://github.com/skyvense/snug-sunlogin"><img src="https://dl.zephyrxiang.com/snug/media/remote-sunlogin.2d91a469.png" width="40" align="absmiddle" alt=""> <b>向日葵</b></a></p>
 
 [![Latest release](https://img.shields.io/github/v/release/zephyr4123/snug?label=release&color=blue)](https://github.com/zephyr4123/snug/releases/latest) ![Apple Silicon · Intel](https://img.shields.io/badge/Apple%20Silicon%20%C2%B7%20Intel-Universal-success) ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue) ![Notarized](https://img.shields.io/badge/Apple-Notarized-black?logo=apple) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
