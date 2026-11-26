@@ -10,7 +10,7 @@
 
 远程 Mac 的显示与触控增强<br>每台设备专属屏幕 · 原生触屏手势 · App 资源库
 
-<p>已支持的远控<br><a href="https://uuyc.163.com/"><img src="https://dl.zephyrxiang.com/snug/media/remote-uu.7b92201d.png" width="40" align="absmiddle" alt=""> <b>UU远程</b></a>&emsp;&emsp;<a href="https://github.com/kunkundi/crossdesk"><img src="https://dl.zephyrxiang.com/snug/media/remote-crossdesk.0ffdb226.png" width="40" align="absmiddle" alt=""> <b>CrossDesk</b></a></p>
+<p>已支持的远控<br><a href="https://uuyc.163.com/"><img src="https://dl.zephyrxiang.com/snug/media/remote-uu.7b92201d.png" width="40" align="absmiddle" alt=""> <b>UU远程</b></a>&emsp;&emsp;<a href="https://github.com/kunkundi/crossdesk"><img src="https://dl.zephyrxiang.com/snug/media/remote-crossdesk.0ffdb226.png" width="40" align="absmiddle" alt=""> <b>CrossDesk</b></a>&emsp;&emsp;<a href="https://github.com/skyvense/snug-sunlogin"><img src="https://dl.zephyrxiang.com/snug/media/remote-sunlogin.2d91a469.png" width="40" align="absmiddle" alt=""> <b>向日葵</b></a><sup>官方适配</sup></p>
 
 [![最新版本](https://img.shields.io/github/v/release/zephyr4123/snug?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=blue)](https://github.com/zephyr4123/snug/releases/latest) ![Apple Silicon · Intel](https://img.shields.io/badge/Apple%20Silicon%20%C2%B7%20Intel-%E9%80%9A%E7%94%A8-success) ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue) ![已公证](https://img.shields.io/badge/Apple-%E5%B7%B2%E5%85%AC%E8%AF%81-black?logo=apple) [![许可证 MIT](https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT-green)](LICENSE)
 
@@ -24,6 +24,8 @@
 </div>
 
 > [!IMPORTANT]
+> **新增向日葵**：向日葵官方适配的 [Snug · 向日葵版](https://github.com/skyvense/snug-sunlogin) 已发布，支持 macOS 与 Windows 被控端；由向日葵官方独立开发与维护，下载与反馈请至该仓库，参见[社区移植](#-社区移植)。谨此感谢向日葵官方的适配。
+>
 > **新增 CrossDesk**：已支持免费、开源的远控软件 [CrossDesk](https://github.com/kunkundi/crossdesk)，屏幕、原生手势与 App 资源库同 UU远程；首次使用参见[快速上手](#-快速上手)。
 >
 > **致 UU远程 VIP 用户**：UU远程 自 2026 年 12 月 1 日起将多屏、虚拟屏等功能纳入 VIP。Snug 基于虚拟屏架构，若你恰为 UU远程 VIP 用户，欢迎一试。
@@ -47,6 +49,8 @@
 
 两个渠道的安装包完全相同。Snug 仅需安装于被控 Mac；控制端使用 UU远程 或 CrossDesk。
 
+> 使用向日葵：参见官方适配的 [Snug · 向日葵版](https://github.com/skyvense/snug-sunlogin)，支持 macOS 与 Windows。
+>
 > Windows 被控端：参见 [社区移植](#-社区移植)。
 
 ## 🚀 快速上手
@@ -238,7 +242,7 @@ Snug 呈现的是 Mac 上的原生窗口，适用于任意 App，不绑定特定
 
 ## 📦 安装
 
-> **系统要求**：被控端 macOS 14 及更新版本。两端使用 [UU远程](https://uuyc.163.com/) 或 [CrossDesk](https://github.com/kunkundi/crossdesk)。
+> **系统要求**：被控端 macOS 14 及更新版本。两端使用 [UU远程](https://uuyc.163.com/) 或 [CrossDesk](https://github.com/kunkundi/crossdesk)；使用向日葵参见 [Snug · 向日葵版](https://github.com/skyvense/snug-sunlogin)。
 
 **下载安装（推荐）**
 
@@ -332,13 +336,26 @@ scripts/snug install   # 构建、安装并打开
 
 ## 🌐 社区移植
 
+移植版本按开发方分为两类：
+
+- **官方适配**：远控厂商官方开发，将 Snug 接入自家远控
+- **个人移植**：社区开发者个人开发，将 Snug 移植至其他平台
+
+**官方适配**
+
+| 远控 | 项目 | 开发方 | 平台 | 说明 |
+| :--- | :--- | :--- | :--- | :--- |
+| 向日葵 | [Snug · 向日葵版](https://github.com/skyvense/snug-sunlogin) | 向日葵官方 | macOS / Windows | Swift / Rust；基于 Snug 2.5.0；可与 Snug 同机共存 |
+
+**个人移植**
+
 | 平台 | 项目 | 维护者 | 跟进至 | 说明 |
 | :--- | :--- | :--- | :--- | :--- |
 | Windows 10 / 11 | [snug-win](https://github.com/nicocart/snug-win) | [nicocart](https://github.com/nicocart) | Snug 2.8.0 | C# / .NET 10 / WPF；支持 UU远程 与 CrossDesk |
 | Windows x64 | [Snug for Windows](https://github.com/rizetngan/snug-for-windows) | [rizetngan](https://github.com/rizetngan) | Snug 2.5.0 | C# / .NET 10 / WPF；已发布正式版 |
 | Windows x64 | [snug-win-rust](https://github.com/mirakyux/snug-win-rust) | [mirakyux](https://github.com/mirakyux) | Snug 2.7.4 | 基于 Snug 与 snug-win 重写，Rust / egui；单个 EXE，内含驱动 |
 
-社区移植由各自作者独立开发、发布与维护。本仓库仅开发与测试 macOS 版，未测试上述移植版本；使用问题请至对应仓库反馈。
+各移植版本由其开发方独立开发、发布与维护。本仓库仅开发与测试 macOS 版，未测试上述移植版本；使用问题请至对应仓库反馈。
 
 ## ☕ 赞助
 
@@ -363,6 +380,7 @@ Snug 免费开源。如果它帮到了你，欢迎请我喝杯咖啡，支持后
 - [PermissionFlow](https://github.com/jaywcjlove/PermissionFlow)（MIT）：小弟调调，授权引导与拖拽授权面板
 - [FreeDisplay](https://github.com/huberdf/FreeDisplay)（MIT）：huberdf，`CGVirtualDisplay` 接口声明
 - [CrossDesk](https://github.com/kunkundi/crossdesk)（GPL-3.0）：kunkundi，免费、开源的远控软件；Snug 仅按其公开行为对接，不含其代码
+- [Snug · 向日葵版](https://github.com/skyvense/snug-sunlogin)（MIT）：向日葵官方，Snug 的向日葵适配（macOS、Windows）
 - 社区 PR 作者：bubble、gencheng liu、Rongzheng Liu（#10，全屏桌面空间下读取 UU远程 窗口）；yupeng（#26，跨屏窗口经主屏中转）；李小双（#30、#36，断线后立即结束远程、撤屏前与断线等待期内移开指针）；LI Long（#31，多屏窗口归位与菜单栏定位的排查）；11ze（#39，降低后台扫描与辅助功能读取开销）；eltociear（#40，日文版 README）；Nexmoe（#58，CrossDesk 初版适配）；rangerTao（#57，UU远程 切屏误判断线的定位与修复思路；#61，电脑屏侧边切换的思路与初版）
 - 虚拟屏的实现参考了 [DeskPad](https://github.com/Stengo/DeskPad)、[Side Screen](https://github.com/tranvuongquocdat/SideScreen) 与 Chromium 的相关代码
 

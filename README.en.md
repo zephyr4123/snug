@@ -10,7 +10,7 @@
 
 Display and touch enhancements for remote Macs<br>A dedicated screen for every device · Native touch gestures · App Library
 
-<p>Works with<br><a href="https://uuyc.163.com/"><img src="https://dl.zephyrxiang.com/snug/media/remote-uu.7b92201d.png" width="40" align="absmiddle" alt=""> <b>UU Remote</b></a>&emsp;&emsp;<a href="https://github.com/kunkundi/crossdesk"><img src="https://dl.zephyrxiang.com/snug/media/remote-crossdesk.0ffdb226.png" width="40" align="absmiddle" alt=""> <b>CrossDesk</b></a></p>
+<p>Works with<br><a href="https://uuyc.163.com/"><img src="https://dl.zephyrxiang.com/snug/media/remote-uu.7b92201d.png" width="40" align="absmiddle" alt=""> <b>UU Remote</b></a>&emsp;&emsp;<a href="https://github.com/kunkundi/crossdesk"><img src="https://dl.zephyrxiang.com/snug/media/remote-crossdesk.0ffdb226.png" width="40" align="absmiddle" alt=""> <b>CrossDesk</b></a>&emsp;&emsp;<a href="https://github.com/skyvense/snug-sunlogin"><img src="https://dl.zephyrxiang.com/snug/media/remote-sunlogin.2d91a469.png" width="40" align="absmiddle" alt=""> <b>Sunlogin</b></a><sup>official port</sup></p>
 
 [![Latest release](https://img.shields.io/github/v/release/zephyr4123/snug?label=release&color=blue)](https://github.com/zephyr4123/snug/releases/latest) ![Apple Silicon · Intel](https://img.shields.io/badge/Apple%20Silicon%20%C2%B7%20Intel-Universal-success) ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue) ![Notarized](https://img.shields.io/badge/Apple-Notarized-black?logo=apple) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
@@ -24,6 +24,8 @@ Display and touch enhancements for remote Macs<br>A dedicated screen for every d
 </div>
 
 > [!IMPORTANT]
+> **New: Sunlogin**: [Snug for Sunlogin](https://github.com/skyvense/snug-sunlogin), the official port by Sunlogin, is now available for macOS and Windows hosts. It is developed and maintained independently by Sunlogin; download it and report issues in that repository (see [Community Ports](#-community-ports)). Our sincere thanks to Sunlogin for the port.
+>
 > **New: CrossDesk**: [CrossDesk](https://github.com/kunkundi/crossdesk), a free and open-source remote desktop app, is now supported, with the same screens, native gestures, and App Library as UU Remote. First-time setup: [Quick Start](#-quick-start).
 >
 > **For UU Remote VIP members**: from December 1, 2026, UU Remote moves multi-display and virtual display features to VIP. Snug is built on virtual displays; if you happen to be a UU Remote VIP member, give it a try.
@@ -47,6 +49,8 @@ Display and touch enhancements for remote Macs<br>A dedicated screen for every d
 
 Identical packages from both sources. Snug runs only on the Mac being controlled; the controlling device, an Android phone, iPhone, tablet, or computer, needs only UU Remote or CrossDesk, with no Snug app to install.
 
+> Sunlogin users: see the official port [Snug for Sunlogin](https://github.com/skyvense/snug-sunlogin), available for macOS and Windows.
+>
 > Windows hosts: see [Community Ports](#-community-ports).
 
 ## 🚀 Quick Start
@@ -238,7 +242,7 @@ Available on phone and tablet screens. With Screenshot (「截图」) turned on 
 
 ## 📦 Installation
 
-> **Requirements**: macOS 14 or later on the Mac being controlled; [UU Remote](https://uuyc.163.com/) or [CrossDesk](https://github.com/kunkundi/crossdesk) on both devices.
+> **Requirements**: macOS 14 or later on the Mac being controlled; [UU Remote](https://uuyc.163.com/) or [CrossDesk](https://github.com/kunkundi/crossdesk) on both devices; for Sunlogin, see [Snug for Sunlogin](https://github.com/skyvense/snug-sunlogin).
 
 **Download and install (recommended)**
 
@@ -332,13 +336,26 @@ scripts/snug install   # build, install, and launch
 
 ## 🌐 Community Ports
 
+Ports come from two kinds of developers:
+
+- **Official ports**: built by a remote desktop vendor to bring Snug to its own app
+- **Individual ports**: built by community developers to bring Snug to other platforms
+
+**Official ports**
+
+| Remote app | Project | Developer | Platforms | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| Sunlogin | [Snug for Sunlogin](https://github.com/skyvense/snug-sunlogin) | Sunlogin (official) | macOS / Windows | Swift / Rust; based on Snug 2.5.0; installs alongside Snug |
+
+**Individual ports**
+
 | Platform | Project | Maintainer | Synced to | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | Windows 10 / 11 | [snug-win](https://github.com/nicocart/snug-win) | [nicocart](https://github.com/nicocart) | Snug 2.8.0 | C# / .NET 10 / WPF; supports UU Remote and CrossDesk |
 | Windows x64 | [Snug for Windows](https://github.com/rizetngan/snug-for-windows) | [rizetngan](https://github.com/rizetngan) | Snug 2.5.0 | C# / .NET 10 / WPF; stable release available |
 | Windows x64 | [snug-win-rust](https://github.com/mirakyux/snug-win-rust) | [mirakyux](https://github.com/mirakyux) | Snug 2.7.4 | Rewritten from Snug and snug-win; Rust / egui; single EXE with bundled driver |
 
-Community ports are developed, released, and maintained independently by their authors. This repository develops and tests only the macOS version and has not tested these ports; please report issues to the respective repositories.
+All ports are developed, released, and maintained independently by their developers. This repository develops and tests only the macOS version and has not tested these ports; please report issues to the respective repositories.
 
 ## ☕ Sponsor
 
@@ -363,6 +380,7 @@ We are equally grateful to the following projects and contributors:
 - [PermissionFlow](https://github.com/jaywcjlove/PermissionFlow) (MIT): by jaywcjlove (小弟调调), the permission onboarding and drag-to-authorize panel
 - [FreeDisplay](https://github.com/huberdf/FreeDisplay) (MIT): by huberdf, the `CGVirtualDisplay` interface declarations
 - [CrossDesk](https://github.com/kunkundi/crossdesk) (GPL-3.0): by kunkundi, a free and open-source remote desktop app; Snug interfaces with it based on its observable behavior and contains none of its code
+- [Snug for Sunlogin](https://github.com/skyvense/snug-sunlogin) (MIT): by Sunlogin, the official port of Snug to Sunlogin (macOS, Windows)
 - Community PR authors: bubble, gencheng liu, and Rongzheng Liu (#10, reading UU Remote windows in full-screen Spaces); yupeng (#26, routing cross-display windows through the main display); 李小双 (#30, #36, ending a session immediately after disconnecting and moving the pointer off a screen before removal and while waiting to reconnect); LI Long (#31, investigating multi-display window restoration and menu bar placement); 11ze (#39, reducing background scanning and Accessibility read overhead); eltociear (#40, Japanese README); Nexmoe (#58, initial CrossDesk adapter); rangerTao (#57, pinpointing false disconnects when switching screens in UU Remote, and the fix approach; #61, the idea and first version of the side switcher on computer screens)
 - The virtual display implementation draws on [DeskPad](https://github.com/Stengo/DeskPad), [Side Screen](https://github.com/tranvuongquocdat/SideScreen), and Chromium
 
