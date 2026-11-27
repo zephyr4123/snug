@@ -22,6 +22,7 @@ metadata:
 - **按机型定比例**（2.4.0）：机型库单一数据源 `Assets/device-models.json`（主人强调多次：数据不许散开）；UU 读不到控制端型号，不自动识别。搜机型数据只用搜索和抓网页，别开浏览器耗在官网 JS 页面上
 - **边界**（11-17 定稿）：给每种控制端一块合身的屏，换着用（UU 同一账号一次只让一台控制）；屏幕列表由用户自己加，程序不识别控制端。Snug 的屏都是扩展出来的
 - **其他平台移植不合进来**（PR #17）：只在 Mac 上开发、测不了也维护不了。README「社区移植」只列独立成仓的。⚠️更正（11-24）：原定 rizetngan/snug-for-windows 排第一（主人：「他做得更好」）；11-24 主人改为 nicocart/snug-win（#18）排第一，因为它跟上游最快（2.8.0 发布当天就跟上了 CrossDesk），rizetngan 第二、mirakyux/snug-win-rust（#52）第三。表格加了「跟进至」一列，写各家跟到的 Snug 版本（各家自己的版本号仍不写）；依据看各仓 README、发布和 commit，snug-win-rust 看它的 docs/upstream-watch.md。主人提到移植版时顺手同步这一列
+- **不做要托管服务器的功能**（11-27 婉拒 #64「Mac 通知推到手机」：要自建中转服务器加「完全磁盘访问」）：主人：「一看到服务器说要托管的，就觉得没有必要了」「成本太高」。Snug 保持纯本地，除静态下载资源外不运营在线服务
 - **最低系统不降到 macOS 13**（PR #34）：要拆 Observation、多屏判断在 Ventura 上失效，主人：「不要为了一小部分人去大破坏」。对方独立成仓后可链进「社区移植」
 
 **How to apply:** 设计任何交互先问三件事：只用控制端能不能完成？没用 Snug 的屏时是不是和原版 UU 一样？改动是不是只限 Snug 自己的屏、并且能还原？协作偏好见 [[feedback-product-thinking]]，实测坑见 [[project-phone-screen]]，多屏见 [[project-multi-screen]]
