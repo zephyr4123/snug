@@ -133,7 +133,8 @@ Device, model, orientation, and name configurable per screen; up to 4 screens, e
 | Setting | Details |
 | :--- | :--- |
 | Device | Phone, tablet, or computer; proportions and on-screen features follow the type, see the table below |
-| Model | From the model library, or a custom resolution or aspect ratio (e.g. 1080×2400, 9×20); changes take effect immediately, no reconnection required |
+| Model | From the model library, or custom: an aspect ratio for phones and tablets (e.g. 9×20), a resolution for computers (e.g. 1920×1080); changes take effect immediately, no reconnection required |
+| Resolution | Adjustable for phones and tablets: same aspect ratio, more content per screen when raised; see [Resolution](#resolution) |
 | Orientation | Portrait or landscape, chosen when the screen is added |
 | Name | Shown in the remote desktop app's screen list for easy identification |
 
@@ -149,6 +150,17 @@ Device, model, orientation, and name configurable per screen; up to 4 screens, e
 - **Multiple phones**: one screen per phone or tablet, each with its own model
 - **Across devices**: one screen each for a phone, a tablet, and a computer, selected per device in use
 
+### Resolution
+
+Phone and tablet screens default to a width sized for mobile text; to fit more on one screen, raise the resolution while keeping the aspect ratio.
+
+<p align="center"><img src="https://dl.zephyrxiang.com/snug/media/settings-resolution.be2521a8.png" width="56%" alt="Adjust Resolution window: full-screen preview, size and clarity, slider"> <img src="https://dl.zephyrxiang.com/snug/media/phone-resolution.bbc18904.png" width="25%" alt="Resolution page on the phone screen: preview, size and clarity, slider"><br><sub>Left: the adjustment window in Settings (iPad, landscape) · Right: the Resolution page on the phone screen</sub></p>
+
+- **Preview first, then apply**: dragging the slider changes only the preview; "应用" (Apply) takes effect in about 0.5 s, the screen stays connected, no reconnection required
+- **Sharpest**: the slider marks "最清晰" (Sharpest), the step where the streamed pixels match the controlling device's screen (660 pt on an iPhone 17 Pro Max in portrait); below it the picture is slightly soft, above it only content is added
+- **Two entry points**: "分辨率 · 调整…" (Resolution · Adjust…) in a screen's details in Settings; the model page at the top right of the App Library on phone and tablet screens
+- **Saved separately**: each screen and orientation keeps its own setting; changing the model restores the default
+
 ### Screen List
 
 All screens managed on the Screens page of Settings; the screen in use selected from the remote desktop app's screen list during a session.
@@ -160,7 +172,7 @@ All screens managed on the Screens page of Settings; the screen in use selected 
 - **Mac mini and Mac Studio without a display**: Snug's screen replaces the system's default screen, providing a full desktop at the controlling device's resolution
 - **Model library**: 785 phones and 46 tablets across 19 brands (every iPhone from iPhone 8 onward; mainstream Android models from Huawei, Xiaomi, OPPO, vivo, Samsung, and others; inner and outer screens of foldables listed separately), plus 13 Macs and 9 common computer resolutions
 
-<p align="center"><img src="https://dl.zephyrxiang.com/snug/media/phone-models.391e818d.png" width="36%" alt="Model page: the current model, a custom resolution, and models by brand"><br><sub>Models: listed by brand, with custom resolutions</sub></p>
+<p align="center"><img src="https://dl.zephyrxiang.com/snug/media/phone-models.391e818d.png" width="36%" alt="Model page: the current model, a custom aspect ratio, and models by brand"><br><sub>Models: listed by brand, with custom aspect ratios</sub></p>
 
 ### Set as Main Display
 
@@ -286,7 +298,7 @@ rm ~/Library/LaunchAgents/com.corndog.uudisplay.watchdog-agent.plist
 4. **Switch windows**: tap the bottom indicator bar to return to the App Library; choosing another window returns the previous one to its place
 5. **End the session**: windows returned, text sizes restored, Snug's screens removed, except the one set as main display, which keeps its windows, and screens kept ready in advance
 
-> 💡 Set UU Remote's picture quality to the highest: lower settings blur the picture, especially on tablets.
+> 💡 Set UU Remote's picture quality to the highest: lower settings blur the picture, especially on tablets; if a tablet still looks soft, set the resolution to "最清晰" (Sharpest), see [Resolution](#resolution).
 
 ## 🔒 Isolation and Restoration
 

@@ -131,6 +131,7 @@ enum RenderSamples {
                 AnyView(ScreenDetailSheet(id: .phone, state: sampleState(), intents: stub, navigation: stub, close: {}))
             },
             resolution("settings-resolution"),
+            resolution("settings-resolution-sharpest", width: 1180),
             resolution("settings-resolution-sharpest-dark", dark: true, width: 1180),
             resolution("settings-resolution-phone", on: .phone, width: 800),
         ]
@@ -383,6 +384,7 @@ enum RenderSamples {
             panel("phone-model") { _, pages in pages.open(.model) },
             panel("phone-model-adjusted-dark", dark: true, width: 660) { _, pages in pages.open(.model) },
             panel("phone-resolution") { _, pages in pages.open(.resolution) },
+            panel("phone-resolution-sharpest", width: 660) { _, pages in pages.open(.resolution) },
             panel("phone-resolution-sharpest-dark", dark: true, width: 660) { _, pages in pages.open(.resolution) },
             panel("phone-resolution-wide", width: 900) { _, pages in pages.open(.resolution) },
             panel("phone-model-custom-dark", dark: true) { s, pages in
