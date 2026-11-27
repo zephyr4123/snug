@@ -405,16 +405,15 @@ figure.frame figcaption b { display: block; color: var(--board-ink); font: var(-
 .res-ticks span.start { left: 0; transform: none; }
 .res-ticks span.start::before { left: 9px; }
 
-/* Mac 上：从「调整…」弹出的气泡，箭头朝上 */
-.res-pop { position: relative; width: 360px; margin-top: 8px; display: flex; flex-direction: column; gap: var(--mac-space-m);
-  background: var(--mac-window-background); border-radius: var(--mac-radius-group); padding: var(--mac-space-m) var(--mac-space-l) var(--mac-space-l);
-  box-shadow: 0 0 0 0.5px rgba(0,0,0,.18), 0 12px 32px rgba(0,0,0,.22); }
-:root[data-theme="dark"] .res-pop { box-shadow: 0 0 0 0.5px rgba(255,255,255,.16), 0 12px 32px rgba(0,0,0,.5); }
-.res-pop::before { content: ""; position: absolute; top: -6px; left: calc(50% - 6px); width: 12px; height: 12px; transform: rotate(45deg);
-  background: var(--mac-window-background); box-shadow: -0.5px -0.5px 0 rgba(0,0,0,.12); }
-.res-pop > b { font: var(--mac-font-headline); }
-.res-actions { display: flex; align-items: center; gap: var(--mac-space-s); }
-.res-actions .spacer { flex: 1; }
+/* Mac 上：点「调整…」打开的大窗口。预览占满中间，底栏左读数、中滑块、右按钮 */
+.res-window { width: 1100px; }
+.res-stage { height: 620px; display: grid; place-items: center; border-top: 1px solid var(--mac-separator);
+  background: color-mix(in srgb, var(--mac-label) 4%, var(--mac-window-background)); }
+.res-bar { display: grid; grid-template-columns: 1fr 440px 1fr; align-items: center; gap: var(--mac-space-xl);
+  padding: var(--mac-space-m) var(--mac-space-xl) var(--mac-space-l); border-top: 1px solid var(--mac-separator); }
+.res-bar .res-readout { align-items: flex-start; }
+.res-bar .res-slider { margin-top: var(--mac-space-s); }
+.res-actions { display: flex; align-items: center; gap: var(--mac-space-s); justify-content: flex-end; }
 
 /* 手机上：导航栏「取消 · 标题 · 应用」，和型号页同一种 */
 .t-nav { height: var(--touch-size-touch-target); margin-top: var(--touch-space-m); padding: 0 var(--touch-space-margin);
