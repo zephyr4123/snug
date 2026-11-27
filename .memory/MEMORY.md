@@ -24,7 +24,7 @@
 - [对外文案](feedback-doc-writing.md) — 书面语、短语式、简短干练；提炼不照抄；第三方只陈述事实；打码只糊一小块
 - [回复 issue](feedback-issue-replies.md) — 主人第一人称；修好发版的 bug、做完发版的需求都回复后关掉，有问题请对方另开新 issue；婉拒讲清定位、语气平和；做不到的要把实测和论证讲闭环；主人说发就不再审
 - [直接修不建 issue](feedback-direct-fix-no-issues.md) — bug 直接修、重构直接做，追溯靠 commit 信息
-- [Workflow 使用](feedback-workflow-scale.md) — 起之前先跟主人确认；设计、原型绝不起；小 bug 修复不审；大改动审一轮，维度含正确性、架构、工程审美、去冗余；5 个左右、一个核实者
+- [Workflow 使用](feedback-workflow-scale.md) — 起之前先跟主人确认；设计、原型绝不起；小 bug 修复、文案不审；大改动审一轮，维度含正确性、架构、工程审美、去冗余；5 个左右、一个核实者
 - [先内核后门面](feedback-core-before-facade.md) — 内核打通、实测过再统一改 README 等门面；一个时刻只专注一件事
 - [外部 PR 直接改](feedback-pr-direct-commit.md) — 要合的 PR 直接在作者分支上追加 commit，不退回让作者返工
 - [宣传片](feedback-promo-video.md) — 在 kineto 做：发布会式快节奏、代码画为主、场景可演绎细节必须真；给 kineto 只给方向
