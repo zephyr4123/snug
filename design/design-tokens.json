@@ -44,7 +44,13 @@
       "menuHighlight":    { "system": "selectedContentBackgroundColor", "light": "#0088FF", "dark": "#0091FF" },
       "positive":         { "ref": "palette.green" },
       "warning":          { "ref": "palette.orange" },
-      "danger":           { "ref": "palette.red" }
+      "danger":           { "ref": "palette.red" },
+      "previewBezel":     { "light": "#1C1C1E", "dark": "#1C1C1E", "note": "分辨率预览：屏幕外的一圈边框。预览画的是一块 Mac 屏（菜单栏加一个终端窗口），深浅外观都一样" },
+      "previewMenuBar":   { "light": "#4B6082", "dark": "#4B6082", "note": "分辨率预览：菜单栏" },
+      "previewTitleBar":  { "light": "#2A2A2D", "dark": "#2A2A2D", "note": "分辨率预览：窗口标题栏" },
+      "previewTitle":     { "light": "#A8A8AD", "dark": "#A8A8AD", "note": "分辨率预览：窗口标题" },
+      "previewScreen":    { "light": "#1E1E1E", "dark": "#1E1E1E", "note": "分辨率预览：终端的底" },
+      "previewText":      { "light": "#D6D6D6", "dark": "#D6D6D6", "note": "分辨率预览：终端的字" }
     },
     "font": {
       "about": "macOS 文本样式（点）。family 用系统字体：SF Pro 加苹方",
@@ -56,7 +62,8 @@
       "headline":   { "style": ".headline",   "size": 13, "weight": 600, "lineHeight": 16 },
       "body":       { "style": ".body",       "size": 13, "weight": 400, "lineHeight": 16 },
       "callout":    { "style": ".callout",    "size": 12, "weight": 400, "lineHeight": 15 },
-      "footnote":   { "style": ".footnote",   "size": 10, "weight": 400, "lineHeight": 13 }
+      "footnote":   { "style": ".footnote",   "size": 10, "weight": 400, "lineHeight": 13 },
+      "code":       { "style": "等宽",          "size": 12, "weight": 400, "lineHeight": 16, "note": "分辨率预览里终端的字，用等宽字体" }
     },
     "space": {
       "about": "间距只从这几个数里挑：组内紧、组间松",
@@ -93,7 +100,8 @@
       "libraryGridItem": 78,
       "libraryTab": { "width": 20, "height": 64 },
       "libraryTabSymbol": 13,
-      "libraryPanel": { "width": 360, "maxHeight": 600 }
+      "libraryPanel": { "width": 360, "maxHeight": 600 },
+      "resolutionWindow": { "screenShare": 0.85, "minWidth": 720, "minHeight": 520, "barHeight": 72, "sliderWidth": 440, "bezel": 5, "note": "调整分辨率的窗口：按所在那块屏的可用区域取 85%（预览最大到默认档的 100%），可以拖大拖小" }
     },
     "iconTile": {
       "about": "设置行左边的彩色小方块，里面是白色 SF Symbol。一种颜色只表示一类东西。没写 symbol 的只定颜色，图标由代码按状态给",
@@ -153,7 +161,8 @@
       "listIcon": 48,
       "gridIcon": 58,
       "circleButton": 56,
-      "homeIndicator": { "width": 160, "height": 6, "hitHeight": 34 }
+      "homeIndicator": { "width": 160, "height": 6, "hitHeight": 34 },
+      "slider": { "track": 6, "thumb": 28, "note": "屏上的滑块（分辨率）：手指够得着的粗细" }
     },
     "layout": {
       "about": "每种 Snug 屏的大小和排法（多屏方案 4.4 定的数）",

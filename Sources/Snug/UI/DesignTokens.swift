@@ -17,6 +17,12 @@ enum MacTokens {
         static let menuBackground = SwiftUI.Color(nsColor: .dynamic(light: NSColor(srgbRed: 0.965, green: 0.965, blue: 0.965, alpha: 0.92), dark: NSColor(srgbRed: 0.157, green: 0.157, blue: 0.157, alpha: 0.92)))
         static let menuHighlight = SwiftUI.Color(nsColor: .selectedContentBackgroundColor)
         static let positive = SwiftUI.Color(nsColor: .systemGreen)
+        static let previewBezel = SwiftUI.Color(nsColor: .dynamic(light: NSColor(srgbRed: 0.11, green: 0.11, blue: 0.118, alpha: 1), dark: NSColor(srgbRed: 0.11, green: 0.11, blue: 0.118, alpha: 1)))
+        static let previewMenuBar = SwiftUI.Color(nsColor: .dynamic(light: NSColor(srgbRed: 0.294, green: 0.376, blue: 0.51, alpha: 1), dark: NSColor(srgbRed: 0.294, green: 0.376, blue: 0.51, alpha: 1)))
+        static let previewScreen = SwiftUI.Color(nsColor: .dynamic(light: NSColor(srgbRed: 0.118, green: 0.118, blue: 0.118, alpha: 1), dark: NSColor(srgbRed: 0.118, green: 0.118, blue: 0.118, alpha: 1)))
+        static let previewText = SwiftUI.Color(nsColor: .dynamic(light: NSColor(srgbRed: 0.839, green: 0.839, blue: 0.839, alpha: 1), dark: NSColor(srgbRed: 0.839, green: 0.839, blue: 0.839, alpha: 1)))
+        static let previewTitle = SwiftUI.Color(nsColor: .dynamic(light: NSColor(srgbRed: 0.659, green: 0.659, blue: 0.678, alpha: 1), dark: NSColor(srgbRed: 0.659, green: 0.659, blue: 0.678, alpha: 1)))
+        static let previewTitleBar = SwiftUI.Color(nsColor: .dynamic(light: NSColor(srgbRed: 0.165, green: 0.165, blue: 0.176, alpha: 1), dark: NSColor(srgbRed: 0.165, green: 0.165, blue: 0.176, alpha: 1)))
         static let secondaryLabel = SwiftUI.Color(nsColor: .secondaryLabelColor)
         static let separator = SwiftUI.Color(nsColor: .separatorColor)
         static let tertiaryLabel = SwiftUI.Color(nsColor: .tertiaryLabelColor)
@@ -26,6 +32,7 @@ enum MacTokens {
     enum Font {
         static let body = FontToken(size: 13, weight: .regular, lineHeight: 16)
         static let callout = FontToken(size: 12, weight: .regular, lineHeight: 15)
+        static let code = FontToken(size: 12, weight: .regular, lineHeight: 16)
         static let footnote = FontToken(size: 10, weight: .regular, lineHeight: 13)
         static let headline = FontToken(size: 13, weight: .semibold, lineHeight: 16)
         static let largeTitle = FontToken(size: 26, weight: .regular, lineHeight: 32)
@@ -75,6 +82,14 @@ enum MacTokens {
         static let menuWidth: CGFloat = 280
         static let nameFieldWidth: CGFloat = 200
         static let resolutionPopoverWidth: CGFloat = 280
+        enum ResolutionWindow {
+            static let barHeight: CGFloat = 72
+            static let bezel: CGFloat = 5
+            static let minHeight: CGFloat = 520
+            static let minWidth: CGFloat = 720
+            static let screenShare: CGFloat = 0.85
+            static let sliderWidth: CGFloat = 440
+        }
         static let rowMinHeight: CGFloat = 40
         static let settingsWidth: CGFloat = 520
         static let sheetWidth: CGFloat = 460
@@ -162,6 +177,10 @@ enum TouchTokens {
             static let width: CGFloat = 160
         }
         static let listIcon: CGFloat = 48
+        enum Slider {
+            static let thumb: CGFloat = 28
+            static let track: CGFloat = 6
+        }
         static let touchTarget: CGFloat = 56
     }
     enum Space {
