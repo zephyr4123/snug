@@ -8,6 +8,7 @@
 // 宽度：平时用基准宽度。2 倍高清的门槛按屏自己的方向算，长边 ≥ 800、短边 ≥ 525 点（V4）；
 // 手机竖屏沿用 540 宽（2.8：降到 525 字只大约 3%，老用户升级后无感更要紧），手机横屏取门槛里最窄的一档（字最大），
 // 平板按 V10 的体感取逻辑分辨率除以 1.24，电脑取它自己的分辨率（超出像素上限的按上限，字大一点）。
+// 手机、平板的基准宽度可以在「分辨率」里调宽，最宽到默认的最宽一档（见 ScreenResolution）：画面更细、字更小、装得更多。
 // App 限定了最小尺寸、基准宽度铺不满时，屏换成刚好装得下它的一档，窗口照样铺满，整屏等比缩小（手机上可以双指放大）。
 // 档位建屏时一次登记好，宽高比都一样：换档时 UU 不用重新推流、点击位置照样准，画面平滑缩放；
 // 换档只是选一档（帮手进程切，约 0.4 秒，屏不掉线、编号不变）。同一块屏上不登记相差太大的档（V4），最宽到基准的 2 倍
@@ -59,21 +60,21 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
     /// 没选过型号时的比例（17 Pro Max 竖屏，540×950）
     public static let standard = ScreenFit(device: DeviceChoice.standard.screen, kind: .phone, orientation: .portrait)
 
-    /// 按型号、类别和这块屏的方向算
-    public init(device: DeviceScreen, kind: DeviceKind, orientation: Orientation) {
+    /// 按型号、类别和这块屏的方向算。width：用户在「分辨率」里选的基准宽度（nil 用默认），夹在 ScreenResolution 的范围里；电脑不认
+    public init(device: DeviceScreen, kind: DeviceKind, orientation: Orientation, width chosen: Int? = nil) {
         let short = Double(device.width), long = Double(device.height)
         switch (kind, orientation) {
         case (.phone, .portrait):
             let points = device.points.map(Double.init) ?? Self.assumedPhonePoints
-            self.init(ratio: long / short - 2 * Self.clientToolbarInset / points)
+            self.init(ratio: long / short - 2 * Self.clientToolbarInset / points, chosen: chosen)
         case (.phone, .landscape):
             let points = device.points.map(Double.init) ?? Self.assumedPhonePoints
-            self.init(ratio: points / (long * points / short - Self.clientLandscapeInsets), orientation: .landscape, width: nil)
+            self.init(ratio: points / (long * points / short - Self.clientLandscapeInsets), orientation: .landscape, width: nil, chosen: chosen)
         case (.tablet, _):
             let points = device.points.map(Double.init) ?? Self.assumedTabletPoints
             let across = orientation == .portrait ? points : long * points / short
             let ratio = orientation == .portrait ? long / short : short / long
-            self.init(ratio: ratio, orientation: orientation, width: Int((across / Self.tabletScale).rounded()))
+            self.init(ratio: ratio, orientation: orientation, width: Int((across / Self.tabletScale).rounded()), chosen: chosen)
         case (.computer, .landscape):
             // 电脑的分辨率本来就是点（系统设置「显示器」里的那一档），照搬，和它本机看着一样大
             self.init(ratio: (short - Double(device.notch ?? 0)) / long, orientation: .landscape, width: device.height)
@@ -82,19 +83,21 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
         }
     }
 
-    /// 手机竖屏：2.5 以前的算法，一点不变
-    init(ratio: Double) {
+    /// 手机竖屏：默认档是 2.5 以前的算法，一点不变；chosen 是用户选的基准宽度，夹在默认档到 1080 之间
+    init(ratio: Double, chosen: Int? = nil) {
         let ratio = ratio.clamped(to: Self.portraitRatios)
         self.ratio = ratio
         // 矮的屏 540 宽时高不到 800，没有 2 倍：基准加宽到够高的最窄一档（比例不小于 1，800 宽一定够）
         let maxWidth = Int(Self.portraitPixels.width) / 2
         let all = stride(from: Self.minPhoneWidth, through: maxWidth, by: Self.step)
-        baseWidth = all.first { (Double($0) * ratio).rounded() >= Double(Self.minLongSide) } ?? maxWidth
+        let standard = all.first { (Double($0) * ratio).rounded() >= Double(Self.minLongSide) } ?? maxWidth
+        baseWidth = (chosen ?? standard).clamped(to: standard...maxWidth)
         widths = Array(stride(from: baseWidth, through: maxWidth, by: Self.step))
     }
 
-    /// 别的屏：width 是想要的基准宽度（nil 就取门槛里最窄的一档），不够 2 倍门槛就加宽到够；最宽到基准的 2 倍，不超过像素上限
-    init(ratio: Double, orientation: Orientation, width wanted: Int?) {
+    /// 别的屏：width 是想要的基准宽度（nil 就取门槛里最窄的一档），不够 2 倍门槛就加宽到够；最宽到基准的 2 倍，不超过像素上限。
+    /// chosen 是用户选的基准宽度，夹在默认档到默认的最宽一档之间
+    init(ratio: Double, orientation: Orientation, width wanted: Int?, chosen: Int? = nil) {
         let ratio = ratio.clamped(to: orientation == .portrait ? Self.portraitRatios : Self.landscapeRatios)
         self.ratio = ratio
         let pixels = orientation == .portrait ? Self.portraitPixels : Self.landscapePixels
@@ -103,7 +106,10 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
         // 2 倍门槛：竖屏宽 ≥ 525、高 ≥ 800，横屏宽 ≥ 800、高 ≥ 525（高 = 宽 × 比例，四舍五入）
         let (minWidth, minHeight) = orientation == .portrait ? (Self.minShortSide, Self.minLongSide) : (Self.minLongSide, Self.minShortSide)
         let threshold = max(minWidth, Int(((Double(minHeight) - 0.5) / ratio).rounded(.up)))
-        let base = min(max(wanted ?? threshold, threshold), limit)
+        let standard = min(max(wanted ?? threshold, threshold), limit)
+        // 最宽能选到默认的最宽一档（每 10 点一档从默认数上去的最后一档）
+        let top = standard + (min(standard * 2, limit) - standard) / Self.step * Self.step
+        let base = (chosen ?? standard).clamped(to: standard...top)
         baseWidth = base
         widths = Array(stride(from: base, through: min(base * 2, limit), by: Self.step))
     }

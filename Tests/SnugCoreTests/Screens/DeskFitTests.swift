@@ -45,6 +45,20 @@ struct DeskFitTests {
         #expect(rig.displays.widths[101] == 620)
     }
 
+    @Test("只改分辨率（比例不变）：在线换档位，「正在调整」；和换档一样不用在远控里切走再切回，不提示")
+    func resolutionOnly() async throws {
+        let rig = try Rig()
+        await rig.ready()
+        let wider = ScreenFit(device: DeviceChoice.standard.screen, kind: .phone, orientation: .portrait, width: 660)
+        rig.desk.setFit(wider)
+        #expect(rig.desk.state.work == .reshaping)
+        await rig.desk.idle()
+        #expect(rig.journal.all == ["reshape 101 660×1161"])
+        #expect(rig.desk.state.work == nil)
+        #expect(rig.desk.state.notice == nil)
+        #expect(rig.displays.widths[101] == 660)
+    }
+
     @Test("放着窗口时换：窗口按新比例重新铺满")
     func windowShown() async throws {
         let rig = try Rig()

@@ -174,8 +174,11 @@ public final class DeskSet {
             await desk.vacate()
             await clear(desk.id, "撤屏前")
         }
+        // 比例变了（换型号）要在远控里切走再切回；只改了分辨率（比例不变）和换档一样，不用
+        var ratioChanged: [ScreenID: Bool] = [:]
         for wish in target where screens.display(wish.id) != nil && screens.fit(wish.id) != wish.fit {
             guard let desk = desks[wish.id] else { continue }
+            ratioChanged[wish.id] = screens.fit(wish.id)?.ratio != wish.fit.ratio
             if let ticket = reshapeTickets.removeValue(forKey: wish.id) { desk.start(ticket) } else { desk.start(.reshaping) }
             busy.append(desk)
         }
@@ -191,7 +194,7 @@ public final class DeskSet {
             desks[id] = nil
             state.desks[id] = nil
         }
-        for (id, ok) in reshaped { await desks[id]?.reshaped(ok) }
+        for (id, ok) in reshaped { await desks[id]?.reshaped(ok, ratioChanged: ratioChanged[id] ?? true) }
         // 换了主屏（设、取消、换一块）：系统互换窗口时把留着的屏上的窗口换走了，挪回来
         if screens.mainScreen != mainBefore {
             for desk in orderedDesks where desk.wanted { await desk.reclaimSwapped() }

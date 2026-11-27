@@ -48,12 +48,12 @@ public enum ScreenPlan {
                           serials: screen.serials, maxPixels: portrait ? ScreenFit.portraitPixels : ScreenFit.landscapePixels)
     }
 
-    /// 配置里的一项 → 比例和档位
-    public static func fit(of screen: ScreenConfig) -> ScreenFit { fit(screen.device, screen.orientation) }
+    /// 配置里的一项 → 比例和档位（带上选的分辨率）
+    public static func fit(of screen: ScreenConfig) -> ScreenFit { fit(screen.device, screen.orientation, width: screen.baseWidth) }
 
-    /// 这台设备、这个方向的比例和档位（换型号时先算出来记日志）
-    public static func fit(_ device: DeviceChoice, _ orientation: Orientation) -> ScreenFit {
-        ScreenFit(device: device.screen, kind: device.kind, orientation: orientation)
+    /// 这台设备、这个方向的比例和档位（换型号时先算出来记日志）；width 是选的分辨率，nil 用默认
+    public static func fit(_ device: DeviceChoice, _ orientation: Orientation, width: Int? = nil) -> ScreenFit {
+        ScreenFit(device: device.screen, kind: device.kind, orientation: orientation, width: width)
     }
 
     /// 类别 → 行为（哪些类别算触屏见 DeviceKind.isTouch）

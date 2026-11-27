@@ -1,5 +1,6 @@
 // 屏幕列表里的一项：用户自己增删，每一项是一块虚拟屏（docs/how-it-works.md「屏幕列表」）。
 // 方向添加时定、之后不改；型号随时能改（在线换比例，不撤屏）；名字显示在「显示器」设置和远控的屏幕列表里。
+// 分辨率（基准宽度）手机、平板能调，同样在线换；换型号时回到默认（见 ScreenResolution）。
 // 身份（序列号）添加时分配、写进配置、永不复用：系统按身份记住一块屏的设置、排布和 ICC 文件
 import CoreGraphics
 import Foundation
@@ -12,14 +13,24 @@ public struct ScreenConfig: Codable, Equatable, Sendable, Identifiable {
     public var name: String
     /// 主序列号加两个备用的（建了不上线就依次换）
     public var serials: [UInt32]
+    /// 分辨率：用户选的基准宽度（点）；nil 用默认。没调过不写进配置，旧版读到的和以前一样
+    public var baseWidth: Int?
 
-    public init(id: ScreenID, orientation: Orientation, device: DeviceChoice, enabled: Bool = true, name: String, serials: [UInt32]) {
+    public init(id: ScreenID, orientation: Orientation, device: DeviceChoice, enabled: Bool = true, name: String, serials: [UInt32],
+                baseWidth: Int? = nil) {
         self.id = id
         self.orientation = orientation
         self.device = device
         self.enabled = enabled
         self.name = name
         self.serials = serials
+        self.baseWidth = baseWidth
+    }
+
+    /// 换型号：分辨率回到默认。范围和最清晰那一格都跟着型号变，原来选的点数放到新型号上不一定合适
+    public mutating func setDevice(_ device: DeviceChoice) {
+        self.device = device
+        baseWidth = nil
     }
 
     /// 2.5 以前那块「Snug 手机屏」：名字、身份都不变，远控里看到的和以前一样

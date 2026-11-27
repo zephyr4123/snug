@@ -225,6 +225,28 @@ struct ConfigModelTests {
         #expect(low.zoomSteps == 0)
     }
 
+    @Test("分辨率：没调过的不写进配置（旧版读到的和以前一样），调过的原样读回；旧配置没有这一项读成默认")
+    func baseWidth() throws {
+        var c = AppConfig()
+        c.screens[0].baseWidth = 660
+        let data = try JSONEncoder().encode(c)
+        #expect(try JSONDecoder().decode(AppConfig.self, from: data).screens[0].baseWidth == 660)
+        c.screens[0].baseWidth = nil
+        #expect(!String(decoding: try JSONEncoder().encode(c), as: UTF8.self).contains("baseWidth"))
+        let old = try decode(#"{"screens":[{"id":"phone","orientation":"portrait","device":{"model":"Apple iPhone 17 Pro Max","screen":{"width":1320,"height":2868,"points":440},"kind":"phone"},"enabled":true,"name":"Snug 手机屏","serials":[200000108]}]}"#)
+        #expect(old.screens[0].baseWidth == nil)
+    }
+
+    @Test("换型号：分辨率回到默认（范围和最清晰那一格都跟着型号变）")
+    func changingDeviceResetsResolution() {
+        var screen = ScreenConfig.legacyPhone(.standard, enabled: true)
+        screen.baseWidth = 660
+        let other = DeviceChoice(model: "华为 Mate 70 Pro", screen: DeviceScreen(width: 1260, height: 2832))
+        screen.setDevice(other)
+        #expect(screen.device == other)
+        #expect(screen.baseWidth == nil)
+    }
+
     @Test("编码再解码保持不变")
     func roundTrip() throws {
         var c = AppConfig()

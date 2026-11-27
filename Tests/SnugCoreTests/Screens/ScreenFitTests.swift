@@ -187,6 +187,31 @@ struct ScreenFitTests {
         #expect(abs(ScreenFit.scale(screen: CGSize(width: 952, height: 662)) - 1.226) < 0.001)
     }
 
+    @Test("分辨率选了更宽的基准：从它往上登记到它的 2 倍（手机竖屏到 1080 为止），比例不变")
+    func chosenWidth() {
+        let phone = ScreenFit(device: DeviceChoice.standard.screen, kind: .phone, orientation: .portrait, width: 660)
+        #expect(phone.baseWidth == 660)
+        #expect(phone.widths.first == 660)
+        #expect(phone.widths.last == 1080)
+        #expect(phone.ratio == ScreenFit.standard.ratio)
+        let ipad = DeviceScreen(width: 1640, height: 2360, points: 820)
+        let tablet = ScreenFit(device: ipad, kind: .tablet, orientation: .landscape, width: 1180)
+        #expect(tablet.baseWidth == 1180)
+        #expect(tablet.widths.last == 2360)
+        #expect(tablet.ratio == ScreenFit(device: ipad, kind: .tablet, orientation: .landscape).ratio)
+    }
+
+    @Test("选的基准出了范围夹回去：不比默认窄，不比默认的最宽一档宽；电脑屏不认")
+    func chosenWidthClamped() {
+        let screen = DeviceChoice.standard.screen
+        #expect(ScreenFit(device: screen, kind: .phone, orientation: .portrait, width: 300).baseWidth == 540)
+        #expect(ScreenFit(device: screen, kind: .phone, orientation: .portrait, width: 5000).baseWidth == 1080)
+        let ipad = DeviceScreen(width: 1640, height: 2360, points: 820)
+        #expect(ScreenFit(device: ipad, kind: .tablet, orientation: .landscape, width: 5000).baseWidth == 1902)
+        let air = DeviceScreen(width: 956, height: 1470, notch: 33)
+        #expect(ScreenFit(device: air, kind: .computer, orientation: .landscape, width: 2000) == ScreenFit(device: air, kind: .computer, orientation: .landscape))
+    }
+
     @Test("手势翻译的范围：整块屏，阈值按这一档放大")
     func touchRegion() {
         let screen = CGRect(x: 1512, y: 0, width: 1080, height: 1900)
