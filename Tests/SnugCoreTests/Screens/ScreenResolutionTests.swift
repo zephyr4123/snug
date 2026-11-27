@@ -5,6 +5,10 @@ import Testing
 private let ipad = DeviceChoice(model: "Apple iPad（第 10 代）", screen: DeviceScreen(width: 1640, height: 2360, points: 820), kind: .tablet)
 /// 安卓平板不知道逻辑分辨率（按 800 点估）
 private let xiaomiPad = DeviceChoice(model: "小米 Xiaomi Pad 7", screen: DeviceScreen(width: 2136, height: 3200), kind: .tablet)
+/// 屏幕 1084 像素宽：最清晰（542）紧挨着默认档 540
+private let nova = DeviceChoice(model: "华为 nova 13", screen: DeviceScreen(width: 1084, height: 2412))
+/// 折叠屏内屏：横屏比方形还宽，ScreenFit 夹成方屏
+private let findN5 = DeviceChoice(model: "OPPO Find N5 内屏", screen: DeviceScreen(width: 2248, height: 2480))
 private let air = DeviceChoice(model: "Apple MacBook Air 13 英寸（M4）", screen: DeviceScreen(width: 956, height: 1470, notch: 33), kind: .computer)
 
 @Suite("分辨率 ScreenResolution")
@@ -87,6 +91,64 @@ struct ScreenResolutionTests {
         #expect(r.snapped(100) == 952)
     }
 
+    @Test("最清晰紧挨着两头时，两头照样够得着；拖到头就是头")
+    func snappedEnds() throws {
+        let phone = try #require(ScreenResolution(device: nova, orientation: .portrait))
+        #expect(phone.range == 540...1080)
+        #expect(phone.sharpest == 542)
+        #expect(phone.snapped(540) == 540)
+        #expect(phone.snapped(547) == 542)
+        #expect(phone.snapped(542) == 542)
+        let pad = try #require(ScreenResolution(device: xiaomiPad, orientation: .portrait))
+        #expect(pad.range == 645...1075)
+        #expect(pad.sharpest == 1068)
+        #expect(pad.snapped(1075) == 1075)
+        #expect(pad.snapped(1072) == 1068)
+    }
+
+    @Test("吸出来的每一档再吸一次不变：屏上开始滑动时先按现在的值吸一次，不能跳")
+    func snappedIsStable() throws {
+        for (device, orientation) in [(DeviceChoice.standard, Orientation.portrait), (nova, .portrait), (xiaomiPad, .portrait), (ipad, .landscape)] {
+            let r = try #require(ScreenResolution(device: device, orientation: orientation))
+            for value in stride(from: Double(r.range.lowerBound), through: Double(r.range.upperBound), by: 0.5) {
+                let width = r.snapped(value)
+                #expect(r.snapped(Double(width)) == width, "\(device.title) \(value) → \(width)")
+            }
+        }
+    }
+
+    @Test("加减一格（无障碍）：经过最清晰也挪得动，到头停住")
+    func stepped() throws {
+        let r = try #require(ScreenResolution(device: ipad, orientation: .landscape))
+        #expect(r.stepped(1172, up: true) == 1180)
+        #expect(r.stepped(1180, up: true) == 1192)
+        #expect(r.stepped(1180, up: false) == 1162)
+        #expect(r.stepped(1192, up: false) == 1180)
+        #expect(r.stepped(952, up: false) == 952)
+        #expect(r.stepped(1902, up: true) == 1902)
+        let phone = try #require(ScreenResolution(device: nova, orientation: .portrait))
+        #expect(phone.stepped(540, up: true) == 542)
+        #expect(phone.stepped(542, up: false) == 540)
+        #expect(phone.stepped(542, up: true) == 560)
+    }
+
+    @Test("折叠屏内屏横屏：ScreenFit 夹成方屏，远控铺满控制端屏幕的高，横向用到的是短边那 2248 像素")
+    func foldableLandscape() throws {
+        let r = try #require(ScreenResolution(device: findN5, orientation: .landscape))
+        #expect(r.range == 800...1600)
+        #expect(r.sharpest == 1124)
+        #expect(r.clarity(at: 800) == .soft(percent: 71))
+    }
+
+    @Test("范围只有一档（逻辑宽度很大的平板竖屏，被像素上限卡住）：不崩，没有最清晰那一格")
+    func singleTier() throws {
+        let huge = DeviceChoice(model: nil, screen: DeviceScreen(width: 2680, height: 3600, points: 1340), kind: .tablet)
+        let r = try #require(ScreenResolution(device: huge, orientation: .portrait))
+        #expect(r.range == 1080...1080)
+        #expect(r.sharpest == nil)
+        #expect(r.snapped(1000) == 1080)
+    }
+
     @Test("存进配置：默认存 nil；读出来的夹回范围（机型库改了数值、手改了配置）")
     func stored() throws {
         let r = try #require(ScreenResolution(device: ipad, orientation: .landscape))
@@ -98,15 +160,18 @@ struct ScreenResolutionTests {
         #expect(r.width(stored: 9999) == 1902)
     }
 
-    @Test("范围里每一档都和建屏用的 ScreenFit 一致：基准宽度就是选的那档，比例不变")
+    @Test("范围和建屏用的 ScreenFit 一致：范围里每一档建出来就是那档，范围外夹回两头")
     func matchesScreenFit() throws {
-        for (device, orientation) in [(DeviceChoice.standard, Orientation.portrait), (.standard, .landscape), (ipad, .portrait), (ipad, .landscape), (xiaomiPad, .landscape)] {
+        for (device, orientation) in [(DeviceChoice.standard, Orientation.portrait), (.standard, .landscape), (ipad, .portrait), (ipad, .landscape),
+                                      (xiaomiPad, .landscape), (nova, .portrait), (findN5, .landscape)] {
             let r = try #require(ScreenResolution(device: device, orientation: orientation))
+            let fit = { (width: Int) in ScreenFit(device: device.screen, kind: device.kind, orientation: orientation, width: width).baseWidth }
             for width in stride(from: r.range.lowerBound, through: r.range.upperBound, by: 37) {
-                let fit = ScreenFit(device: device.screen, kind: device.kind, orientation: orientation, width: width)
-                #expect(fit.baseWidth == width)
-                #expect(fit.size(width: width) == r.size(width: width))
+                #expect(fit(width) == width)
             }
+            #expect(fit(r.range.upperBound) == r.range.upperBound)
+            #expect(fit(r.range.upperBound + 100) == r.range.upperBound)
+            #expect(fit(r.range.lowerBound - 100) == r.range.lowerBound)
         }
     }
 }

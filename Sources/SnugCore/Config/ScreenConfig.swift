@@ -27,8 +27,10 @@ public struct ScreenConfig: Codable, Equatable, Sendable, Identifiable {
         self.baseWidth = baseWidth
     }
 
-    /// 换型号：分辨率回到默认。范围和最清晰那一格都跟着型号变，原来选的点数放到新型号上不一定合适
+    /// 换型号：分辨率回到默认。范围和最清晰那一格都跟着型号变，原来选的点数放到新型号上不一定合适。
+    /// 重选同一型号（点了已打勾的那台、自定义填回原值）不算换，什么都不动
     public mutating func setDevice(_ device: DeviceChoice) {
+        guard device != self.device else { return }
         self.device = device
         baseWidth = nil
     }

@@ -247,6 +247,14 @@ struct ConfigModelTests {
         #expect(screen.baseWidth == nil)
     }
 
+    @Test("重选同一型号不算换型号：分辨率留着（点了型号页里已打勾的那台、自定义填回原值）")
+    func reselectingDeviceKeepsResolution() {
+        var screen = ScreenConfig.legacyPhone(.standard, enabled: true)
+        screen.baseWidth = 660
+        screen.setDevice(.standard)
+        #expect(screen.baseWidth == 660)
+    }
+
     @Test("编码再解码保持不变")
     func roundTrip() throws {
         var c = AppConfig()

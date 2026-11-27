@@ -1,5 +1,6 @@
 // 分辨率：手机、平板屏的基准宽度可以调宽（屏幕详情、屏上型号页的「分辨率」），画面更细、字更小、装得更多（#54、#66）。
-// 范围是默认档到默认的最宽一档（默认的 2 倍、不超过像素上限），和 ScreenFit 登记的档位一致，建屏时照它夹。
+// 范围取自默认 ScreenFit 登记的档位（默认档到最宽一档：默认的 2 倍、不超过像素上限）。ScreenFit 是唯一的真相源，
+// 建屏时由它夹选中的宽度，这里只读它。
 // 屏都是 2 倍渲染，推出去的像素 = 点数 × 2：比控制端屏幕的像素少时，控制端要放大显示，画面略软；
 // 「最清晰」是 2 倍像素正好等于屏幕像素的那一档，再往右只多装内容，不会更细。电脑屏照搬电脑自己的分辨率，不调。
 // 选的值存在 ScreenConfig.baseWidth（默认存 nil），换型号时回到默认
@@ -12,7 +13,8 @@ public struct ScreenResolution: Hashable, Sendable {
     public let sharpest: Int?
     /// 控制端屏幕在这块屏宽度方向上的像素。自己填的是比例（9 × 20）、或比默认档还少时不认：不知道屏幕有多少像素，不报清晰度
     let pixels: Int?
-    let ratio: Double
+    /// 默认那一档的 ScreenFit：比例、档位都从它取
+    private let standard: ScreenFit
 
     public enum Clarity: Hashable, Sendable {
         /// 像素比屏幕少：控制端放大显示，略软。percent 向下取整，差一点也不报 100
@@ -27,18 +29,17 @@ public struct ScreenResolution: Hashable, Sendable {
     public init?(device: DeviceChoice, orientation: Orientation) {
         guard device.kind.isTouch else { return nil }
         let standard = ScreenFit(device: device.screen, kind: device.kind, orientation: orientation)
+        self.standard = standard
         range = standard.baseWidth...(standard.widths.last ?? standard.baseWidth)
-        ratio = standard.ratio
-        let across = Self.pixelsAcross(device.screen, kind: device.kind, orientation: orientation)
+        // 远控把画面等比铺满控制端屏幕：竖屏撑满宽，横屏撑满高（短边），宽度方向用到的像素按这块屏的比例从短边换算
+        let across = orientation == .portrait ? device.screen.width : Int((Double(device.screen.width) / standard.ratio).rounded())
         let half = across / 2
         pixels = half >= range.lowerBound ? across : nil
-        sharpest = (range.lowerBound + 1...range.upperBound).contains(half) ? half : nil
+        sharpest = range.lowerBound < half && half <= range.upperBound ? half : nil
     }
 
-    /// 这一档的逻辑尺寸（点）：和 ScreenFit 的一样
-    public func size(width: Int) -> CGSize {
-        CGSize(width: CGFloat(width), height: (Double(width) * ratio).rounded())
-    }
+    /// 这一档的逻辑尺寸（点）
+    public func size(width: Int) -> CGSize { standard.size(width: width) }
 
     /// 选这一档时的清晰度；不知道屏幕像素时为 nil
     public func clarity(at width: Int) -> Clarity? {
@@ -49,13 +50,23 @@ public struct ScreenResolution: Hashable, Sendable {
         return doubled < pixels ? .soft(percent: doubled * 100 / pixels) : .beyond
     }
 
-    /// 滑块的值 → 一档：从默认档起每 ScreenFit.step 点一格，和建屏登记的档位对齐；靠近最清晰时吸到那一格，两头够得着
+    /// 滑块的值 → 一档：从默认档起每 ScreenFit.step 点一格，和建屏登记的档位对齐；靠近最清晰时吸到那一格。
+    /// 拖到头就是头（最清晰紧挨着头时也够得着）；吸出来的值再吸一次不变（屏上开始滑动时先按现在的值吸一次）
     public func snapped(_ value: Double) -> Int {
-        let step = Double(ScreenFit.step)
-        if let sharpest, abs(value - Double(sharpest)) <= step { return sharpest }
-        if value >= Double(range.upperBound) - step / 2 { return range.upperBound }
-        let lower = range.lowerBound
-        return (lower + Int(((value - Double(lower)) / step).rounded()) * ScreenFit.step).clamped(to: range)
+        let lower = range.lowerBound, step = Double(ScreenFit.step)
+        if value <= Double(lower) { return lower }
+        if value >= Double(range.upperBound) { return range.upperBound }
+        let grid = (lower + Int(((value - Double(lower)) / step).rounded()) * ScreenFit.step).clamped(to: range)
+        // 落进最清晰左右一格以内的格子不单独给：吸过去，免得两格挨着、再吸一次就跳
+        if let sharpest, abs(value - Double(sharpest)) < step || abs(grid - sharpest) < ScreenFit.step { return sharpest }
+        return grid
+    }
+
+    /// 往大或往小挪一格（无障碍的加减）：相邻那格被最清晰吸回原地时，再多挪一格
+    public func stepped(_ width: Int, up: Bool) -> Int {
+        let step = Double(up ? ScreenFit.step : -ScreenFit.step)
+        let next = snapped(Double(width) + step)
+        return next != width ? next : snapped(Double(width) + 2 * step)
     }
 
     /// 存进配置的值：默认档存 nil（换了机型库数值也跟着默认走）
@@ -68,18 +79,4 @@ public struct ScreenResolution: Hashable, Sendable {
         (stored ?? range.lowerBound).clamped(to: range)
     }
 
-    /// 控制端屏幕在这块屏宽度方向上的像素：远控把画面按宽度铺满时，宽度方向上能用的那些像素
-    /// （手机横屏扣掉远控左右让出的部分，换算成像素；竖屏的上下让位不影响宽度）
-    private static func pixelsAcross(_ screen: DeviceScreen, kind: DeviceKind, orientation: Orientation) -> Int {
-        let short = Double(screen.width), long = Double(screen.height)
-        switch (kind, orientation) {
-        case (_, .portrait):
-            return screen.width
-        case (.phone, .landscape):
-            let points = screen.points.map(Double.init) ?? ScreenFit.assumedPhonePoints
-            return Int((long - ScreenFit.clientLandscapeInsets * short / points).rounded())
-        case (_, .landscape):
-            return screen.height
-        }
-    }
 }

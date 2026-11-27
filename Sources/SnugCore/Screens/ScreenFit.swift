@@ -14,7 +14,7 @@
 // 换档只是选一档（帮手进程切，约 0.4 秒，屏不掉线、编号不变）。同一块屏上不登记相差太大的档（V4），最宽到基准的 2 倍
 import CoreGraphics
 
-public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
+public struct ScreenFit: Hashable, Sendable, CustomStringConvertible {
     /// Snug 自己的面板和手势阈值按这个短边设计（17 Pro Max 竖屏的基准宽度）
     public static let designWidth = 540
     /// 2 倍高清的门槛（实测，和像素上限无关）：长边不小于 800、短边不小于 525 点，系统才把 2 倍模式标成桌面可用
@@ -60,7 +60,8 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
     /// 没选过型号时的比例（17 Pro Max 竖屏，540×950）
     public static let standard = ScreenFit(device: DeviceChoice.standard.screen, kind: .phone, orientation: .portrait)
 
-    /// 按型号、类别和这块屏的方向算。width：用户在「分辨率」里选的基准宽度（nil 用默认），夹在 ScreenResolution 的范围里；电脑不认
+    /// 按型号、类别和这块屏的方向算。width：用户在「分辨率」里选的基准宽度（nil 用默认），夹在默认档到默认的最宽一档之间
+    /// （ScreenResolution 的范围就取自这里）；电脑不认
     public init(device: DeviceScreen, kind: DeviceKind, orientation: Orientation, width chosen: Int? = nil) {
         let short = Double(device.width), long = Double(device.height)
         switch (kind, orientation) {
