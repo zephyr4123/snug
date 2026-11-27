@@ -119,8 +119,10 @@ protocol AppIntents: AnyObject, Sendable {
     func setScreenEnabled(_ id: ScreenID, _ on: Bool)
     func addScreen(orientation: Orientation, device: DeviceChoice, name: String)
     func removeScreen(_ id: ScreenID)
-    /// 换型号：屏在就马上换成它的比例
+    /// 换型号：屏在就马上换成它的比例，分辨率回到默认
     func setScreenDevice(_ id: ScreenID, _ device: DeviceChoice)
+    /// 分辨率（手机、平板）：选的基准宽度，nil 回到默认；屏在就马上换档位
+    func setScreenResolution(_ id: ScreenID, _ width: Int?)
     func renameScreen(_ id: ScreenID, _ name: String)
     func setKeepScreensReady(_ on: Bool)
     /// 设为主屏的那块（常驻）；nil 不改主屏
@@ -161,6 +163,8 @@ protocol TouchIntents: AnyObject, Sendable {
     func zoom(by delta: Int)
     /// 换这块屏的型号
     func setDevice(_ device: DeviceChoice)
+    /// 改这块屏的分辨率（nil 回到默认）
+    func setResolution(_ width: Int?)
     /// 退出这块屏：这次远程不再显示（见 DeskSet.dismissScreen）
     func dismissScreen()
     /// 取消设为主屏（设为主屏的那块屏上点的）：主屏改回 Mac，这块屏不再常驻
@@ -181,4 +185,6 @@ protocol Navigation: AnyObject, Sendable {
     func openWelcome()
     func openAbout(on display: DisplayID?)
     func openUpdate()
+    /// 调这块屏的分辨率（屏幕详情里的「调整…」）
+    func openResolution(_ id: ScreenID)
 }

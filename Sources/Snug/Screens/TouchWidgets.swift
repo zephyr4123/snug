@@ -195,6 +195,8 @@ struct ClearButton: View {
 struct BarButton: View {
     let title: String
     var bold = false
+    /// 字在按钮里靠哪边：导航栏右边的靠右（默认），左边的靠左
+    var alignment: Alignment = .trailing
     let action: () -> Void
 
     var body: some View {
@@ -202,7 +204,7 @@ struct BarButton: View {
             Text(title)
                 .font(bold ? TouchTokens.Font.body.font.weight(.semibold) : TouchTokens.Font.body.font)
                 .foregroundStyle(TouchTokens.Color.tint)
-                .frame(minWidth: TouchTokens.Size.touchTarget, minHeight: TouchTokens.Size.touchTarget, alignment: .trailing)
+                .frame(minWidth: TouchTokens.Size.touchTarget, minHeight: TouchTokens.Size.touchTarget, alignment: alignment)
         }
         .buttonStyle(PressableStyle())
     }

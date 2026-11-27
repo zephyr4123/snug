@@ -55,4 +55,47 @@ extension ScreenConfig {
         let size = fit.size(width: fit.baseWidth)
         return "\(Int(size.width)) × \(Int(size.height)) 点"
     }
+
+    /// 分辨率能调的屏（手机、平板）才有
+    var resolution: ScreenResolution? { ScreenResolution(device: device, orientation: orientation) }
+    /// 用的是不是默认档：存的值夹回范围后落在默认档也算（机型库改了数值、手改了配置），和调整界面一个判法
+    var usesDefaultResolution: Bool { resolution.map { $0.width(stored: baseWidth) == $0.range.lowerBound } ?? true }
+    /// 屏幕详情、型号页上分辨率的值：默认写「默认」，调过写点数
+    var resolutionText: String { usesDefaultResolution ? "默认" : sizeText }
+}
+
+extension ScreenResolution {
+    /// 这一档的点数：「1180 × 820 点」
+    func sizeText(_ width: Int) -> String {
+        let size = size(width: width)
+        return "\(Int(size.width)) × \(Int(size.height)) 点"
+    }
+
+    /// 调整界面的读数：默认档后面写明「（默认）」
+    func readout(_ width: Int) -> String {
+        sizeText(width) + (width == range.lowerBound ? "（默认）" : "")
+    }
+}
+
+extension ScreenResolution.Clarity {
+    /// 调整时预览下面那一行
+    var text: String {
+        switch self {
+        case .soft(let percent): "画面略软 · 像素为屏幕的 \(percent)%"
+        case .sharpest: "最清晰 · 像素与屏幕一致"
+        case .beyond: "最清晰 · 再往右只增加空间"
+        }
+    }
+
+    /// 型号页那一行的短说法
+    var short: String {
+        if case .soft = self { "画面略软" } else { "最清晰" }
+    }
+
+    var isSharp: Bool {
+        if case .soft = self { false } else { true }
+    }
+
+    /// 读数下面那行的图标：清晰打勾，略软半个圆
+    var symbol: String { isSharp ? "checkmark.circle.fill" : "circle.lefthalf.filled" }
 }

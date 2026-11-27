@@ -125,12 +125,26 @@ enum RenderSamples {
                 AnyView(AddScreenSheet(state: sampleState(), intents: stub, close: {}))
             },
             RenderSample(name: "settings-screen-detail") {
-                AnyView(ScreenDetailSheet(id: tabletID, state: sampleState(), intents: stub, close: {}))
+                AnyView(ScreenDetailSheet(id: tabletID, state: sampleState(), intents: stub, navigation: stub, close: {}))
             },
             RenderSample(name: "settings-screen-detail-dark", dark: true) {
-                AnyView(ScreenDetailSheet(id: .phone, state: sampleState(), intents: stub, close: {}))
+                AnyView(ScreenDetailSheet(id: .phone, state: sampleState(), intents: stub, navigation: stub, close: {}))
             },
+            resolution("settings-resolution"),
+            resolution("settings-resolution-sharpest-dark", dark: true, width: 1180),
+            resolution("settings-resolution-phone", on: .phone, width: 800),
         ]
+    }
+
+    /// 调整分辨率的窗口：大小按 1280×800 的屏算（同 ResolutionWindowController）。width：配置里存的分辨率
+    private static func resolution(_ name: String, on id: ScreenID = tabletID, dark: Bool = false, width: Int? = nil) -> RenderSample {
+        let config = allScreens.first { $0.id == id }!
+        let size = ResolutionWindowController.contentSize(for: config.resolution!, on: nil)
+        return RenderSample(name: name, dark: dark, size: size) {
+            let s = sampleState()
+            if let i = s.config.screens.firstIndex(where: { $0.id == id }) { s.config.screens[i].baseWidth = width }
+            return AnyView(ResolutionWindowView(id: id, state: s, intents: stub, close: {}).frame(width: size.width, height: size.height))
+        }
     }
 
     private static func page(_ name: String, dark: Bool = false, tab: SettingsWindowController.Tab = .screens,
@@ -367,6 +381,10 @@ enum RenderSamples {
                 pages.query = "xyz"
             },
             panel("phone-model") { _, pages in pages.open(.model) },
+            panel("phone-model-adjusted-dark", dark: true, width: 660) { _, pages in pages.open(.model) },
+            panel("phone-resolution") { _, pages in pages.open(.resolution) },
+            panel("phone-resolution-sharpest-dark", dark: true, width: 660) { _, pages in pages.open(.resolution) },
+            panel("phone-resolution-wide", width: 900) { _, pages in pages.open(.resolution) },
             panel("phone-model-custom-dark", dark: true) { s, pages in
                 s.config.screens[0].device = DeviceChoice(model: nil, screen: DeviceScreen(width: 1080, height: 2400))
                 pages.open(.model)
@@ -391,10 +409,12 @@ enum RenderSamples {
             panel("phone-landscape", on: landscapeID) { _, _ in },
             panel("phone-landscape-placed-dark", on: landscapeID, dark: true) { s, _ in s.desks.desks[landscapeID]?.placed = placed },
             panel("phone-landscape-all", on: landscapeID, tab: .all) { _, _ in },
+            panel("phone-landscape-resolution", on: landscapeID, width: 1203) { _, pages in pages.open(.resolution) },
             panel("tablet-landscape", on: tabletID, tab: .all, selected: 3) { _, _ in },
             panel("tablet-landscape-placed", on: tabletID) { s, _ in s.desks.desks[tabletID]?.placed = placed },
             panel("tablet-landscape-dark", on: tabletID, dark: true) { _, _ in },
             panel("tablet-landscape-model", on: tabletID) { _, pages in pages.open(.model) },
+            panel("tablet-landscape-resolution", on: tabletID) { _, pages in pages.open(.resolution) },
             panel("tablet-portrait", on: tabletPortraitID) { s, _ in s.desks.desks[tabletPortraitID]?.placed = placed },
         ]
         return portrait + others + screenshot
@@ -444,9 +464,11 @@ enum RenderSamples {
 
     private static func panel(_ name: String, on id: ScreenID = .phone, dark: Bool = false, tab: TouchHomeView.Tab = .running,
                               confirming: TouchHomeView.Confirm? = nil, selected: Int32? = nil, running list: [RunningApp] = running,
-                              loaded: Bool = true, _ configure: @escaping @MainActor (AppState, TouchPages) -> Void) -> RenderSample {
+                              loaded: Bool = true, width: Int? = nil, _ configure: @escaping @MainActor (AppState, TouchPages) -> Void) -> RenderSample {
         var config = allScreens.first { $0.id == id }!
         config.enabled = true
+        // 调过分辨率的屏：面板按调过的基准宽度画
+        config.baseWidth = width
         let fit = ScreenPlan.fit(of: config)
         let size = fit.size(width: fit.baseWidth)
         return RenderSample(name: name, dark: dark, size: size) {

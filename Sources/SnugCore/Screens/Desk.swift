@@ -54,9 +54,10 @@ public final class Desk {
         case noWindow(app: String)
         /// 请它退出了，等满了还没退，也没有对话框：可以强制退出
         case quitStalled(app: String, pid: Int32)
-        /// 换成了新型号的比例。UU 只在选屏时按屏幕尺寸开推流，比例变了要在 UU 里切走再切回来，点的位置才对（实测）
+        /// 换成了新型号的比例。UU 只在选屏时按屏幕尺寸开推流，比例变了要在 UU 里切走再切回来，点的位置才对（实测）。
+        /// 只改分辨率时比例不变，和换档一样不用，不提示
         case reshaped
-        /// 换了型号，但这块屏没能换成新比例（还是原来的）；下次加屏时按新的建
+        /// 换了型号或分辨率，但这块屏没能换成（还是原来的）；下次加屏时按新的建
         case reshapeFailed
         /// 在手机上退出了，窗口已还原、屏留着（ScreenWish.staysOnDismiss）：要回 Mac 原来的画面，在远控里切到别的屏
         case keptOnDismiss
@@ -504,19 +505,19 @@ public final class Desk {
         placement = p
     }
 
-    /// 换了型号的比例：ok 为 false 时屏还是原来的档位，之后照旧按屏上的比例选档
-    func reshaped(_ ok: Bool) async {
+    /// 换了比例或分辨率：ok 为 false 时屏还是原来的档位，之后照旧按屏上的比例选档。ratioChanged：比例变了（换型号），要提示在远控里切走再切回
+    func reshaped(_ ok: Bool, ratioChanged: Bool) async {
         guard ok else {
             state.notice = .reshapeFailed
             return
         }
-        state.notice = .reshaped
+        if ratioChanged { state.notice = .reshaped }
         guard var p = placement else { return }
         // 窗口要的档位按新比例从基准宽度重新找；忘掉上次挪完的样子，露出来时一定重新铺
         p.width = screenFit.baseWidth
         p.settled = nil
         if !state.listVisible {
-            Log.info("换了比例，\(p.window.label) 按新比例重新铺满")
+            Log.info("换了比例或分辨率，\(p.window.label) 按新档位重新铺满")
             await fill(&p)
         }
         placement = p

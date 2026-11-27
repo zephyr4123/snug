@@ -89,7 +89,7 @@ struct ScreensPage: View {
         .sheet(item: $sheet) { sheet in
             switch sheet {
             case .add: AddScreenSheet(state: state, intents: intents) { self.sheet = nil }
-            case .detail(let id): ScreenDetailSheet(id: id, state: state, intents: intents) { self.sheet = nil }
+            case .detail(let id): ScreenDetailSheet(id: id, state: state, intents: intents, navigation: navigation) { self.sheet = nil }
             }
         }
         .confirmationDialog(confirmingMain.flatMap { state.screen($0) }.map { "将「\($0.name)」设为主屏？" } ?? "",
@@ -425,6 +425,9 @@ final class SettingsWindowController {
         self.intents = intents
         self.navigation = navigation
     }
+
+    /// 设置窗口现在在哪块屏上：从它打开的窗口（调整分辨率）开在同一块屏
+    var screen: NSScreen? { window?.screen }
 
     /// display：从哪块屏的菜单栏打开的（见 NSWindow.bring）
     func show(_ tab: Tab = .screens, on display: DisplayID? = nil, activating: Bool = true) {

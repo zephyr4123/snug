@@ -90,7 +90,7 @@ extension Desk.Notice {
         case .quitStalled(let app, _): StatusText(headline: "\(app) 未退出", detail: "强制退出将丢失未存储的内容")
         // 实测依据只有 UU（换档后要切走再切回才按新比例对齐点按）；CrossDesk 换档后的表现待实测，说法先不点名
         case .reshaped: StatusText(headline: "屏幕比例已调整", detail: "在远控中切到其他屏幕再切回，点按位置才准确")
-        case .reshapeFailed: StatusText(headline: "屏幕比例未能调整", detail: "下次连接时生效")
+        case .reshapeFailed: StatusText(headline: "屏幕未能调整", detail: "下次连接时生效")
         case .keptOnDismiss: StatusText(headline: "窗口已还原", detail: "屏幕保留，可在远控中切换屏幕")
         case .zoomLeftBehind(let app, let steps): StatusText(headline: "\(app) 窗口已关闭", detail: "再打开时字号若偏大，按 \(steps) 次 ⌘- 复原")
         }
