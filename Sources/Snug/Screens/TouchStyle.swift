@@ -25,12 +25,14 @@ extension DeviceKind {
         }
     }
 
-    /// 横屏两栏时左边 App 列表的宽度（电脑屏的资源库不分两栏，跟手机走）
-    var landscapeSidebar: CGFloat {
-        switch self {
+    /// 横屏两栏时窄的那栏（首页左边的 App 列表、分辨率页右边的滑块）多宽：按类别定，窄屏上不超过整宽的 45%
+    /// （电脑屏的资源库不分两栏，跟手机走）
+    func landscapeSidebar(in width: CGFloat) -> CGFloat {
+        let sidebar = switch self {
         case .tablet: TouchTokens.Layout.TabletLandscape.sidebar
         case .phone, .computer: TouchTokens.Layout.PhoneLandscape.sidebar
         }
+        return min(sidebar, width * 0.45)
     }
 }
 

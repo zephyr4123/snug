@@ -90,8 +90,7 @@ private struct ResolutionEditor: View {
                 .padding(MacTokens.Space.xl)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(MacTokens.Color.fill)
-            Divider()
-            // 读数、按钮按自己的宽度摆，滑块占中间剩下的（最宽 sliderWidth）
+            // 读数、按钮按自己的宽度摆，滑块占中间剩下的（最宽 sliderWidth）。分隔线压在底栏上、不占高度，窗口大小照 contentSize 算
             HStack(spacing: MacTokens.Space.xl) {
                 readout.fixedSize()
                 Spacer(minLength: 0)
@@ -101,16 +100,17 @@ private struct ResolutionEditor: View {
             }
             .padding(.horizontal, MacTokens.Space.xl)
             .frame(height: Size.barHeight)
+            .overlay(alignment: .top) { Divider() }
         }
     }
 
     private var readout: some View {
         VStack(alignment: .leading, spacing: MacTokens.Space.xxs) {
-            Text(resolution.sizeText(width) + (width == resolution.range.lowerBound ? "（默认）" : ""))
+            Text(resolution.readout(width))
                 .font(MacTokens.Font.headline.font)
                 .monospacedDigit()
             if let clarity = resolution.clarity(at: width) {
-                Label(clarity.text, systemImage: clarity.isSharp ? "checkmark.circle.fill" : "circle.lefthalf.filled")
+                Label(clarity.text, systemImage: clarity.symbol)
                     .font(MacTokens.Font.callout.font)
                     .foregroundStyle(clarity.isSharp ? MacTokens.Color.positive : MacTokens.Color.secondaryLabel)
             }

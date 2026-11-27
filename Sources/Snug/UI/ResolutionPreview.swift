@@ -2,6 +2,7 @@
 // 画的是一块 Mac 屏的样子（菜单栏加一个终端窗口），只为看出字多大、一屏装多少；清不清晰靠下面那行字说，这里画不出来。
 // 最大只放到默认档的 100%：大屏上不再放大，窗口贴着它收紧（见 ResolutionWindowController）。
 // 字号、高度直接按缩放后的大小排，不用 scaleEffect：缩放变换会把字先画好再缩，糊
+import AppKit
 import SnugCore
 import SwiftUI
 
@@ -15,7 +16,7 @@ struct ResolutionPreview: View {
             let box = Self.box(for: resolution, in: geo.size)
             screen(inner: CGSize(width: box.width - 2 * Self.bezel, height: box.height - 2 * Self.bezel))
                 .padding(Self.bezel)
-                .background(MacTokens.Color.previewBezel, in: RoundedRectangle(cornerRadius: Self.bezel * 2.4, style: .continuous))
+                .background(MacTokens.Color.previewBezel, in: RoundedRectangle(cornerRadius: Self.outerRadius, style: .continuous))
                 .frame(width: geo.size.width, height: geo.size.height)
         }
         .accessibilityElement()
@@ -24,9 +25,14 @@ struct ResolutionPreview: View {
     }
 
     static let bezel = MacTokens.Size.ResolutionWindow.bezel
-    /// 菜单栏、窗口标题栏的高度（Mac 上的点）
+    /// 菜单栏、窗口标题栏的高度，外框、屏幕的圆角（Mac 上的点，同原型）
     private static let menuBar: CGFloat = 24
     private static let titleBar: CGFloat = 28
+    private static let outerRadius: CGFloat = 12
+    private static let innerRadius: CGFloat = 7
+    /// 终端的行距：令牌的行高减去等宽字体自己的行高（按字体实际度量，不估）
+    private static let codeLineSpacing = MacTokens.Font.code.lineHeight
+        - NSLayoutManager().defaultLineHeight(for: .monospacedSystemFont(ofSize: MacTokens.Font.code.size, weight: .regular))
 
     /// 给的地方里按这块屏的比例摆得下的最大框（含边框），最大到默认档的 100%
     static func box(for resolution: ScreenResolution, in space: CGSize) -> CGSize {
@@ -62,7 +68,7 @@ struct ResolutionPreview: View {
             // 长行截断、不折行：和终端里一样，屏越宽一行露得越多。高度写死，排不下的行裁掉，不把上面两条挤出去
             Text(Self.sample(lines: lines))
                 .font(.system(size: code.size * s, design: .monospaced))
-                .lineSpacing(max(0, (code.lineHeight - code.size * 1.2) * s))
+                .lineSpacing(max(0, Self.codeLineSpacing * s))
                 .foregroundStyle(MacTokens.Color.previewText)
                 .fixedSize()
                 .padding(.vertical, 6 * s)
@@ -72,7 +78,7 @@ struct ResolutionPreview: View {
         }
         .frame(width: inner.width, height: inner.height)
         .background(MacTokens.Color.previewScreen)
-        .clipShape(RoundedRectangle(cornerRadius: Self.bezel * 1.4, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Self.innerRadius, style: .continuous))
     }
 
     /// 一屏终端输出：几段常见的输出轮着排，排够这么多行

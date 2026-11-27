@@ -58,8 +58,10 @@ extension ScreenConfig {
 
     /// 分辨率能调的屏（手机、平板）才有
     var resolution: ScreenResolution? { ScreenResolution(device: device, orientation: orientation) }
-    /// 屏幕详情、型号页上分辨率的值：没调过写「默认」，调过写点数
-    var resolutionText: String { baseWidth == nil ? "默认" : sizeText }
+    /// 用的是不是默认档：存的值夹回范围后落在默认档也算（机型库改了数值、手改了配置），和调整界面一个判法
+    var usesDefaultResolution: Bool { resolution.map { $0.width(stored: baseWidth) == $0.range.lowerBound } ?? true }
+    /// 屏幕详情、型号页上分辨率的值：默认写「默认」，调过写点数
+    var resolutionText: String { usesDefaultResolution ? "默认" : sizeText }
 }
 
 extension ScreenResolution {
@@ -67,6 +69,11 @@ extension ScreenResolution {
     func sizeText(_ width: Int) -> String {
         let size = size(width: width)
         return "\(Int(size.width)) × \(Int(size.height)) 点"
+    }
+
+    /// 调整界面的读数：默认档后面写明「（默认）」
+    func readout(_ width: Int) -> String {
+        sizeText(width) + (width == range.lowerBound ? "（默认）" : "")
     }
 }
 
@@ -88,4 +95,7 @@ extension ScreenResolution.Clarity {
     var isSharp: Bool {
         if case .soft = self { false } else { true }
     }
+
+    /// 读数下面那行的图标：清晰打勾，略软半个圆
+    var symbol: String { isSharp ? "checkmark.circle.fill" : "circle.lefthalf.filled" }
 }

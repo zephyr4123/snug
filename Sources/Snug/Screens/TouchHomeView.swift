@@ -263,9 +263,8 @@ struct TouchHomeView: View {
 
     /// 左边 App 列表，右边选中 App 的窗口
     private func split(width: CGFloat) -> some View {
-        let sidebar = (config?.device.kind ?? .phone).landscapeSidebar
-        return HStack(spacing: 0) {
-            sideColumn.frame(width: min(sidebar, width * 0.45))
+        HStack(spacing: 0) {
+            sideColumn.frame(width: (config?.device.kind ?? .phone).landscapeSidebar(in: width))
             Divider()
             VStack(alignment: .leading, spacing: 0) {
                 backRow(nil)

@@ -14,7 +14,7 @@ struct TouchResolutionPage: View {
 
     var body: some View {
         if let config = state.screen(screen), let resolution = config.resolution {
-            Editor(resolution: resolution, stored: config.baseWidth, sidebar: config.device.kind.landscapeSidebar, cancel: { pages.open(.model) }) {
+            Editor(resolution: resolution, stored: config.baseWidth, kind: config.device.kind, cancel: { pages.open(.model) }) {
                 pages.close()
                 intents.setResolution($0)
             }
@@ -28,17 +28,17 @@ struct TouchResolutionPage: View {
 
 private struct Editor: View {
     let resolution: ScreenResolution
-    /// 横屏时右栏的宽度（和首页的左栏一样宽）
-    let sidebar: CGFloat
+    /// 横屏时右栏和首页的左栏一样宽（按类别定）
+    let kind: DeviceKind
     let cancel: () -> Void
     /// 交出要存的值（默认档为 nil）
     let apply: (Int?) -> Void
     @State private var width: Int
     @Environment(\.topTrailingClear) private var topTrailingClear
 
-    init(resolution: ScreenResolution, stored: Int?, sidebar: CGFloat, cancel: @escaping () -> Void, apply: @escaping (Int?) -> Void) {
+    init(resolution: ScreenResolution, stored: Int?, kind: DeviceKind, cancel: @escaping () -> Void, apply: @escaping (Int?) -> Void) {
         self.resolution = resolution
-        self.sidebar = sidebar
+        self.kind = kind
         self.cancel = cancel
         self.apply = apply
         _width = State(initialValue: resolution.width(stored: stored))
@@ -64,7 +64,7 @@ private struct Editor: View {
                     HStack(spacing: TouchTokens.Space.margin) {
                         ResolutionPreview(resolution: resolution, width: width)
                         VStack(spacing: TouchTokens.Space.xxl) { controls }
-                            .frame(width: min(sidebar, geo.size.width * 0.45))
+                            .frame(width: kind.landscapeSidebar(in: geo.size.width))
                     }
                     .padding([.horizontal, .bottom], TouchTokens.Space.margin)
                 } else {
@@ -101,13 +101,13 @@ private struct Editor: View {
 
     private var readout: some View {
         VStack(spacing: TouchTokens.Space.xs) {
-            Text(resolution.sizeText(width) + (width == resolution.range.lowerBound ? "（默认）" : ""))
+            Text(resolution.readout(width))
                 .font(TouchTokens.Font.headline.font)
                 .monospacedDigit()
             if let clarity = resolution.clarity(at: width) {
-                Label(clarity.text, systemImage: clarity.isSharp ? "checkmark.circle.fill" : "circle.lefthalf.filled")
+                Label(clarity.text, systemImage: clarity.symbol)
                     .font(TouchTokens.Font.label.font)
-                    .foregroundStyle(clarity.isSharp ? Color(nsColor: .systemGreen) : TouchTokens.Color.secondaryLabel)
+                    .foregroundStyle(clarity.isSharp ? TouchTokens.Color.positive : TouchTokens.Color.secondaryLabel)
             }
         }
     }
@@ -142,9 +142,7 @@ private struct TouchSlider: View {
                             .offset(x: span * at(width))
                     }
                     .frame(maxHeight: .infinity)
-                    .overlay(SliderInput(value: width, valueAt: { x in
-                        resolution.snapped(Double(range.lowerBound) + Double((x - Size.thumb / 2) / span) * Double(range.upperBound - range.lowerBound))
-                    }, perPoint: Double(range.upperBound - range.lowerBound) / Double(span), snap: resolution.snapped) { width = $0 })
+                    .overlay(SliderInput(resolution: resolution, value: width, track: span, inset: Size.thumb / 2) { width = $0 })
                 }
                 .frame(height: TouchTokens.Size.touchTarget)
                 GeometryReader { geo in
@@ -165,59 +163,60 @@ private struct TouchSlider: View {
         .accessibilityLabel("分辨率")
         .accessibilityValue(resolution.sizeText(width))
         .accessibilityAdjustableAction { direction in
-            let step = Double(ScreenFit.step)
-            width = resolution.snapped(Double(width) + (direction == .increment ? step : -step))
+            width = resolution.stepped(width, up: direction == .increment)
         }
     }
 }
 
 /// 滑块接手指的那一层（AppKit 视图）：按下、拖动给位置，横向滚动按距离挪；惯性滚动不算
 private struct SliderInput: NSViewRepresentable {
+    let resolution: ScreenResolution
     let value: Int
-    /// 横坐标（视图里的点）→ 一档
-    let valueAt: (CGFloat) -> Int
-    /// 滑过 1 个点挪多少（点数）
-    let perPoint: Double
-    let snap: (Double) -> Int
+    /// 滑轨能走的长度、左端离视图左边多远（点）：把手中心从 inset 走到 inset + track
+    let track: CGFloat
+    let inset: CGFloat
     let onChange: (Int) -> Void
 
-    func makeNSView(context: Context) -> InputView { InputView() }
+    func makeNSView(context: Context) -> InputView { InputView(self) }
 
-    func updateNSView(_ view: InputView, context: Context) {
-        view.value = value
-        view.valueAt = valueAt
-        view.perPoint = perPoint
-        view.snap = snap
-        view.onChange = onChange
-    }
+    func updateNSView(_ view: InputView, context: Context) { view.input = self }
 
     final class InputView: NSView {
-        var value = 0
-        var valueAt: (CGFloat) -> Int = { _ in 0 }
-        var perPoint = 1.0
-        var snap: (Double) -> Int = { Int($0) }
-        var onChange: (Int) -> Void = { _ in }
-        /// 这次滑动没吸档的位置：每次只滑一两个点，按档吸会一直吸回原地
+        var input: SliderInput
+        /// 这次滑动没吸档的位置：每次只滑一两个点，按档吸会一直吸回原地。点一下、拖一下就作废，下次滑从那时的值起
         private var sliding: Double?
+
+        init(_ input: SliderInput) {
+            self.input = input
+            super.init(frame: .zero)
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) { fatalError("不从 nib 建") }
 
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
         override func mouseDown(with event: NSEvent) { follow(event) }
         override func mouseDragged(with event: NSEvent) { follow(event) }
 
+        private var range: ClosedRange<Double> { Double(input.resolution.range.lowerBound)...Double(input.resolution.range.upperBound) }
+
         private func follow(_ event: NSEvent) {
-            onChange(valueAt(convert(event.locationInWindow, from: nil).x))
+            sliding = nil
+            let x = convert(event.locationInWindow, from: nil).x
+            let at = range.lowerBound + Double((x - input.inset) / input.track) * (range.upperBound - range.lowerBound)
+            input.onChange(input.resolution.snapped(at))
         }
 
-        /// 手势翻译把单指滑动变成滚动：手指往右，滚动量是正的（和小横条的往上滑同一个方向约定）
+        /// 手势翻译把单指滑动变成滚动：手指往右，滚动量是正的（和小横条的往上滑同一个方向约定，TouchTranslator.scrollStep）
         override func scrollWheel(with event: NSEvent) {
             guard event.momentumPhase.isEmpty else { return }
-            // 新的一次滑动，或者中途被点了一下、改了值：从现在的值接着滑
-            if event.phase == .began || sliding.map(snap) != value { sliding = Double(value) }
-            guard var at = sliding else { return }
-            at += Double(event.scrollingDeltaX) * perPoint
+            if event.phase == .began || sliding == nil { sliding = Double(input.value) }
+            guard let from = sliding else { return }
+            // 滑过头不累计：往回滑马上动
+            let at = (from + Double(event.scrollingDeltaX) * (range.upperBound - range.lowerBound) / Double(input.track)).clamped(to: range)
             sliding = at
-            onChange(snap(at))
+            input.onChange(input.resolution.snapped(at))
             if event.phase == .ended || event.phase == .cancelled { sliding = nil }
         }
     }

@@ -60,7 +60,7 @@ struct TouchModelPage: View {
             }
             if brands.isEmpty {
                 if query.isEmpty {
-                    EmptyState(symbol: current.kind.symbol(orientation), title: "未读取到机型库", text: "可在下方自定义分辨率")
+                    EmptyState(symbol: current.kind.symbol(orientation), title: "未读取到机型库", text: "可在下方自定义比例")
                 } else {
                     EmptyState(symbol: "magnifyingglass", title: "无结果", text: "没有与「\(query)」相符的型号")
                 }
@@ -118,7 +118,7 @@ private struct ResolutionRow: View {
 
     var body: some View {
         let clarity = resolution.clarity(at: resolution.width(stored: config.baseWidth))
-        let detail = ((config.baseWidth == nil ? [config.sizeText] : []) + [clarity?.short].compactMap { $0 }).joined(separator: " · ")
+        let detail = ((config.usesDefaultResolution ? [config.sizeText] : []) + [clarity?.short].compactMap { $0 }).joined(separator: " · ")
         Button(action: action) {
             HStack(spacing: TouchTokens.Space.m) {
                 VStack(alignment: .leading, spacing: TouchTokens.Space.xs) {

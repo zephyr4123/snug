@@ -38,9 +38,9 @@ extension AppController: AppIntents {
     }
 
     func setScreenResolution(_ id: ScreenID, _ width: Int?) {
-        guard var screen = state.screen(id), screen.baseWidth != width else { return }
-        screen.baseWidth = width
-        editScreen(id, "分辨率 → \(width.map { "\($0) 点宽" } ?? "默认")（\(ScreenPlan.fit(of: screen))）") { $0.baseWidth = width }
+        guard let screen = state.screen(id) else { return }
+        let fit = ScreenPlan.fit(screen.device, screen.orientation, width: width)
+        editScreen(id, "分辨率 → \(width.map { "\($0) 点宽" } ?? "默认")（\(fit)）") { $0.baseWidth = width }
     }
 
     /// 改名下次建屏时生效：正在用的屏中途改名要撤了重建，远控里也得重选屏

@@ -175,6 +175,7 @@
   --touch-separator: rgba(60,60,67,0.18);
   --touch-tint: var(--palette-blue);
   --touch-tint-fill: rgba(0,136,255,0.14);
+  --touch-positive: var(--palette-green);
   --touch-danger: var(--palette-red);
   color-scheme: light;
 }

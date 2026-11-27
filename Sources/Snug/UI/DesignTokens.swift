@@ -124,6 +124,7 @@ enum TouchTokens {
         static let danger = SwiftUI.Color(nsColor: .systemRed)
         static let fill = SwiftUI.Color(nsColor: .dynamic(light: NSColor(srgbRed: 0.463, green: 0.463, blue: 0.502, alpha: 0.12), dark: NSColor(srgbRed: 0.463, green: 0.463, blue: 0.502, alpha: 0.24)))
         static let label = SwiftUI.Color(nsColor: .dynamic(light: NSColor(srgbRed: 0, green: 0, blue: 0, alpha: 1), dark: NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 1)))
+        static let positive = SwiftUI.Color(nsColor: .systemGreen)
         static let secondaryLabel = SwiftUI.Color(nsColor: .dynamic(light: NSColor(srgbRed: 0.235, green: 0.235, blue: 0.263, alpha: 0.7), dark: NSColor(srgbRed: 0.922, green: 0.922, blue: 0.961, alpha: 0.7)))
         static let segment = SwiftUI.Color(nsColor: .dynamic(light: NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 1), dark: NSColor(srgbRed: 0.388, green: 0.388, blue: 0.4, alpha: 1)))
         static let separator = SwiftUI.Color(nsColor: .dynamic(light: NSColor(srgbRed: 0.235, green: 0.235, blue: 0.263, alpha: 0.18), dark: NSColor(srgbRed: 0.329, green: 0.329, blue: 0.345, alpha: 0.65)))
