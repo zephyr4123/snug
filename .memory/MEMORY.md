@@ -12,7 +12,7 @@
 - [UU远程 VIP 与横向扩展](project-uu-vip.md) — 12-01 起多屏、虚拟屏纳入 VIP：对外立场、免费版不实测；11-19 定专注 UU、暂不接 RustDesk 等其他远控
 - [无显示器的 Mac（issue #8，已关）](project-headless-mac.md) — 手机屏会顶掉默认屏；退出入口已发布（CrossDesk 下退出不撤屏），替身主屏方案已定、缺实机验证
 - [多屏](project-multi-screen.md) — 三条原则、拍板（电脑屏入口 11-24 已更正）、UU 与 macOS 实测、没做完的、还欠着的对外承诺；设计记录在 git 历史里
-- [分辨率（进行中）](project-resolution.md) — #54、#66：11-27 拍板的交互与范围；分支 resolution-slider 已审已实测，只差屏上单指滑动没真机试；面板变小待主人定；发版后改 README、回 issue
+- [分辨率](project-resolution.md) — #54、#66：11-27 拍板的交互与范围，随 2.10.0 发布、issue 已关；面板变小定为接受；还差真手机上试单指滑动
 - [远控适配层（11-19 合入）](project-remote-adapter.md) — 对接 UU 的部分可替换、给社区留口子；设计记录 docs/remote-adapter 保留；约定、门禁、技术债
 - [CrossDesk（PR #58）](project-crossdesk.md) — 已合并、随 2.8.0 发布；欠 CrossDesk 一个热插拔 PR（#200、#225）；上下文在 docs/remote-adapter/crossdesk/README.md
 - [向日葵官方适配](project-sunlogin-port.md) — skyvense/snug-sunlogin，主人定称「向日葵官方适配」、答应放醒目位置；与个人社区移植分开写
