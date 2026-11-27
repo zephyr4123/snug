@@ -89,7 +89,7 @@ struct ScreensPage: View {
         .sheet(item: $sheet) { sheet in
             switch sheet {
             case .add: AddScreenSheet(state: state, intents: intents) { self.sheet = nil }
-            case .detail(let id): ScreenDetailSheet(id: id, state: state, intents: intents) { self.sheet = nil }
+            case .detail(let id): ScreenDetailSheet(id: id, state: state, intents: intents, navigation: navigation) { self.sheet = nil }
             }
         }
         .confirmationDialog(confirmingMain.flatMap { state.screen($0) }.map { "将「\($0.name)」设为主屏？" } ?? "",

@@ -3,7 +3,7 @@
 // 以及裁剪时盖满整块屏的裁剪界面。
 // 跟着这块屏的 Desk 状态走：屏在才建，列表该露就露、该收就收，屏幕一变（含换档）就重新摆位置。
 // 面板不抢焦点（点它不会激活 Snug），所有桌面都在，盖在这块屏的菜单栏之上；
-// 只在搜索、选型号时临时接收键盘，用完就还回去，手机上的键盘输入平时留给放上来的窗口
+// 只在搜索、选型号时临时接收键盘（TouchPages.needsKeys），用完就还回去，手机上的键盘输入平时留给放上来的窗口
 import AppKit
 import SnugCore
 import SnugSystem
@@ -132,8 +132,8 @@ final class ScreenWindows {
             intents.cancelCrop()
         }
         // 只在打开页面那一下拿键盘：之后用户点了别的窗口，不能每次状态一变就抢回来
-        let entering = pages.active && !list.acceptsKeys
-        list.acceptsKeys = pages.active
+        let entering = pages.needsKeys && !list.acceptsKeys
+        list.acceptsKeys = pages.needsKeys
         if entering { list.makeKey() }
         // 列表每轮要把所有 App 的窗口读一遍，还和搬窗口共用一条队：手机没在看这块屏就不为它刷
         if showList, watching {

@@ -9,6 +9,7 @@ final class WindowRouter: Navigation {
     private lazy var about = AboutWindowController()
     private lazy var welcome = WelcomeWindowController(state: controller.state)
     private lazy var update = UpdateWindowController(state: controller.state, intents: controller)
+    private lazy var resolution = ResolutionWindowController(state: controller.state, intents: controller)
     private let legacy = LegacyNoticeWindowController()
 
     init(controller: AppController) { self.controller = controller }
@@ -18,6 +19,8 @@ final class WindowRouter: Navigation {
     func openWelcome() { welcome.show() }
     func openAbout(on display: DisplayID? = nil) { about.show(on: display) }
     func openUpdate() { showUpdate(activating: true) }
+    /// 在设置窗口所在的那块屏上打开
+    func openResolution(_ id: ScreenID) { resolution.show(id, on: NSApp.keyWindow?.screen) }
 
     /// 查到新版本：能自动更新的弹更新窗口（讲落下了哪几版）；只能手动下载的没有更新日志可看，打开设置的「通用」页（更新在那里）
     func showUpdate(activating: Bool) {

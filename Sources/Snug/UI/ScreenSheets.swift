@@ -99,6 +99,7 @@ struct ScreenDetailSheet: View {
     let id: ScreenID
     let state: AppState
     let intents: any AppIntents
+    let navigation: any Navigation
     let close: () -> Void
 
     @State private var name = ""
@@ -151,6 +152,15 @@ struct ScreenDetailSheet: View {
                             }
                         }
                     }
+                    // 手机、平板才有：电脑屏照搬电脑自己的分辨率
+                    if screen.resolution != nil {
+                        LabeledContent("分辨率") {
+                            HStack(spacing: MacTokens.Space.m) {
+                                Text(screen.resolutionText).foregroundStyle(.secondary)
+                                Button("调整…") { navigation.openResolution(id) }
+                            }
+                        }
+                    }
                 } footer: {
                     VStack(alignment: .leading, spacing: MacTokens.Space.xs) {
                         if case .existing(let saved) = other, saved.enabled {
@@ -158,7 +168,8 @@ struct ScreenDetailSheet: View {
                         } else if other == .limitReached {
                             Text("已达到 \(ScreenConfig.limit) 块屏幕上限，腾出位置后可添加另一方向。")
                         }
-                        Text("改型号当场换比例，不用重连。改名下次远程时生效。")
+                        Text(screen.resolution == nil ? "改型号当场换比例，不用重连。改名下次远程时生效。"
+                                                      : "改型号、分辨率当场生效，不用重连。改名下次远程时生效。")
                     }
                     .font(.callout).foregroundStyle(.secondary)
                 }
@@ -226,7 +237,8 @@ private struct Tip: View {
     }
 }
 
-/// 型号：按品牌分组的菜单，选中的打勾；最后一项自己填分辨率（弹出小窗）。kinds：只列这几类
+/// 型号：按品牌分组的菜单，选中的打勾；最后一项自己填（弹出小窗）。kinds：只列这几类。
+/// 手机、平板自己填的只定比例（叫「自定义比例」，免得和分辨率混），电脑填的是它的分辨率
 struct DeviceMenu: View {
     let state: AppState
     let kinds: Set<DeviceKind>
@@ -248,7 +260,8 @@ struct DeviceMenu: View {
                 }
             }
             if !brands.isEmpty { Divider() }
-            Toggle("自定义分辨率…", isOn: Binding(get: { current.model == nil }, set: { _ in customizing = true }))
+            Toggle(kinds.contains(.computer) ? "自定义分辨率…" : "自定义比例…",
+                   isOn: Binding(get: { current.model == nil }, set: { _ in customizing = true }))
         }
         .fixedSize()
         .popover(isPresented: $customizing, arrowEdge: .bottom) {
@@ -286,7 +299,7 @@ private struct CustomScreenForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MacTokens.Space.m) {
-            Text("自定义分辨率").font(.headline)
+            Text(current.kind == .computer ? "自定义分辨率" : "自定义比例").font(.headline)
             HStack(spacing: MacTokens.Space.s) {
                 TextField("宽", value: $width, format: .number.grouping(.never))
                 Text("×").foregroundStyle(.secondary)

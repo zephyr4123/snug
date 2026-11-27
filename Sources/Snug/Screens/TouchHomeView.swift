@@ -6,28 +6,30 @@
 //   - 全部：本机所有 App 的图标网格，按字典序，正在运行的下方有圆点
 // 横屏（手机横拿、平板横屏）两栏：高度只有五六百点，左边 App 列表（小标题、搜索、分段控件），右边选中 App 的窗口，不用上下来回翻。
 // 平板屏右上角约 45 点压着 UU 的圆形菜单按钮（V6），右上角的按钮往左让开（读环境值 topTrailingClear，搜索页、型号页同样）。
-// - 搜索：见 TouchSearchPage；型号：见 TouchModelPage
+// - 搜索：见 TouchSearchPage；型号：见 TouchModelPage；分辨率（从型号页进）：见 TouchResolutionPage
 // - 退出这块屏：页眉里再问一次，讲明窗口会还原、下次远程恢复
 // - 取消主屏：只在设为主屏的那块屏上有（主屏常驻，手机上要能一键改回），同样在页眉里再问一次
-// - 正在打开、正在放、正在调整比例、正在退出：整屏讲明是哪个 App、哪个窗口、哪台设备；出了问题：顶部写明出了什么事、怎么办
+// - 正在打开、正在放、正在调整屏幕（换型号、改分辨率）、正在退出：整屏讲明是哪个 App、哪个窗口、哪台设备；出了问题：顶部写明出了什么事、怎么办
 // 每次回到列表、每次出了问题都从最上面看起。文字只用短词，图标全用 SF Symbols
 import AppKit
 import SnugCore
 import SwiftUI
 
-/// 盖在首页上的页面：搜索、手机型号。打开着时列表面板临时接收键盘（见 ScreenWindows），
-/// 两个页都有输入框，query 是打开着的那一页的搜索词
+/// 盖在首页上的页面：搜索、型号、分辨率（从型号页进）。搜索、型号页有输入框，打开着时列表面板临时接收键盘（见 ScreenWindows），
+/// query 是打开着的那一页的搜索词
 @MainActor
 @Observable
 final class TouchPages {
     enum Page {
-        case search, model
+        case search, model, resolution
     }
 
     private(set) var page: Page?
     var query = ""
 
     var active: Bool { page != nil }
+    /// 打开着的页有输入框，要接收键盘
+    var needsKeys: Bool { page == .search || page == .model }
     /// 去掉首尾空格的搜索词：只打了空格算没搜
     var trimmedQuery: String { query.trimmingCharacters(in: .whitespaces) }
 
@@ -97,6 +99,7 @@ struct TouchHomeView: View {
                 switch pages.page {
                 case .search: SearchPage(catalog: catalog, search: pages, panel: panel, intents: intents)
                 case .model: TouchModelPage(screen: screen, state: state, pages: pages, intents: intents)
+                case .resolution: TouchResolutionPage(screen: screen, state: state, pages: pages, intents: intents)
                 case nil:
                     if geo.size.width > geo.size.height { split(width: geo.size.width) } else { home }
                 }
@@ -502,9 +505,9 @@ private struct AllApps: View {
     }
 }
 
-// MARK: 正在打开、正在放、正在调整比例、正在退出
+// MARK: 正在打开、正在放、正在调整屏幕、正在退出
 
-/// 整屏讲明正在打开哪个 App、放哪个窗口、按哪台设备调整比例、在退出这块屏。窗口挪好列表就收起，失败了回到列表、顶部写明原因
+/// 整屏讲明正在打开哪个 App、放哪个窗口、按哪台设备调整屏幕（换型号、改分辨率）、在退出这块屏。窗口挪好列表就收起，失败了回到列表、顶部写明原因
 private struct BusyView: View {
     struct Content: Equatable {
         enum Art: Equatable {
@@ -527,7 +530,7 @@ private struct BusyView: View {
                                                   window.title.isEmpty ? nil : window.title, "正在打开")
             case .reshaping:
                 (art, title, subtitle, status) = (.symbol(screen?.symbol ?? "iphone"), screen?.device.displayName ?? "",
-                                                  screen?.sizeText, "正在调整屏幕比例")
+                                                  screen?.sizeText, "正在调整屏幕")
             case .dismissing:
                 (art, title, subtitle, status) = (.symbol(TouchHomeView.dismissSymbol), screen?.name ?? "", nil, "正在退出")
             default:

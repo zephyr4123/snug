@@ -1,6 +1,7 @@
-// 手机、平板屏上的「型号」页：点首页右上角的设备图标进入，改的是这一块屏的型号。最上面是现在用的那台，下面自己填分辨率，
-// 再下面按品牌列出机型库（Assets/device-models.json）里的手机和平板（这块屏的类别排前面），顶部能搜型号。
-// 选好就回到首页，这块屏当场换成它的比例（换的时候整屏写明「正在调整屏幕比例」）。和设置里这块屏的详情是同一份配置
+// 手机、平板屏上的「型号」页：点首页右上角的设备图标进入，改的是这一块屏的型号。最上面是现在用的那台，下面是分辨率（点进去调，
+// 见 TouchResolutionPage），再下面自己填分辨率或比例，最后按品牌列出机型库（Assets/device-models.json）里的手机和平板
+// （这块屏的类别排前面），顶部能搜型号。选好就回到首页，这块屏当场换成它的比例、分辨率回到默认（换的时候整屏写明「正在调整屏幕」）。
+// 和设置里这块屏的详情是同一份配置
 import SnugCore
 import SwiftUI
 
@@ -53,6 +54,9 @@ struct TouchModelPage: View {
         LazyVStack(alignment: .leading, spacing: TouchTokens.Space.xxl) {
             if query.isEmpty {
                 TitledSection("当前 · 这块屏按它调整比例") { CurrentPhone(choice: current, orientation: orientation) }
+                if let config = state.screen(screen), let resolution = config.resolution {
+                    TitledSection("分辨率") { ResolutionRow(config: config, resolution: resolution) { pages.open(.resolution) } }
+                }
             }
             if brands.isEmpty {
                 if query.isEmpty {
@@ -103,6 +107,35 @@ private struct CurrentPhone: View {
         }
         .padding(TouchTokens.Space.l)
         .card()
+    }
+}
+
+/// 分辨率现在的值和清晰度，点进分辨率页：「默认 / 540 × 950 点 · 画面略软」「660 × 1161 点 / 最清晰」
+private struct ResolutionRow: View {
+    let config: ScreenConfig
+    let resolution: ScreenResolution
+    let action: () -> Void
+
+    var body: some View {
+        let clarity = resolution.clarity(at: resolution.width(stored: config.baseWidth))
+        let detail = ((config.baseWidth == nil ? [config.sizeText] : []) + [clarity?.short].compactMap { $0 }).joined(separator: " · ")
+        Button(action: action) {
+            HStack(spacing: TouchTokens.Space.m) {
+                VStack(alignment: .leading, spacing: TouchTokens.Space.xs) {
+                    Text(config.resolutionText).font(TouchTokens.Font.headline.font).lineLimit(1)
+                    if !detail.isEmpty {
+                        Text(detail).font(TouchTokens.Font.body.font).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                }
+                Spacer(minLength: TouchTokens.Space.s)
+                Image(systemName: "chevron.right").font(TouchTokens.Font.body.font.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(TouchTokens.Space.l)
+            .frame(minHeight: TouchTokens.Size.touchTarget)
+            .contentShape(Rectangle())
+            .card()
+        }
+        .buttonStyle(PressableStyle())
     }
 }
 

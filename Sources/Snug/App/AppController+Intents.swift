@@ -33,7 +33,14 @@ extension AppController: AppIntents {
 
     func setScreenDevice(_ id: ScreenID, _ device: DeviceChoice) {
         let fit = ScreenPlan.fit(device, state.screen(id)?.orientation ?? .portrait)
-        editScreen(id, "型号 → \(device.title)（\(fit)）") { $0.device = device }
+        let reset = state.screen(id)?.baseWidth == nil ? "" : "，分辨率回到默认"
+        editScreen(id, "型号 → \(device.title)（\(fit)）\(reset)") { $0.setDevice(device) }
+    }
+
+    func setScreenResolution(_ id: ScreenID, _ width: Int?) {
+        guard var screen = state.screen(id), screen.baseWidth != width else { return }
+        screen.baseWidth = width
+        editScreen(id, "分辨率 → \(width.map { "\($0) 点宽" } ?? "默认")（\(ScreenPlan.fit(of: screen))）") { $0.baseWidth = width }
     }
 
     /// 改名下次建屏时生效：正在用的屏中途改名要撤了重建，远控里也得重选屏
@@ -222,6 +229,7 @@ final class ScreenIntents: TouchIntents {
     func putBack() { desks.putBack(on: id) }
     func zoom(by delta: Int) { desks.zoom(by: delta, on: id) }
     func setDevice(_ device: DeviceChoice) { app.setScreenDevice(id, device) }
+    func setResolution(_ width: Int?) { app.setScreenResolution(id, width) }
     func dismissScreen() { desks.dismissScreen(id) }
     func cancelMain() { app.setMainScreen(nil) }
 

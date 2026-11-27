@@ -66,6 +66,7 @@ final class RenderStub: AppIntents, TouchIntents, Navigation {
     func addScreen(orientation: Orientation, device: DeviceChoice, name: String) {}
     func removeScreen(_ id: ScreenID) {}
     func setScreenDevice(_ id: ScreenID, _ device: DeviceChoice) {}
+    func setScreenResolution(_ id: ScreenID, _ width: Int?) {}
     func renameScreen(_ id: ScreenID, _ name: String) {}
     func setKeepScreensReady(_ on: Bool) {}
     func setMainScreen(_ id: ScreenID?) {}
@@ -94,6 +95,7 @@ final class RenderStub: AppIntents, TouchIntents, Navigation {
     func putBack() {}
     func zoom(by delta: Int) {}
     func setDevice(_ device: DeviceChoice) {}
+    func setResolution(_ width: Int?) {}
     func dismissScreen() {}
     func cancelMain() {}
     func takeScreenshot() {}
@@ -104,4 +106,5 @@ final class RenderStub: AppIntents, TouchIntents, Navigation {
     func openWelcome() {}
     func openAbout(on display: DisplayID?) {}
     func openUpdate() {}
+    func openResolution(_ id: ScreenID) {}
 }
