@@ -372,9 +372,9 @@ figure.frame figcaption b { display: block; color: var(--board-ink); font: var(-
   background: repeating-linear-gradient(45deg, rgba(255,56,60,.12) 0 6px, transparent 6px 12px); z-index: 1; }
 
 /* ================= 分辨率 ================= */
-/* 预览：屏幕左上角的一块。.res-canvas 按选中的点数排版，再按「默认 ÷ 选中」缩进框里 */
-.res-preview { position: relative; overflow: hidden; align-self: center; width: var(--box-w); height: var(--box-h); border-radius: 10px;
-  background: #1E1E1E; box-shadow: 0 0 0 0.5px rgba(0,0,0,.35), 0 4px 14px rgba(0,0,0,.16); }
+/* 预览：整块屏，带一圈边框。.res-canvas 按选中的点数排版（真实点数大小），再等比缩进框里 */
+.res-preview { align-self: center; padding: 5px; background: #1C1C1E; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+.res-screen { position: relative; overflow: hidden; border-radius: 7px; background: #1E1E1E; }
 .res-canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; font-family: var(--mac-font-family); }
 .res-menubar { height: 24px; display: flex; align-items: center; gap: 16px; padding: 0 12px; font-size: 13px; color: #fff;
   background: linear-gradient(90deg, #5A7394, #3D4E6B); }
@@ -443,7 +443,7 @@ figure.frame figcaption b { display: block; color: var(--board-ink); font: var(-
 .t-model small { font: var(--touch-font-label); color: var(--touch-secondary-label); }
 .t-model > .sym { font-size: 20px; color: var(--touch-tint); }
 
-.t-res-preview { margin: var(--touch-space-l) auto 0; }
+.t-res-preview { display: table; margin: var(--touch-space-l) auto 0; }
 .t-res-readout { margin-top: var(--touch-space-l); }
 .t-res-readout .res-size { font: var(--touch-font-headline); }
 .t-res-readout .res-note { font: var(--touch-font-label); }

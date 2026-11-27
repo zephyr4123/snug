@@ -676,9 +676,9 @@
 
     <!-- Mac · 分辨率气泡 -->
     <figure class="frame mac">
-      <div class="res-pop" data-res data-min="952" data-max="1904" data-native="1180" data-ratio="0.69492" data-pixels="2360" data-start="1180">
+      <div class="res-pop" style="width: 420px" data-res data-min="952" data-max="1904" data-native="1180" data-ratio="0.69492" data-pixels="2360" data-start="1180">
         <b>分辨率</b>
-        <div class="res-preview" style="--box-w: 328px; --box-h: 196px"><div class="res-canvas"></div></div>
+        <div class="res-preview" style="--box-w: 388px; --box-h: 300px"><div class="res-screen"><div class="res-canvas"></div></div></div>
         <div class="res-readout">
           <b class="res-size"></b>
           <span class="res-note"></span>
@@ -698,7 +698,7 @@
           <span class="button prominent">应用</span>
         </div>
       </div>
-      <figcaption><b>Mac · 调整分辨率（iPad 第 10 代，横）</b>预览是屏幕左上角的一块，按选中的点数排版：往右拉，字变小，一屏装下的行和列变多。下面一行讲清晰度：比屏幕像素少时写「画面略软」和百分比，到「最清晰」那一格正好一个像素对一个像素，再往右只多装内容。最右是默认的 2 倍。没在远程时「应用」只存下来，下次连上生效。</figcaption>
+      <figcaption><b>Mac · 调整分辨率（iPad 第 10 代，横）</b>预览是整块屏，按选中的点数排版后等比缩进框里：往右拉，字变小，一屏装下的行和列变多。下面一行讲清晰度：比屏幕像素少时写「画面略软」和百分比，到「最清晰」那一格正好一个像素对一个像素，再往右只多装内容。最右是默认的 2 倍。没在远程时「应用」只存下来，下次连上生效。</figcaption>
     </figure>
 
     <!-- 手机 · 型号页多一节 -->
@@ -741,7 +741,7 @@
         <div class="touch phone-portrait" data-res data-min="540" data-max="1080" data-native="660" data-ratio="1.75926" data-pixels="1320" data-start="540">
           <div class="t-nav"><span class="t-nav-btn">取消</span><b>分辨率</b><span class="t-nav-btn bold">应用</span></div>
           <div class="t-pad">
-            <div class="res-preview t-res-preview" style="--box-w: 500px; --box-h: 400px"><div class="res-canvas"></div></div>
+            <div class="res-preview t-res-preview" style="--box-w: 340px; --box-h: 560px"><div class="res-screen"><div class="res-canvas"></div></div></div>
             <div class="res-readout t-res-readout">
               <b class="res-size"></b>
               <span class="res-note"></span>
@@ -761,7 +761,7 @@
           <div class="t-home"><i></i></div>
         </div>
       </div>
-      <figcaption><b>手机 · 调整分辨率（iPhone 17 Pro Max，竖）</b>和 Mac 上同一套：预览、点数、清晰度、滑块。预览按现在的分辨率换算，里面的字就是调好后在手机上看到的大小。拖的时候屏幕不动，手指下的滑块不会跟着缩放；点「应用」后整屏写「正在调整分辨率」，约 1 秒换好。Snug 自己的面板按屏幕放大，调完在手机上看着一样大，变的是放上来的窗口。</figcaption>
+      <figcaption><b>手机 · 调整分辨率（iPhone 17 Pro Max，竖）</b>和 Mac 上同一套：预览、点数、清晰度、滑块。预览同样是整块屏等比缩小。拖的时候屏幕不动，手指下的滑块不会跟着缩放；点「应用」后整屏写「正在调整分辨率」，约 1 秒换好。Snug 自己的面板按屏幕放大，调完在手机上看着一样大，变的是放上来的窗口。</figcaption>
     </figure>
 
   </div>
@@ -777,7 +777,7 @@ document.querySelectorAll('[data-theme-set]').forEach((b) => b.addEventListener(
   if (v === 'system') root.removeAttribute('data-theme'); else root.dataset.theme = v;
   document.querySelectorAll('[data-theme-set]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
 }));
-// 分辨率：预览是屏幕左上角按真实比例的一块，选的点数越多字越小、装的越多；清晰度按「2 倍像素 ÷ 屏幕像素」算
+// 分辨率：预览是整块屏，按选中的点数排版后等比缩进框里，所以往右拉字变小、装的越多；清晰度按「2 倍像素 ÷ 屏幕像素」算
 const TERM = [
   '$ swift test --parallel',
   'Building for debugging...',
@@ -805,13 +805,18 @@ document.querySelectorAll('[data-res]').forEach((el) => {
   const box = el.querySelector('.res-preview');
   const css = getComputedStyle(box);
   const boxW = parseFloat(css.getPropertyValue('--box-w')), boxH = parseFloat(css.getPropertyValue('--box-h'));
+  const screen = el.querySelector('.res-screen');
   const canvas = el.querySelector('.res-canvas');
+  // 预览框按这块屏的比例，装进 --box-w × --box-h 里
+  const fitW = Math.min(boxW, boxH / ratio);
+  screen.style.width = Math.round(fitW) + 'px';
+  screen.style.height = Math.round(fitW * ratio) + 'px';
   const range = el.querySelector('.res-range');
   const size = el.querySelector('.res-size');
   const note = el.querySelector('.res-note');
   const reset = el.querySelector('.res-reset');
   const lines = [];
-  while (lines.length < 120) lines.push(...TERM);
+  while (lines.length < 160) lines.push(...TERM);
   canvas.innerHTML = '<div class="res-menubar"><b>Ghostty</b><span>文件</span><span>编辑</span><span>显示</span><span>窗口</span><span>帮助</span></div>'
     + '<div class="res-term"><div class="res-titlebar">~/projects/snug — zsh</div><pre></pre></div>';
   canvas.querySelector('pre').textContent = lines.join('\n');
@@ -825,12 +830,10 @@ document.querySelectorAll('[data-res]').forEach((el) => {
     if (Math.abs(raw - min) <= 6) w = min;
     range.value = w;
     range.style.setProperty('--p', (pos(w) * 100) + '%');
-    // 现在是默认那一档：选 w 点时，同样的内容在屏上缩成 min / w
-    const k = min / w;
-    canvas.style.width = (boxW / k) + 'px';
-    canvas.style.height = (boxH / k) + 'px';
-    canvas.style.transform = `scale(${k})`;
     const h = Math.round(w * ratio);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    canvas.style.transform = `scale(${fitW / w})`;
     size.textContent = `${w} × ${h} 点` + (w === min ? '（默认）' : '');
     const pct = Math.round(w * 2 / pixels * 100);
     if (w < native) {
