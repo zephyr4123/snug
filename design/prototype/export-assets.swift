@@ -21,6 +21,8 @@ let symbols = [
     // Snug 屏上
     "rectangle.portrait.and.arrow.right", "chevron.left", "macwindow.badge.plus", "xmark.square", "xmark.circle.fill",
     "arrow.uturn.backward", "macwindow", "camera", "square.grid.3x3.fill", "list.bullet",
+    // 分辨率
+    "textformat.size.larger", "textformat.size.smaller",
 ]
 
 func save(_ image: NSImage, size: NSSize, to url: URL) {

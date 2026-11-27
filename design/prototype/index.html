@@ -15,6 +15,7 @@
   <nav>
     <a href="#mac">Mac 上</a>
     <a href="#touch">Snug 屏上</a>
+    <a href="#resolution">分辨率</a>
   </nav>
   <nav aria-label="外观">
     <button data-theme-set="light">浅色</button>
@@ -626,6 +627,146 @@
   </div>
 </section>
 
+<!-- ===================================================== 分辨率 ===================================================== -->
+<section class="board-section" id="resolution">
+  <h2>分辨率</h2>
+  <p>每块屏多一项「分辨率」：往右拉，画面更细、字更小、装得更多。拖动时只变预览，点「应用」才改屏幕。滑块可以拖。</p>
+
+  <div class="frames">
+
+    <!-- Mac · 屏幕详情多一行 -->
+    <figure class="frame mac">
+      <div class="sheet-host">
+        <div class="window">
+          <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div><span class="title">屏幕</span></div>
+          <div class="tabs"><button class="tab" aria-selected="true"><i class="sym" data-s="rectangle.on.rectangle"></i>屏幕</button><button class="tab"><i class="sym" data-s="hand.point.up.left"></i>触控</button><button class="tab"><i class="sym" data-s="gearshape"></i>通用</button></div>
+          <div class="pane" style="height: 400px"></div>
+        </div>
+        <div class="dim"></div>
+        <div class="sheet">
+          <div class="row" style="padding:0">
+            <span class="tile status-tile" style="--c: var(--mac-tile-screen)"><i class="sym" data-s="ipad.landscape"></i></span>
+            <div class="text"><b class="sheet-name">Snug iPad</b><span class="detail">平板 · 952 × 662 点</span></div>
+          </div>
+          <div class="group">
+            <div class="row plain">
+              <div class="text">名字</div>
+              <span class="field">Snug iPad</span>
+            </div>
+            <div class="row plain">
+              <div class="text">型号</div>
+              <span class="popup">iPad（第 10 代）<i class="sym" data-s="chevron.up.chevron.down"></i></span>
+            </div>
+            <div class="row plain">
+              <div class="text">方向</div>
+              <span class="value">横</span>
+            </div>
+            <div class="row plain">
+              <div class="text">分辨率</div>
+              <span class="value">默认</span>
+              <span class="button">调整…</span>
+            </div>
+          </div>
+          <p class="group-note">改型号、分辨率当场生效，不用重连。方向添加后不能改。</p>
+          <div class="actions"><span class="button borderless danger">删除这块屏…</span><span class="spacer"></span><span class="button prominent">完成</span></div>
+        </div>
+      </div>
+      <figcaption><b>Mac · 屏幕详情</b>方向下面多一行「分辨率」，标出现在的值（没调过写「默认」，调过写点数）。点「调整…」弹出右边的气泡。手机、平板屏才有这一行；电脑屏本来就按它自己的分辨率，不加。</figcaption>
+    </figure>
+
+    <!-- Mac · 分辨率气泡 -->
+    <figure class="frame mac">
+      <div class="res-pop" data-res data-min="952" data-max="1904" data-native="1180" data-ratio="0.69492" data-pixels="2360" data-start="1180">
+        <b>分辨率</b>
+        <div class="res-preview" style="--box-w: 328px; --box-h: 196px"><div class="res-canvas"></div></div>
+        <div class="res-readout">
+          <b class="res-size"></b>
+          <span class="res-note"></span>
+        </div>
+        <div class="res-slider">
+          <i class="sym" data-s="textformat.size.larger"></i>
+          <div class="res-track">
+            <input class="res-range" type="range" aria-label="分辨率">
+            <div class="res-ticks"></div>
+          </div>
+          <i class="sym" data-s="textformat.size.smaller"></i>
+        </div>
+        <div class="res-actions">
+          <span class="button borderless res-reset">恢复默认</span>
+          <span class="spacer"></span>
+          <span class="button">取消</span>
+          <span class="button prominent">应用</span>
+        </div>
+      </div>
+      <figcaption><b>Mac · 调整分辨率（iPad 第 10 代，横）</b>预览是屏幕左上角的一块，按选中的点数排版：往右拉，字变小，一屏装下的行和列变多。下面一行讲清晰度：比屏幕像素少时写「画面略软」和百分比，到「最清晰」那一格正好一个像素对一个像素，再往右只多装内容。最右是默认的 2 倍。没在远程时「应用」只存下来，下次连上生效。</figcaption>
+    </figure>
+
+    <!-- 手机 · 型号页多一节 -->
+    <figure class="frame">
+      <div class="screen-outer">
+        <div class="touch phone-portrait">
+          <div class="t-nav"><span></span><b>型号</b><span class="t-nav-btn bold">完成</span></div>
+          <div class="t-pad t-scroll">
+            <div class="t-search"><i class="sym" data-s="magnifyingglass"></i>搜索型号</div>
+            <div class="t-cap">当前 · 这块屏按它调整比例</div>
+            <div class="t-card t-current">
+              <i class="sym" data-s="iphone"></i>
+              <div class="text"><b>iPhone 17 Pro Max</b><small>1320 × 2868</small></div>
+            </div>
+            <div class="t-cap">分辨率</div>
+            <div class="t-card t-link">
+              <div class="text"><b>默认</b><small>540 × 950 点 · 画面略软</small></div>
+              <i class="sym" data-s="chevron.right"></i>
+            </div>
+            <div class="t-cap">自定义</div>
+            <div class="t-card t-custom">
+              <div class="t-fields"><span class="t-field">宽</span><span class="times">×</span><span class="t-field">高</span><span class="t-pill gray">使用</span></div>
+              <small>填分辨率或比例都行，如 1320 × 2868 或 9 × 19.5</small>
+            </div>
+            <div class="t-cap">Apple</div>
+            <div class="t-card">
+              <div class="t-model"><div class="text"><b>iPhone 17 Pro Max</b><small>1320 × 2868</small></div><i class="sym" data-s="checkmark"></i></div>
+              <div class="t-model"><div class="text"><b>iPhone 17 Pro</b><small>1206 × 2622</small></div></div>
+            </div>
+          </div>
+          <div class="t-home"><i></i></div>
+        </div>
+      </div>
+      <figcaption><b>手机 · 型号页</b>首页右上角的设备图标进来。「当前」下面多一节「分辨率」，写现在的值和清晰度，点进去调。</figcaption>
+    </figure>
+
+    <!-- 手机 · 分辨率页 -->
+    <figure class="frame">
+      <div class="screen-outer">
+        <div class="touch phone-portrait" data-res data-min="540" data-max="1080" data-native="660" data-ratio="1.75926" data-pixels="1320" data-start="540">
+          <div class="t-nav"><span class="t-nav-btn">取消</span><b>分辨率</b><span class="t-nav-btn bold">应用</span></div>
+          <div class="t-pad">
+            <div class="res-preview t-res-preview" style="--box-w: 500px; --box-h: 400px"><div class="res-canvas"></div></div>
+            <div class="res-readout t-res-readout">
+              <b class="res-size"></b>
+              <span class="res-note"></span>
+            </div>
+            <div class="t-card t-res-card">
+              <div class="res-slider">
+                <i class="sym" data-s="textformat.size.larger"></i>
+                <div class="res-track">
+                  <input class="res-range" type="range" aria-label="分辨率">
+                  <div class="res-ticks"></div>
+                </div>
+                <i class="sym" data-s="textformat.size.smaller"></i>
+              </div>
+            </div>
+            <div class="t-res-reset res-reset">恢复默认</div>
+          </div>
+          <div class="t-home"><i></i></div>
+        </div>
+      </div>
+      <figcaption><b>手机 · 调整分辨率（iPhone 17 Pro Max，竖）</b>和 Mac 上同一套：预览、点数、清晰度、滑块。预览按现在的分辨率换算，里面的字就是调好后在手机上看到的大小。拖的时候屏幕不动，手指下的滑块不会跟着缩放；点「应用」后整屏写「正在调整分辨率」，约 1 秒换好。Snug 自己的面板按屏幕放大，调完在手机上看着一样大，变的是放上来的窗口。</figcaption>
+    </figure>
+
+  </div>
+</section>
+
 </main>
 
 <script>
@@ -636,6 +777,75 @@ document.querySelectorAll('[data-theme-set]').forEach((b) => b.addEventListener(
   if (v === 'system') root.removeAttribute('data-theme'); else root.dataset.theme = v;
   document.querySelectorAll('[data-theme-set]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
 }));
+// 分辨率：预览是屏幕左上角按真实比例的一块，选的点数越多字越小、装的越多；清晰度按「2 倍像素 ÷ 屏幕像素」算
+const TERM = [
+  '$ swift test --parallel',
+  'Building for debugging...',
+  '[12/48] Compiling SnugCore ScreenFit.swift',
+  '[27/48] Compiling SnugSystem VirtualDisplayService.swift',
+  'Build complete! (14.82s)',
+  "Test Suite 'ScreenFitTests' passed (0.031 seconds)",
+  "Test Suite 'TouchTranslatorTests' passed (0.118 seconds)",
+  'Executed 412 tests, with 0 failures (0 unexpected) in 3.214 seconds',
+  '$ git log --oneline -5',
+  'c88dc29 记忆：婉拒的建议以「不计划」关闭；不做要托管服务器的功能',
+  '9c7918d 记忆：小红书文案用书面语、重点讲功能，可加轻量 emoji',
+  '78e2aa9 合并 readme-sunlogin：README 收录向日葵官方适配版',
+  '6ab9ab7 记忆：向日葵版按官方适配写，不必请对方改口径',
+  'ec08bef README：去掉顶部向日葵图标旁的「官方适配」上标，与其他两家写法一致',
+  '$ tail -f ~/Library/Logs/Snug/snug.log',
+  '21:04:15 「Snug 手机屏」上线，2 倍 540×950',
+  '21:04:16 Ghostty「~/projects/snug — zsh」放上手机屏，字号 +2',
+  '21:04:31 远程中：UU远程，正在看「Snug 手机屏」',
+  '',
+];
+document.querySelectorAll('[data-res]').forEach((el) => {
+  const n = (k) => Number(el.dataset[k]);
+  const min = n('min'), max = n('max'), native = n('native'), ratio = n('ratio'), pixels = n('pixels');
+  const box = el.querySelector('.res-preview');
+  const css = getComputedStyle(box);
+  const boxW = parseFloat(css.getPropertyValue('--box-w')), boxH = parseFloat(css.getPropertyValue('--box-h'));
+  const canvas = el.querySelector('.res-canvas');
+  const range = el.querySelector('.res-range');
+  const size = el.querySelector('.res-size');
+  const note = el.querySelector('.res-note');
+  const reset = el.querySelector('.res-reset');
+  const lines = [];
+  while (lines.length < 120) lines.push(...TERM);
+  canvas.innerHTML = '<div class="res-menubar"><b>Ghostty</b><span>文件</span><span>编辑</span><span>显示</span><span>窗口</span><span>帮助</span></div>'
+    + '<div class="res-term"><div class="res-titlebar">~/projects/snug — zsh</div><pre></pre></div>';
+  canvas.querySelector('pre').textContent = lines.join('\n');
+  range.min = min; range.max = max; range.step = 2;
+  const pos = (w) => (w - min) / (max - min);
+  el.querySelector('.res-ticks').innerHTML = `<span class="start">默认</span><span style="--t:${pos(native)}">最清晰</span>`;
+  const set = (raw) => {
+    let w = Math.round(raw / 10) * 10;
+    if (Math.abs(raw - native) <= 12) w = native;   // 「最清晰」那一格吸住
+    w = Math.min(max, Math.max(min, w));
+    if (Math.abs(raw - min) <= 6) w = min;
+    range.value = w;
+    range.style.setProperty('--p', (pos(w) * 100) + '%');
+    // 现在是默认那一档：选 w 点时，同样的内容在屏上缩成 min / w
+    const k = min / w;
+    canvas.style.width = (boxW / k) + 'px';
+    canvas.style.height = (boxH / k) + 'px';
+    canvas.style.transform = `scale(${k})`;
+    const h = Math.round(w * ratio);
+    size.textContent = `${w} × ${h} 点` + (w === min ? '（默认）' : '');
+    const pct = Math.round(w * 2 / pixels * 100);
+    if (w < native) {
+      note.className = 'res-note';
+      note.textContent = `画面略软 · 像素为屏幕的 ${pct}%`;
+    } else {
+      note.className = 'res-note ok';
+      note.innerHTML = '<i class="sym" data-s="checkmark.circle.fill"></i>' + (w === native ? '最清晰 · 像素与屏幕一致' : '最清晰 · 再往右只增加空间');
+    }
+    if (reset) reset.style.visibility = w === min ? 'hidden' : 'visible';
+  };
+  range.addEventListener('input', () => set(Number(range.value)));
+  if (reset) reset.addEventListener('click', () => set(min));
+  set(n('start'));
+});
 document.querySelectorAll('.toggle').forEach((t) => t.addEventListener('click', () => {
   t.setAttribute('aria-checked', String(t.getAttribute('aria-checked') !== 'true'));
 }));
