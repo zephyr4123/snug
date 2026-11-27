@@ -426,6 +426,9 @@ final class SettingsWindowController {
         self.navigation = navigation
     }
 
+    /// 设置窗口现在在哪块屏上：从它打开的窗口（调整分辨率）开在同一块屏
+    var screen: NSScreen? { window?.screen }
+
     /// display：从哪块屏的菜单栏打开的（见 NSWindow.bring）
     func show(_ tab: Tab = .screens, on display: DisplayID? = nil, activating: Bool = true) {
         if window == nil, let navigation {
