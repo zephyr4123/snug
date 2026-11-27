@@ -60,7 +60,15 @@ final class QuitFlow {
             replyPending = false
             NSApp.reply(toApplicationShouldTerminate: true)
         } else {
+            // 窗口上挂着面板（屏幕详情、加屏）时 terminate 什么都不做就返回（11-27 实测，2.9.0 起就有）：先收掉
+            for window in NSApp.windows {
+                if let sheet = window.attachedSheet { window.endSheet(sheet) }
+            }
             NSApp.terminate(nil)
+            // 退成了不会走到这里。屏已经撤完、退出流程也走完了，再点「退出」不会有反应：直接结束，不留一个空壳
+            Log.error("系统没让退出（terminate 返回了），直接结束进程")
+            Log.flush()
+            exit(0)
         }
     }
 
