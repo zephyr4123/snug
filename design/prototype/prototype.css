@@ -373,15 +373,15 @@ figure.frame figcaption b { display: block; color: var(--board-ink); font: var(-
 
 /* ================= 分辨率 ================= */
 /* 预览：整块屏，带一圈边框。.res-canvas 按选中的点数排版（真实点数大小），再等比缩进框里 */
-.res-preview { align-self: center; padding: 5px; background: #1C1C1E; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
-.res-screen { position: relative; overflow: hidden; border-radius: 7px; background: #1E1E1E; }
+.res-preview { align-self: center; padding: 5px; background: var(--mac-preview-bezel); border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+.res-screen { position: relative; overflow: hidden; border-radius: 7px; background: var(--mac-preview-screen); }
 .res-canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; font-family: var(--mac-font-family); }
 .res-menubar { height: 24px; display: flex; align-items: center; gap: 16px; padding: 0 12px; font-size: 13px; color: #fff;
-  background: linear-gradient(90deg, #5A7394, #3D4E6B); }
+  background: var(--mac-preview-menu-bar); }
 .res-menubar b { font-weight: 600; }
-.res-term { position: absolute; top: 24px; left: 0; right: 0; bottom: 0; background: #1E1E1E; overflow: hidden; }
-.res-titlebar { height: 28px; display: grid; place-items: center; font-size: 13px; font-weight: 600; color: #A8A8AD; background: #2A2A2D; border-bottom: 1px solid #000; }
-.res-term pre { margin: 0; padding: 6px 10px; font: 12px/16px ui-monospace, SFMono-Regular, Menlo, monospace; color: #D6D6D6; white-space: pre; }
+.res-term { position: absolute; top: 24px; left: 0; right: 0; bottom: 0; background: var(--mac-preview-screen); overflow: hidden; }
+.res-titlebar { height: 28px; display: grid; place-items: center; font-size: 13px; font-weight: 600; color: var(--mac-preview-title); background: var(--mac-preview-title-bar); border-bottom: 1px solid #000; }
+.res-term pre { margin: 0; padding: 6px 10px; font: 12px/16px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--mac-preview-text); white-space: pre; }
 
 .res-readout { display: flex; flex-direction: column; align-items: center; gap: var(--mac-space-xxs); }
 .res-size { font: var(--mac-font-headline); font-variant-numeric: tabular-nums; }
